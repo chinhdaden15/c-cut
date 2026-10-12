@@ -1,0 +1,62 @@
+{
+  "version": "1.0.0",
+  "python": {"min": "3.10", "max": "3.12", "recommended": "3.11",
+             "install_hint": {"windows": "winget install Python.Python.3.11", "macos": "https://www.python.org/downloads/ (hoặc brew install python@3.11)"}},
+  "pip": [
+    "faster-whisper==1.2.1", "onnxruntime==1.23.2", "numpy==2.4.6", "pillow==12.3.0",
+    "opencv-python-headless==5.0.0.93", "mediapipe==0.10.14", "fastapi==0.143.0", "uvicorn==0.54.0",
+    "python-multipart==0.0.32", "psutil==7.1.0", "pydantic==2.14.0", "noisereduce==3.0.3", "scipy==1.17.1"
+  ],
+  "ffmpeg": {
+    "purpose": "đọc/chuẩn hoá media, dựng thô, encode, mix, loudnorm, đo",
+    "use_system_if_present": true,
+    "download": {
+      "windows": {"url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip", "type": "zip", "bins": ["ffmpeg.exe", "ffprobe.exe"]},
+      "macos_x86_64": [{"url": "https://evermeet.cx/ffmpeg/getrelease/zip", "bin": "ffmpeg"}, {"url": "https://evermeet.cx/ffprobe/getrelease/zip", "bin": "ffprobe"}],
+      "macos_arm64": {"hint": "brew install ffmpeg (bản evermeet là x86_64, chạy được qua Rosetta nhưng chậm)"}
+    },
+    "needs_filters": ["zscale", "tonemap", "loudnorm", "afftdn", "ebur128", "showspectrumpic"]
+  },
+  "models": {
+    "rvm": {"purpose": "tách nhân vật động (alpha theo thời gian)", "license": "GPL-3.0",
+            "url": "https://github.com/PeterL1n/RobustVideoMatting/releases/download/v1.0.0/rvm_mobilenetv3_fp32.onnx",
+            "path": "models/rvm_mobilenetv3_fp32.onnx",
+            "sha256": "88d4531297118f595bf2fd60f6f566aec2e559393802d1f436c380f0cbbd2828"},
+    "whisper": {"purpose": "chép lời tiếng Việt, timestamp từng từ", "name": "large-v3", "size_gb": 3.1,
+                "source": "Hugging Face Systran/faster-whisper-large-v3 (tự tải qua faster-whisper)",
+                "cache": "~/.cache/huggingface"},
+    "mediapipe": {"purpose": "dò mặt, góc cúi đầu, ánh mắt (tìm đoạn không nói vào máy)", "bundled_in_pip": true}
+  },
+  "fonts": {
+    "dir": "assets/fonts", "license": "SIL OFL 1.1 (Google Fonts)",
+    "base": "https://raw.githubusercontent.com/google/fonts/main/ofl/",
+    "files": {
+      "Montserrat-VF.ttf": {"src": "montserrat/Montserrat%5Bwght%5D.ttf", "sha256": "0f7b311b2f3279e4eef9b2f968bcdbab6e28f4daeb1f049f4f278a902bcd82f7", "required": true},
+      "BeVietnamPro-Medium.ttf": {"src": "bevietnampro/BeVietnamPro-Medium.ttf", "sha256": "b60832bfa0fcd015158112c64d7e3fdad3b0c6287d1823f85a3103636e845268"},
+      "BeVietnamPro-Bold.ttf": {"src": "bevietnampro/BeVietnamPro-Bold.ttf", "sha256": "7f738fe5c43c8872807b20e2d30d42163618de8a4daf7f48a939adac32c16847"},
+      "BeVietnamPro-ExtraBold.ttf": {"src": "bevietnampro/BeVietnamPro-ExtraBold.ttf", "sha256": "44dbfa01553d227bec76ba6446c5618870a76a4a3297f41630dde859d0650d02"},
+      "BeVietnamPro-Regular.ttf": {"src": "bevietnampro/BeVietnamPro-Regular.ttf", "sha256": "cd1ef6e9d7db28ad5cdb88a65ccbe693870e60d340b791f349d248342b4fe4c3"},
+      "PlayfairDisplay-Italic-VF.ttf": {"src": "playfairdisplay/PlayfairDisplay-Italic%5Bwght%5D.ttf", "sha256": "a5e26dc5e2e77fb2803a0bf02fd4f81ee136ec8dea863ccdb0c59a263b21378b"},
+      "Anton-Regular.ttf": {"src": "anton/Anton-Regular.ttf", "sha256": "a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab"},
+      "GreatVibes-Regular.ttf": {"src": "greatvibes/GreatVibes-Regular.ttf", "sha256": "8d509802186f1b51572531ecf313e8098f9a5bfdfaca93f0c9b34467f9982d15"},
+      "DancingScript-VF.ttf": {"src": "dancingscript/DancingScript%5Bwght%5D.ttf", "sha256": "21808625578fe8d8cd10cb684be546dca077b27cd03a53a2f1ec11dc743c924c"}
+    }
+  },
+  "icons": {
+    "dir": "assets/uicons", "name": "Flaticon Uicons 3.3.1 (Solid/Regular Rounded)",
+    "license": "Flaticon — dùng thương mại được, cần ghi nguồn “Uicons by Flaticon”",
+    "base": "https://cdn.jsdelivr.net/npm/@flaticon/flaticon-uicons@3.3.1",
+    "files": {
+      "uicons-solid-rounded-UWVI4CEC.woff": {"src": "/css/uicons-solid-rounded-UWVI4CEC.woff", "sha256": "db95d9916a1a339d981e9eb25e76a66a3d775b844ab2cfb49a0e0138abfb1bdb"},
+      "uicons-regular-rounded-KDJ23353.woff": {"src": "/css/uicons-regular-rounded-KDJ23353.woff", "sha256": "c9e3358cf771c721cd813ba8eafacf328e15f593570d8152176e5609f0da5efe"},
+      "solid.css": {"src": "/css/solid/rounded.css", "sha256": "d2ab0af5a28e6baaa15a4f6bf85b308ba31e1740e4491f15f991f17b1acc44b8"}
+    }
+  },
+  "sfx": {"bundled": "kit/sfx", "manifest": "kit/sfx/sfx_manifest.json", "install_to": "assets/sfx"},
+  "agent": {
+    "claude_code": {"purpose": "agent biên tập chạy trong app (đăng nhập tài khoản Claude của người dùng)",
+                    "install_hint": {"macos": "curl -fsSL https://claude.ai/install.sh | bash", "windows": "irm https://claude.ai/install.ps1 | iex"},
+                    "required": false},
+    "skill": ".claude/skills/talking-head-style"
+  }
+}

@@ -1,0 +1,42 @@
+# Build bộ cài C-Cut cho 3 loại máy. Chạy tay (Actions › build › Run workflow) hoặc khi đẩy tag v*.
+name: build
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+jobs:
+  mac:
+    strategy:
+      matrix:
+        include:
+          - {runner: macos-15-intel, arch: intel, ff: amd64}
+          - {runner: macos-14, arch: arm64, ff: arm64}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: ffmpeg tĩnh
+        run: |
+          mkdir -p build/ffmpeg && cd build/ffmpeg
+          for b in ffmpeg ffprobe; do
+            curl -fsSL -o $b.zip "https://ffmpeg.martin-riedl.de/redirect/latest/macos/${{ matrix.ff }}/release/$b.zip"
+            unzip -o $b.zip && rm $b.zip && chmod +x $b
+          done
+          ./ffmpeg -hide_banner -filters | grep -E "zscale|loudnorm|ebur128" 
+      - run: pip install -r packaging/requirements-build.txt
+      - run: FFMPEG_DIR=build/ffmpeg PY=python ./packaging/build_mac.sh
+      - uses: actions/upload-artifact@v4
+        with: {name: "C-Cut-mac-${{ matrix.arch }}", path: "dist/C-Cut-mac-*.dmg"}
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -r packaging/requirements-build.txt
+      - run: choco install innosetup -y --no-progress
+      - run: ./packaging/build_win.ps1
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with: {name: C-Cut-windows, path: dist/C-Cut-Setup.exe}

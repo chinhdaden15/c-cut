@@ -1,0 +1,447 @@
+{
+ "version": "1.0.0",
+ "note": "Đường dẫn tương đối so với kit/sfx. 'wav' = bản đã cắt/chuẩn 48k mono dùng trực tiếp; 'original' = file gốc.",
+ "approved": {
+  "u_flash": {
+   "wav": "approved/u_flash.wav",
+   "original": "approved/orig_u_flash.mp3",
+   "original_name": "Flash, Modern, Design 03.mp3",
+   "library": "Chính Dùng/SFX",
+   "use": "chuyển cảnh MG / tiêu đề lớp sau",
+   "peak_offset_ms": 277.1,
+   "norm_db": 0
+  },
+  "u_money": {
+   "wav": "approved/u_money.wav",
+   "original": "approved/orig_u_money.mp3",
+   "original_name": "Money, Coins, Stack, Fast.mp3",
+   "library": "Chính Dùng/SFX",
+   "use": "từ khóa tiền (≤1 lần)",
+   "peak_offset_ms": 92.0,
+   "norm_db": 0
+  },
+  "u_tick": {
+   "wav": "approved/u_tick.wav",
+   "original": "approved/orig_u_tick.mp3",
+   "original_name": "Neutral, Select Tone 01.mp3",
+   "library": "Chính Dùng/SFX",
+   "use": "chữ rơi từng từ",
+   "peak_offset_ms": 9.4,
+   "norm_db": 0
+  },
+  "soft_00": {
+   "wav": "approved/soft_00.wav",
+   "original": "approved/orig_soft_00.mp3",
+   "original_name": "Select, Soft Round Pluck, Short, Reverb.mp3",
+   "library": "Sound Effects Pack",
+   "use": "chữ chính/dấu tích",
+   "peak_offset_ms": 103.0,
+   "norm_db": 4.0
+  },
+  "soft_01": {
+   "wav": "approved/soft_01.wav",
+   "original": "approved/orig_soft_01.mp3",
+   "original_name": "Text Message, Notification, Confirm, Round, Soft.mp3",
+   "library": "Sound Effects Pack",
+   "use": "chữ chính/dấu tích",
+   "peak_offset_ms": 174.7,
+   "norm_db": 8.3
+  },
+  "soft_02": {
+   "wav": "approved/soft_02.wav",
+   "original": "approved/orig_soft_02.mp3",
+   "original_name": "Button, Rounded, Ok 02.mp3",
+   "library": "Sound Effects Pack",
+   "use": "chữ chính/dấu tích",
+   "peak_offset_ms": 154.4,
+   "norm_db": 11.1
+  }
+ },
+ "alternates": {
+  "u_swish": {
+   "wav": "alternates/u_swish.wav",
+   "original": "alternates/orig_u_swish.mp3",
+   "original_name": "Short, Bandpass, Dry.mp3",
+   "library": "Chính Dùng/SFX",
+   "use": "lướt",
+   "peak_offset_ms": 638.8,
+   "norm_db": 0
+  },
+  "u_pop": {
+   "wav": "alternates/u_pop.wav",
+   "original": "alternates/orig_u_pop.mp3",
+   "original_name": "Digital, Video Game, Select, Positive, Notification 03.mp3",
+   "library": "Chính Dùng/SFX",
+   "use": "pop",
+   "peak_offset_ms": 8.1,
+   "norm_db": 0
+  },
+  "u_card": {
+   "wav": "alternates/u_card.wav",
+   "original": "alternates/orig_u_card.mp3",
+   "original_name": "Button Press Click, Tap, Video Game, Main Menu, Select, Positive 04.mp3",
+   "library": "Chính Dùng/SFX",
+   "use": "thẻ ảnh",
+   "peak_offset_ms": 5.0,
+   "norm_db": 0
+  },
+  "pop_00": {
+   "wav": "alternates/pop_00.wav",
+   "original": "alternates/orig_pop_00.mp3",
+   "original_name": "Button Press Click, Tap, Video Game, Main Menu, Select, Positive 02.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 30.6,
+   "norm_db": 13.6
+  },
+  "pop_01": {
+   "wav": "alternates/pop_01.wav",
+   "original": "alternates/orig_pop_01.mp3",
+   "original_name": "Button Press Click, Tap, Video Game, Main Menu, Select, Positive 03.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 6.1,
+   "norm_db": 13.5
+  },
+  "pop_02": {
+   "wav": "alternates/pop_02.wav",
+   "original": "alternates/orig_pop_02.mp3",
+   "original_name": "Button Press Click, Tap, Video Game, Main Menu, Select, Positive 05.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 136.2,
+   "norm_db": 4.8
+  },
+  "pop_03": {
+   "wav": "alternates/pop_03.wav",
+   "original": "alternates/orig_pop_03.mp3",
+   "original_name": "Button Press Click, Tap, Video Game, Main Menu, Select, Positive 06.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 4.7,
+   "norm_db": 11.3
+  },
+  "pop_04": {
+   "wav": "alternates/pop_04.wav",
+   "original": "alternates/orig_pop_04.mp3",
+   "original_name": "Button Click, Input Response, Tap, Short.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 11.6,
+   "norm_db": -1.0
+  },
+  "pop_05": {
+   "wav": "alternates/pop_05.wav",
+   "original": "alternates/orig_pop_05.mp3",
+   "original_name": "Digital, Computer, Button OK, Digital Simple.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 187.8,
+   "norm_db": 17.9
+  },
+  "pop_06": {
+   "wav": "alternates/pop_06.wav",
+   "original": "alternates/orig_pop_06.mp3",
+   "original_name": "GUI, Select.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 24.6,
+   "norm_db": 1.4
+  },
+  "pop_07": {
+   "wav": "alternates/pop_07.wav",
+   "original": "alternates/orig_pop_07.mp3",
+   "original_name": "Select, Smartphone, Short 01.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 121.9,
+   "norm_db": 10.0
+  },
+  "pop_08": {
+   "wav": "alternates/pop_08.wav",
+   "original": "alternates/orig_pop_08.mp3",
+   "original_name": "Select, Smartphone, Short 02.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 18.5,
+   "norm_db": 12.1
+  },
+  "pop_09": {
+   "wav": "alternates/pop_09.wav",
+   "original": "alternates/orig_pop_09.mp3",
+   "original_name": "Select, Smartphone, Short 03.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 13.2,
+   "norm_db": 9.0
+  },
+  "pop_10": {
+   "wav": "alternates/pop_10.wav",
+   "original": "alternates/orig_pop_10.mp3",
+   "original_name": "Tech Button 01.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 8.6,
+   "norm_db": 8.5
+  },
+  "pop_11": {
+   "wav": "alternates/pop_11.wav",
+   "original": "alternates/orig_pop_11.mp3",
+   "original_name": "Button, Rounded, Ok 02.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 154.4,
+   "norm_db": 11.1
+  },
+  "pop_12": {
+   "wav": "alternates/pop_12.wav",
+   "original": "alternates/orig_pop_12.mp3",
+   "original_name": "Select, Confirm, Neutral, Dry, Bright.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 11.5,
+   "norm_db": 17.2
+  },
+  "pop_13": {
+   "wav": "alternates/pop_13.wav",
+   "original": "alternates/orig_pop_13.mp3",
+   "original_name": "Select, Confirm, Neutral, Short.mp3",
+   "library": "Sound Effects Pack",
+   "use": "pop",
+   "peak_offset_ms": 72.2,
+   "norm_db": 7.7
+  },
+  "check_00": {
+   "wav": "alternates/check_00.wav",
+   "original": "alternates/orig_check_00.mp3",
+   "original_name": "Text Message, Notification, Confirm, Round, Soft.mp3",
+   "library": "Sound Effects Pack",
+   "use": "check",
+   "peak_offset_ms": 174.7,
+   "norm_db": 8.3
+  },
+  "check_01": {
+   "wav": "alternates/check_01.wav",
+   "original": "alternates/orig_check_01.mp3",
+   "original_name": "Correct Tone.mp3",
+   "library": "Sound Effects Pack",
+   "use": "check",
+   "peak_offset_ms": 2.9,
+   "norm_db": 0.1
+  },
+  "check_02": {
+   "wav": "alternates/check_02.wav",
+   "original": "alternates/orig_check_02.mp3",
+   "original_name": "Notification, Message, Text 04.mp3",
+   "library": "Sound Effects Pack",
+   "use": "check",
+   "peak_offset_ms": 41.9,
+   "norm_db": 5.9
+  },
+  "check_03": {
+   "wav": "alternates/check_03.wav",
+   "original": "alternates/orig_check_03.mp3",
+   "original_name": "Button, Positive, Chord, Bright.mp3",
+   "library": "Sound Effects Pack",
+   "use": "check",
+   "peak_offset_ms": 208.4,
+   "norm_db": 9.1
+  },
+  "check_04": {
+   "wav": "alternates/check_04.wav",
+   "original": "alternates/orig_check_04.mp3",
+   "original_name": "Delayed, High Pitched, Correct, Positive 01.mp3",
+   "library": "Sound Effects Pack",
+   "use": "check",
+   "peak_offset_ms": 170.6,
+   "norm_db": 0.7
+  },
+  "check_05": {
+   "wav": "alternates/check_05.wav",
+   "original": "alternates/orig_check_05.mp3",
+   "original_name": "Delayed, High Pitched, Correct, Positive 02.mp3",
+   "library": "Sound Effects Pack",
+   "use": "check",
+   "peak_offset_ms": 280.9,
+   "norm_db": 1.8
+  },
+  "tick_00": {
+   "wav": "alternates/tick_00.wav",
+   "original": "alternates/orig_tick_00.mp3",
+   "original_name": "Neutral, Select Tone 01.mp3",
+   "library": "Sound Effects Pack",
+   "use": "tick",
+   "peak_offset_ms": 9.4,
+   "norm_db": 0.9
+  },
+  "tick_01": {
+   "wav": "alternates/tick_01.wav",
+   "original": "alternates/orig_tick_01.mp3",
+   "original_name": "Neutral, Select Tone 04.mp3",
+   "library": "Sound Effects Pack",
+   "use": "tick",
+   "peak_offset_ms": 4.3,
+   "norm_db": 3.4
+  },
+  "tick_02": {
+   "wav": "alternates/tick_02.wav",
+   "original": "alternates/orig_tick_02.mp3",
+   "original_name": "Neutral, Select Tone 03.mp3",
+   "library": "Chính Dùng/SFX",
+   "use": "tick",
+   "peak_offset_ms": 9.7,
+   "norm_db": 0.9
+  },
+  "card_00": {
+   "wav": "alternates/card_00.wav",
+   "original": "alternates/orig_card_00.mp3",
+   "original_name": "Select, Soft Round Pluck, Short, Reverb.mp3",
+   "library": "Sound Effects Pack",
+   "use": "card",
+   "peak_offset_ms": 103.0,
+   "norm_db": 4.0
+  },
+  "card_01": {
+   "wav": "alternates/card_01.wav",
+   "original": "alternates/orig_card_01.mp3",
+   "original_name": "Notification, Attention, Text, Reveal, Positive 01.mp3",
+   "library": "Sound Effects Pack",
+   "use": "card",
+   "peak_offset_ms": 173.5,
+   "norm_db": 10.3
+  },
+  "card_02": {
+   "wav": "alternates/card_02.wav",
+   "original": "alternates/orig_card_02.mp3",
+   "original_name": "Notification, Attention, Text, Reveal, Positive 02.mp3",
+   "library": "Sound Effects Pack",
+   "use": "card",
+   "peak_offset_ms": 315.4,
+   "norm_db": 10.6
+  },
+  "card_03": {
+   "wav": "alternates/card_03.wav",
+   "original": "alternates/orig_card_03.mp3",
+   "original_name": "Notification, Attention, Text, Reveal, Positive 03.mp3",
+   "library": "Sound Effects Pack",
+   "use": "card",
+   "peak_offset_ms": 181.2,
+   "norm_db": 13.5
+  },
+  "mgtrans_00": {
+   "wav": "alternates/mgtrans_00.wav",
+   "original": "alternates/orig_mgtrans_00.mp3",
+   "original_name": "Medium, Video Transition, Motion 01.mp3",
+   "library": "Sound Effects Pack",
+   "use": "mgtrans",
+   "peak_offset_ms": 113.8,
+   "norm_db": 6.5
+  },
+  "mgtrans_01": {
+   "wav": "alternates/mgtrans_01.wav",
+   "original": "alternates/orig_mgtrans_01.mp3",
+   "original_name": "Medium, Video Transition, Motion 02.mp3",
+   "library": "Sound Effects Pack",
+   "use": "mgtrans",
+   "peak_offset_ms": 340.4,
+   "norm_db": 7.5
+  },
+  "mgtrans_02": {
+   "wav": "alternates/mgtrans_02.wav",
+   "original": "alternates/orig_mgtrans_02.mp3",
+   "original_name": "Medium, Video Transition, Motion 03.mp3",
+   "library": "Sound Effects Pack",
+   "use": "mgtrans",
+   "peak_offset_ms": 876.6,
+   "norm_db": 10.7
+  },
+  "mgtrans_03": {
+   "wav": "alternates/mgtrans_03.wav",
+   "original": "alternates/orig_mgtrans_03.mp3",
+   "original_name": "Medium, Video Transition, Motion 06.mp3",
+   "library": "Sound Effects Pack",
+   "use": "mgtrans",
+   "peak_offset_ms": 649.3,
+   "norm_db": 7.3
+  },
+  "mgtrans_04": {
+   "wav": "alternates/mgtrans_04.wav",
+   "original": "alternates/orig_mgtrans_04.mp3",
+   "original_name": "Medium, Video Transition, Motion 07.mp3",
+   "library": "Sound Effects Pack",
+   "use": "mgtrans",
+   "peak_offset_ms": 535.0,
+   "norm_db": 8.6
+  },
+  "hit_00": {
+   "wav": "alternates/hit_00.wav",
+   "original": "alternates/orig_hit_00.mp3",
+   "original_name": "Cinematic Hit, Soft Impact 02.mp3",
+   "library": "Sound Effects Pack",
+   "use": "nhấn chữ chính",
+   "peak_offset_ms": 329.9,
+   "norm_db": 52.5
+  },
+  "hit_01": {
+   "wav": "alternates/hit_01.wav",
+   "original": "alternates/orig_hit_01.mp3",
+   "original_name": "Low Drum Hit, Simple.mp3",
+   "library": "Sound Effects Pack",
+   "use": "nhấn chữ chính",
+   "peak_offset_ms": 59.7,
+   "norm_db": 0.0
+  },
+  "hit_02": {
+   "wav": "alternates/hit_02.wav",
+   "original": "alternates/orig_hit_02.mp3",
+   "original_name": "Low Hit.mp3",
+   "library": "Sound Effects Pack",
+   "use": "nhấn chữ chính",
+   "peak_offset_ms": 243.0,
+   "norm_db": 8.6
+  },
+  "hit_03": {
+   "wav": "alternates/hit_03.wav",
+   "original": "alternates/orig_hit_03.mp3",
+   "original_name": "Low Kick, Impact, Textured Top.mp3",
+   "library": "Sound Effects Pack",
+   "use": "nhấn chữ chính",
+   "peak_offset_ms": 376.2,
+   "norm_db": 7.0
+  },
+  "hit_04": {
+   "wav": "alternates/hit_04.wav",
+   "original": "alternates/orig_hit_04.mp3",
+   "original_name": "Impact, Surdo Hit 01.mp3",
+   "library": "Sound Effects Pack",
+   "use": "nhấn chữ chính",
+   "peak_offset_ms": 4.6,
+   "norm_db": 0.2
+  },
+  "hit_05": {
+   "wav": "alternates/hit_05.wav",
+   "original": "alternates/orig_hit_05.mp3",
+   "original_name": "Stamp, Press, Marking Document, Variations.mp3",
+   "library": "Sound Effects Pack",
+   "use": "nhấn chữ chính",
+   "peak_offset_ms": 69.2,
+   "norm_db": 6.1
+  },
+  "hit_06": {
+   "wav": "alternates/hit_06.wav",
+   "original": "alternates/orig_hit_06.mp3",
+   "original_name": "Punch, Dark, Clean x5 03.mp3",
+   "library": "Sound Effects Pack",
+   "use": "nhấn chữ chính",
+   "peak_offset_ms": 191.3,
+   "norm_db": 2.4
+  }
+ },
+ "pools": {
+  "soft": [
+   "soft_00",
+   "soft_01",
+   "soft_02"
+  ]
+ }
+}

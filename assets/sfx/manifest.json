@@ -1,0 +1,465 @@
+{
+ "whoosh_short": {
+  "file": "whoosh_short.wav",
+  "category": "lướt/whoosh ngắn",
+  "source": "procedural synth (thagent/sfx.py) — ÂM TẠM để kiểm tra kỹ thuật",
+  "license": "tự sinh, không giới hạn",
+  "peak_offset_ms": 261.4
+ },
+ "pop_soft": {
+  "file": "pop_soft.wav",
+  "category": "pop/tap nhẹ",
+  "source": "procedural synth (thagent/sfx.py) — ÂM TẠM để kiểm tra kỹ thuật",
+  "license": "tự sinh, không giới hạn",
+  "peak_offset_ms": 4.1
+ },
+ "impact_soft": {
+  "file": "impact_soft.wav",
+  "category": "impact mềm",
+  "source": "procedural synth (thagent/sfx.py) — ÂM TẠM để kiểm tra kỹ thuật",
+  "license": "tự sinh, không giới hạn",
+  "peak_offset_ms": 6.2
+ },
+ "shimmer_light": {
+  "file": "shimmer_light.wav",
+  "category": "transition nhẹ / lóe sáng",
+  "source": "procedural synth (thagent/sfx.py) — ÂM TẠM để kiểm tra kỹ thuật",
+  "license": "tự sinh, không giới hạn",
+  "peak_offset_ms": 123.2
+ },
+ "u_swish": {
+  "file": "u_swish.wav",
+  "category": "lướt",
+  "source": "/Users/myatm/Documents/Chính Dùng/SFX/Swish/Short, Bandpass, Dry.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 638.8
+ },
+ "u_pop": {
+  "file": "u_pop.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Documents/Chính Dùng/SFX/Click/Digital, Video Game, Select, Positive, Notification 03.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 8.1
+ },
+ "u_flash": {
+  "file": "u_flash.wav",
+  "category": "lóe sáng",
+  "source": "/Users/myatm/Documents/Chính Dùng/SFX/Best/Flash, Modern, Design 03.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 277.1
+ },
+ "u_money": {
+  "file": "u_money.wav",
+  "category": "tiền",
+  "source": "/Users/myatm/Documents/Chính Dùng/SFX/Tiền rơi, giấy, viết/Money, Coins, Stack, Fast.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 92.0
+ },
+ "u_tick": {
+  "file": "u_tick.wav",
+  "category": "tick từng từ",
+  "source": "/Users/myatm/Documents/Chính Dùng/SFX/Best/Neutral, Select Tone 01.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 9.4
+ },
+ "u_card": {
+  "file": "u_card.wav",
+  "category": "thẻ ảnh",
+  "source": "/Users/myatm/Documents/Chính Dùng/SFX/User Interface/Button Press Click, Tap, Video Game, Main Menu, Select, Positive 04.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 5.0
+ },
+ "pop_00": {
+  "file": "pop_00.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Button Press Click, Tap, Video Game, Main Menu, Select, Positive 02.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 30.6,
+  "norm_db": 13.6
+ },
+ "pop_01": {
+  "file": "pop_01.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Button Press Click, Tap, Video Game, Main Menu, Select, Positive 03.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 6.1,
+  "norm_db": 13.5
+ },
+ "pop_02": {
+  "file": "pop_02.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Button Press Click, Tap, Video Game, Main Menu, Select, Positive 05.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 136.2,
+  "norm_db": 4.8
+ },
+ "pop_03": {
+  "file": "pop_03.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Button Press Click, Tap, Video Game, Main Menu, Select, Positive 06.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 4.7,
+  "norm_db": 11.3
+ },
+ "pop_04": {
+  "file": "pop_04.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Button Click, Input Response, Tap, Short.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 11.6,
+  "norm_db": -1.0
+ },
+ "pop_05": {
+  "file": "pop_05.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Digital, Computer, Button OK, Digital Simple.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 187.8,
+  "norm_db": 17.9
+ },
+ "pop_06": {
+  "file": "pop_06.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/GUI, Select.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 24.6,
+  "norm_db": 1.4
+ },
+ "pop_07": {
+  "file": "pop_07.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Select, Smartphone, Short 01.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 121.9,
+  "norm_db": 10.0
+ },
+ "pop_08": {
+  "file": "pop_08.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Select, Smartphone, Short 02.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 18.5,
+  "norm_db": 12.1
+ },
+ "pop_09": {
+  "file": "pop_09.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Select, Smartphone, Short 03.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 13.2,
+  "norm_db": 9.0
+ },
+ "pop_10": {
+  "file": "pop_10.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Tech Button 01.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 8.6,
+  "norm_db": 8.5
+ },
+ "pop_11": {
+  "file": "pop_11.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Button, Rounded, Ok 02.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 154.4,
+  "norm_db": 11.1
+ },
+ "pop_12": {
+  "file": "pop_12.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Select, Confirm, Neutral, Dry, Bright.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 11.5,
+  "norm_db": 17.2
+ },
+ "pop_13": {
+  "file": "pop_13.wav",
+  "category": "pop",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Select, Confirm, Neutral, Short.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 72.2,
+  "norm_db": 7.7
+ },
+ "check_00": {
+  "file": "check_00.wav",
+  "category": "check",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Text Message, Notification, Confirm, Round, Soft.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 174.7,
+  "norm_db": 8.3
+ },
+ "check_01": {
+  "file": "check_01.wav",
+  "category": "check",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Correct Tone.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 2.9,
+  "norm_db": 0.1
+ },
+ "check_02": {
+  "file": "check_02.wav",
+  "category": "check",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Notification, Message, Text 04.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 41.9,
+  "norm_db": 5.9
+ },
+ "check_03": {
+  "file": "check_03.wav",
+  "category": "check",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Button, Positive, Chord, Bright.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 208.4,
+  "norm_db": 9.1
+ },
+ "check_04": {
+  "file": "check_04.wav",
+  "category": "check",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Delayed, High Pitched, Correct, Positive 01.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 170.6,
+  "norm_db": 0.7
+ },
+ "check_05": {
+  "file": "check_05.wav",
+  "category": "check",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Delayed, High Pitched, Correct, Positive 02.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 280.9,
+  "norm_db": 1.8
+ },
+ "tick_00": {
+  "file": "tick_00.wav",
+  "category": "tick",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Neutral, Select Tone 01.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 9.4,
+  "norm_db": 0.9
+ },
+ "tick_01": {
+  "file": "tick_01.wav",
+  "category": "tick",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Neutral, Select Tone 04.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 4.3,
+  "norm_db": 3.4
+ },
+ "tick_02": {
+  "file": "tick_02.wav",
+  "category": "tick",
+  "source": "/Users/myatm/Documents/Chính Dùng/SFX/Click/Neutral, Select Tone 03.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 9.7,
+  "norm_db": 0.9
+ },
+ "card_00": {
+  "file": "card_00.wav",
+  "category": "card",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Select, Soft Round Pluck, Short, Reverb.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 103.0,
+  "norm_db": 4.0
+ },
+ "card_01": {
+  "file": "card_01.wav",
+  "category": "card",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Notification, Attention, Text, Reveal, Positive 01.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 173.5,
+  "norm_db": 10.3
+ },
+ "card_02": {
+  "file": "card_02.wav",
+  "category": "card",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Notification, Attention, Text, Reveal, Positive 02.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 315.4,
+  "norm_db": 10.6
+ },
+ "card_03": {
+  "file": "card_03.wav",
+  "category": "card",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Notification, Attention, Text, Reveal, Positive 03.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 181.2,
+  "norm_db": 13.5
+ },
+ "mgtrans_00": {
+  "file": "mgtrans_00.wav",
+  "category": "mgtrans",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Medium, Video Transition, Motion 01.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 113.8,
+  "norm_db": 6.5
+ },
+ "mgtrans_01": {
+  "file": "mgtrans_01.wav",
+  "category": "mgtrans",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Medium, Video Transition, Motion 02.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 340.4,
+  "norm_db": 7.5
+ },
+ "mgtrans_02": {
+  "file": "mgtrans_02.wav",
+  "category": "mgtrans",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Medium, Video Transition, Motion 03.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 876.6,
+  "norm_db": 10.7
+ },
+ "mgtrans_03": {
+  "file": "mgtrans_03.wav",
+  "category": "mgtrans",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Medium, Video Transition, Motion 06.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 649.3,
+  "norm_db": 7.3
+ },
+ "mgtrans_04": {
+  "file": "mgtrans_04.wav",
+  "category": "mgtrans",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Medium, Video Transition, Motion 07.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 535.0,
+  "norm_db": 8.6
+ },
+ "_pools": {
+  "pop": [
+   "pop_00",
+   "pop_01",
+   "pop_02",
+   "pop_03",
+   "pop_04",
+   "pop_05",
+   "pop_06",
+   "pop_07",
+   "pop_08",
+   "pop_09",
+   "pop_10",
+   "pop_11",
+   "pop_12",
+   "pop_13"
+  ],
+  "check": [
+   "check_00",
+   "check_01",
+   "check_02",
+   "check_03",
+   "check_04",
+   "check_05"
+  ],
+  "tick": [
+   "tick_00",
+   "tick_01",
+   "tick_02"
+  ],
+  "card": [
+   "card_00",
+   "card_01",
+   "card_02",
+   "card_03"
+  ],
+  "mgtrans": [
+   "mgtrans_00",
+   "mgtrans_01",
+   "mgtrans_02",
+   "mgtrans_03",
+   "mgtrans_04"
+  ],
+  "hit": [
+   "hit_01",
+   "hit_02",
+   "hit_03",
+   "hit_04",
+   "hit_05",
+   "hit_06"
+  ],
+  "soft": [
+   "soft_00",
+   "soft_01",
+   "soft_02"
+  ]
+ },
+ "hit_00": {
+  "file": "hit_00.wav",
+  "category": "nhấn chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Impacts/Cinematic Hit, Soft Impact 02.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 329.9,
+  "norm_db": 52.5
+ },
+ "hit_01": {
+  "file": "hit_01.wav",
+  "category": "nhấn chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Impacts/Low Drum Hit, Simple.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 59.7,
+  "norm_db": 0.0
+ },
+ "hit_02": {
+  "file": "hit_02.wav",
+  "category": "nhấn chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Impacts/Low Hit.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 243.0,
+  "norm_db": 8.6
+ },
+ "hit_03": {
+  "file": "hit_03.wav",
+  "category": "nhấn chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Impacts/Low Kick, Impact, Textured Top.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 376.2,
+  "norm_db": 7.0
+ },
+ "hit_04": {
+  "file": "hit_04.wav",
+  "category": "nhấn chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Impacts/Impact, Surdo Hit 01.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 4.6,
+  "norm_db": 0.2
+ },
+ "hit_05": {
+  "file": "hit_05.wav",
+  "category": "nhấn chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Objects/Stamp, Press, Marking Document, Variations.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 69.2,
+  "norm_db": 6.1
+ },
+ "hit_06": {
+  "file": "hit_06.wav",
+  "category": "nhấn chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Impacts/Punch, Dark, Clean x5 03.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 191.3,
+  "norm_db": 2.4
+ },
+ "soft_00": {
+  "file": "soft_00.wav",
+  "category": "âm nhẹ chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/Clicks/Select, Soft Round Pluck, Short, Reverb.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 103.0,
+  "norm_db": 4.0
+ },
+ "soft_01": {
+  "file": "soft_01.wav",
+  "category": "âm nhẹ chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Text Message, Notification, Confirm, Round, Soft.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 174.7,
+  "norm_db": 8.3
+ },
+ "soft_02": {
+  "file": "soft_02.wav",
+  "category": "âm nhẹ chữ chính",
+  "source": "/Users/myatm/Downloads/Sound Effects Pack/User Interface/Button, Rounded, Ok 02.mp3",
+  "license": "thư viện SFX của người dùng",
+  "peak_offset_ms": 154.4,
+  "norm_db": 11.1
+ }
+}

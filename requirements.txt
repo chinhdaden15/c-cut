@@ -1,0 +1,11 @@
+faster-whisper
+onnxruntime
+numpy
+pillow
+opencv-python-headless
+mediapipe==0.10.14
+fastapi
+uvicorn
+python-multipart
+pydantic>=2
+# tùy chọn: anthropic (bật planner Claude khi có ANTHROPIC_API_KEY)

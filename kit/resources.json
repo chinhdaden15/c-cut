@@ -1,0 +1,116 @@
+{
+  "version": "1.1.0",
+  "note": "Nơi agent tìm/tải tài nguyên khi dựng. Luôn ghi nguồn (URL trang + URL file) vào plan. Không vượt CAPTCHA / bộ lọc chống bot.",
+  "images": [
+    {
+      "name": "Bing Images",
+      "url": "https://www.bing.com/images/search?q={query}",
+      "how": "trong trình duyệt app (bing.com): fetch('/images/search?q='+q) → DOMParser → a.iusc, JSON thuộc tính m → murl (ảnh gốc), purl (trang nguồn), t (tiêu đề). Thêm 'site:pexels.com' / 'site:unsplash.com' để lọc nguồn có giấy phép. curl trực tiếp trả kết quả sai — không dùng.",
+      "status": "dùng được"
+    },
+    {
+      "name": "Unsplash",
+      "url": "https://unsplash.com/s/photos/{query}",
+      "license": "Unsplash License — dùng thương mại, không bắt buộc ghi nguồn",
+      "direct": "https://images.unsplash.com/photo-<id>?fm=jpg&q=80&w=1600",
+      "status": "trang tìm có kiểm tra bot — KHÔNG vượt; lấy qua Bing (images.unsplash.com/photo-<id>?w=1260 tải thẳng được)"
+    },
+    {
+      "name": "Pexels",
+      "url": "https://www.pexels.com/search/{query}/",
+      "license": "Pexels License — dùng thương mại",
+      "status": "trang tìm có kiểm tra bot — KHÔNG vượt; lấy qua Bing (images.pexels.com/photos/<id>/pexels-photo-<id>.jpeg?w=1260 tải thẳng được)",
+      "direct": "https://images.pexels.com/photos/<id>/pexels-photo-<id>.jpeg?w=1260"
+    },
+    {
+      "name": "Pinterest",
+      "url": "https://www.pinterest.com/search/pins/?q={query}",
+      "license": "KHÔNG rõ — chỉ làm ảnh minh họa, báo người dùng",
+      "direct": "https://i.pinimg.com/originals/...",
+      "status": "ảnh i.pinimg.com tải được; trang tìm cần đăng nhập"
+    },
+    {
+      "name": "Google Images",
+      "url": "https://www.google.com/search?tbm=isch&q={query}",
+      "status": "CHẶN bot (CAPTCHA) — không dùng tự động"
+    }
+  ],
+  "project_photos": [
+    {
+      "name": "Website chủ đầu tư / thương hiệu dự án",
+      "rule": "ưu tiên số 1; ghi rõ ảnh thực tế hay phối cảnh"
+    },
+    {
+      "name": "Báo chí (VietnamFinance, Tạp chí Tòa Án, SGGP, VnEconomy, …)",
+      "rule": "lấy URL ảnh trong bài + chú thích; kiểm tra đúng tên dự án/địa điểm"
+    },
+    {
+      "name": "Tìm kiếm",
+      "url": "WebSearch “<tên dự án> hình ảnh thực tế” → WebFetch trang → liệt kê <img> + caption"
+    }
+  ],
+  "icons": [
+    {
+      "name": "Flaticon Uicons (đã cài sẵn)",
+      "url": "https://www.flaticon.com/uicons",
+      "local": "assets/uicons",
+      "license": "ghi nguồn “Uicons by Flaticon”",
+      "status": "dùng bản font trong app; trang flaticon.com chặn bot"
+    },
+    {
+      "name": "Danh sách tên icon",
+      "url": "https://cdn.jsdelivr.net/npm/@flaticon/flaticon-uicons@3.3.1/css/solid/rounded.css"
+    }
+  ],
+  "fonts": [
+    {
+      "name": "Google Fonts (OFL, có tiếng Việt)",
+      "url": "https://fonts.google.com/?subset=vietnamese",
+      "raw": "https://raw.githubusercontent.com/google/fonts/main/ofl/<family>/<file>.ttf"
+    }
+  ],
+  "sfx": [
+    {
+      "name": "Bộ SFX đi kèm app",
+      "local": "kit/sfx",
+      "status": "đã cài"
+    },
+    {
+      "name": "Kho SFX của người dùng (máy gốc)",
+      "paths": [
+        "~/Documents/Chính Dùng/SFX",
+        "~/Downloads/Sound Effects Pack"
+      ],
+      "rule": "nhập bằng thagent.sfx.import_user_sfx(name, path, max_len) — tự đo peak_offset + norm_db"
+    },
+    {
+      "name": "Pixabay Sound Effects",
+      "url": "https://pixabay.com/sound-effects/search/{query}/",
+      "license": "Pixabay Content License — dùng thương mại"
+    },
+    {
+      "name": "Mixkit SFX",
+      "url": "https://mixkit.co/free-sound-effects/",
+      "license": "Mixkit License — dùng thương mại"
+    }
+  ],
+  "video_broll": [
+    {
+      "name": "Pexels Videos",
+      "url": "https://www.pexels.com/search/videos/{query}/",
+      "license": "Pexels License"
+    },
+    {
+      "name": "Pixabay Videos",
+      "url": "https://pixabay.com/videos/search/{query}/",
+      "license": "Pixabay Content License"
+    }
+  ],
+  "illustration_rules": {
+    "when": "chỉ cho nội thất/chung chung mà clip KHÔNG quay (phòng làm việc, WC, phòng họp, tiếp khách, trường, TTTM…); clip có đúng vật thì cắt clip; bên ngoài/toàn cảnh/bản đồ phải ảnh đúng dự án",
+    "context": "đúng bối cảnh của video (vd văn phòng cho thuê → phòng làm việc/WC kiểu văn phòng, không kiểu nhà ở); tránh ảnh có chữ/logo/người nhìn thẳng ống kính",
+    "file": "lưu {pdir}/assets_web/i_<tên>.jpg — tiền tố i_ để app tự ghi nhãn “Hình ảnh minh họa”",
+    "sources_log": "ghi {pdir}/assets_web/illus_sources.json: {\"i_<tên>.jpg\": \"<URL trang Unsplash/Pexels>\"}",
+    "review": "tải 6–8 ứng viên, ghép contact sheet, xem bằng mắt rồi mới chọn"
+  }
+}
