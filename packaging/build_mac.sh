@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")/.."
 PY=${PY:-.venv/bin/python}
 ARCH=$(uname -m); [ "$ARCH" = "x86_64" ] && TAG=intel || TAG=arm64
-$PY packaging/build_seed.py ${FFMPEG_DIR:+--ffmpeg-dir "$FFMPEG_DIR"}
+if [ -n "$FFMPEG_DIR" ]; then $PY packaging/build_seed.py --ffmpeg-dir "$FFMPEG_DIR"; else $PY packaging/build_seed.py; fi
 rm -rf build/nuitka
 $PY -m nuitka --module thagent --include-package=thagent --output-dir=build/nuitka --remove-output --assume-yes-for-downloads
 $PY -m PyInstaller --noconfirm --clean --distpath build/pyi --workpath build/pyi-work packaging/ccut.spec

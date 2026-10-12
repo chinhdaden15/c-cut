@@ -101,6 +101,12 @@ main{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:12p
 .activity:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc-fg);margin-right:6px;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.25}}
 .confirm input{margin-top:6px;padding:6px 8px;font-size:13px}
+/* thiết lập lần đầu */
+.sustep{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:0.5px solid var(--line2)}
+.sustep .num{flex:none;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;background:var(--acc-bg);color:var(--acc-fg2)}
+.sustep.ok .num{background:var(--ok-bg,#1f3a2a);color:var(--ok,#5fd08a)}
+.sustep .body{flex:1}.sustep .body b{font-weight:500}.sustep code{font-size:12px;word-break:break-all}
+.pbar{height:6px;border-radius:3px;background:var(--line2);overflow:hidden;margin-top:6px}.pbar i{display:block;height:100%;background:var(--acc-fg)}
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
 .overlay.show{display:flex}
@@ -214,7 +220,7 @@ main{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:12p
         </div>
         <div data-p="tools" hidden>
           <div id="sysitems" class="small"></div>
-          <button id="recheck" style="margin-top:10px">Kiểm tra lại</button>
+          <button id="recheck" style="margin-top:10px">Kiểm tra lại</button> <button id="openSetup" style="margin-top:10px">Thiết lập lần đầu…</button>
         </div>
         <div data-p="notify" hidden>
           <label class="small"><input type="checkbox" id="nSound" style="width:auto"> Âm báo khi xong / lỗi</label><br>
@@ -251,6 +257,14 @@ main{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:12p
     <div class="small dim" id="fReason"></div>
     <div id="fList" style="margin-top:8px;max-height:46vh;overflow:auto"></div>
     <div class="row" style="margin-top:12px"><span class="small dim" id="fNote" style="flex:1"></span><button class="primary" id="fAdd" style="padding:8px 16px">Thêm vào hàng chờ</button></div>
+  </div>
+</div>
+<div class="overlay" id="setupBox">
+  <div class="modal">
+    <div class="mhead"><b>Thiết lập lần đầu</b><button id="closeSetup" aria-label="Đóng">✕</button></div>
+    <p class="small dim" style="margin:0 0 6px">C-Cut đã có sẵn Python, ffmpeg, font, SFX và style. Chỉ còn vài thứ cần có trên máy bạn:</p>
+    <div id="setupSteps"></div>
+    <div class="row" style="margin-top:12px"><span class="small dim" id="setupNote" style="flex:1"></span><button id="setupRecheck">Kiểm tra lại</button><button class="primary" id="setupDone" style="padding:8px 16px;margin-left:8px">Bắt đầu dùng</button></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -451,10 +465,32 @@ $('#pickProj').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'fold
 $('#pickOut2').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path)$('#sOut').value=r.path};
 $('#saveSettings').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({project_name:$('#sName').value.trim(),project_dir:$('#sProj').value.trim(),export_dir:$('#sOut').value.trim()})});toast('Đã lưu cài đặt');$('#settings').classList.remove('show');refresh()};
 $('#saveNotify').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({notify_sound:$('#nSound').checked,notify_system:$('#nSys').checked})});toast('Đã lưu');refresh()};
+$('#openSetup')&&($('#openSetup').onclick=()=>{$('#settings').classList.remove('show');openSetup()});
 $('#recheck').onclick=async()=>{toast('Đang kiểm tra công cụ…');await post('/api/ccut/syscheck');await refresh();openSettings('tools')};
 /* thông báo */
 $('#bell').onclick=()=>{$('#notifs').classList.add('show');const ns=S.notifications;if(ns.length){seenNotif=ns[ns.length-1].t;localStorage.setItem('ccut_seen',seenNotif)}$('#belldot').hidden=true};
 $('#closeNotifs').onclick=()=>$('#notifs').classList.remove('show');
+/* thiết lập lần đầu */
+let SU=null,suTimer=null;
+async function loadSetup(){try{SU=await api('/api/ccut/setup')}catch(e){return null}renderSetup();return SU}
+function renderSetup(){
+  if(!SU)return;const c=SU.claude,w=SU.whisper,steps=[];
+  const btn=(k,t)=>`<button class="small" data-run="${k}">${t}</button>`;
+  steps.push({ok:c.installed,t:'Cài Claude Code',d:c.installed?'Đã cài.':`Bộ não lên kế hoạch dựng, chạy bằng tài khoản Claude của bạn (gói Pro/Max).<br><code>${esc(SU.cmds.claude_install)}</code><div style="margin-top:6px">${btn('claude_install','Mở cửa sổ cài đặt')}</div>`});
+  if(SU.os==='windows')steps.push({ok:SU.git,t:'Cài Git for Windows',d:SU.git?'Đã cài.':`Claude Code trên Windows cần Git.<br><code>${esc(SU.cmds.git_install)}</code><div style="margin-top:6px">${btn('git_install','Mở cửa sổ cài đặt')}</div>`});
+  steps.push({ok:c.logged_in,t:'Đăng nhập Claude',d:c.logged_in?'Đã đăng nhập.':!c.installed?'Cài Claude Code trước.':`Trình duyệt sẽ mở để đăng nhập tài khoản Claude.<div style="margin-top:6px">${btn('claude_login','Đăng nhập')}</div>`});
+  steps.push({ok:w.ready,t:'Tải model chép lời (~3 GB, một lần)',d:w.ready?'Đã có.':w.running?`Đang tải… ${w.pct}%<div class="pbar"><i style="width:${w.pct}%"></i></div>`:`${w.error?`<span style="color:var(--err)">${esc(w.error)}</span><br>`:''}Dùng để nghe lời nói tiếng Việt trong clip. Nên tải ngay, không thì lần dựng đầu sẽ phải chờ.<div style="margin-top:6px"><button class="small" id="dlWhisper">Tải ngay</button></div>`});
+  $('#setupSteps').innerHTML=steps.map((s,i)=>`<div class="sustep ${s.ok?'ok':''}"><div class="num">${s.ok?'✓':i+1}</div><div class="body"><b>${s.t}</b><div class="small dim" style="margin-top:3px">${s.d}</div></div></div>`).join('');
+  $('#setupNote').textContent=SU.done?'Đã đủ — có thể bắt đầu.':'Làm xong từng bước rồi bấm Kiểm tra lại.';
+  $('#setupDone').disabled=!SU.done;
+  document.querySelectorAll('[data-run]').forEach(b=>b.onclick=async()=>{await post('/api/ccut/setup/run/'+b.dataset.run);toast('Đã mở cửa sổ — làm theo hướng dẫn trong đó')});
+  const d=$('#dlWhisper');if(d)d.onclick=async()=>{SU=await post('/api/ccut/setup/whisper');renderSetup()};
+}
+function openSetup(){$('#setupBox').classList.add('show');loadSetup();clearInterval(suTimer);suTimer=setInterval(()=>{if(SU&&(SU.whisper.running||!SU.done))loadSetup()},3000)}
+function closeSetup(){$('#setupBox').classList.remove('show');clearInterval(suTimer)}
+$('#closeSetup').onclick=closeSetup;$('#setupDone').onclick=closeSetup;
+$('#setupRecheck').onclick=async()=>{await loadSetup();await post('/api/ccut/syscheck');refresh()};
+loadSetup().then(s=>{if(s&&s.frozen&&!s.done)openSetup()});
 refresh();setInterval(refresh,2000);
 </script>
 </body>

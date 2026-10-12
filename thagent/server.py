@@ -18,6 +18,8 @@ from .schema import Plan, VisualAsset
 app = FastAPI(title="C-Cut")
 from .ccut_api import router as ccut_router, load_settings
 app.include_router(ccut_router)
+from .setup_api import router as setup_router
+app.include_router(setup_router)
 load_settings()
 from .paths import RES
 WEB = RES / "web"
