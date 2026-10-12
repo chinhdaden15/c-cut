@@ -32,7 +32,7 @@ binaries += [(os.path.join(NK, nk[0]), ".")]
 datas += [(os.path.join(RES, "web"), "web"), (os.path.join(RES, "seed"), "seed"), (os.path.join(RES, "bin"), "bin")]
 
 a = Analysis([os.path.join(SPECPATH, "launch.py")], pathex=[NK], binaries=binaries, datas=datas,
-             hiddenimports=hidden, excludes=["tkinter", "matplotlib", "jax", "jaxlib", "IPython", "pytest", "thagent.anthropic"],
+             hiddenimports=hidden, excludes=["tkinter", "jax", "jaxlib", "IPython", "pytest", "thagent.anthropic"],
              noarchive=False)
 pyz = PYZ(a.pure)
 UTF8 = [("X utf8_mode=1", None, "OPTION")]   # đọc/ghi file + subprocess luôn UTF-8 (Windows mặc định cp1252)
