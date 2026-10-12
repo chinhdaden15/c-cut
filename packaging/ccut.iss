@@ -20,6 +20,8 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
+CloseApplications=force
+AppVerName=C-Cut {#AppVer}
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
@@ -38,3 +40,13 @@ Name: "desktopicon"; Description: "Tạo biểu tượng ngoài màn hình"
 
 [Run]
 Filename: "{app}\C-Cut.exe"; Description: "Mở C-Cut"; Flags: nowait postinstall skipifsilent
+
+[Code]
+{ tắt C-Cut và các tiến trình con còn chạy ngầm, để cài đè không bị khóa file }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var R: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM C-Cut.exe /IM ccut-py.exe', '', SW_HIDE, ewWaitUntilTerminated, R);
+  Sleep(800);
+  Result := '';
+end;

@@ -15,5 +15,6 @@ Remove-Item -Recurse -Force build\nuitka -ErrorAction SilentlyContinue
 & $PY -m PyInstaller --noconfirm --clean --distpath build\pyi --workpath build\pyi-work packaging\ccut.spec; if ($LASTEXITCODE) { exit 1 }
 $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
 if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+$env:CCUT_VERSION = (Select-String -Path thagent\ccut_api.py -Pattern 'APP_VERSION = "(.+)"').Matches[0].Groups[1].Value
 & $iscc packaging\ccut.iss; if ($LASTEXITCODE) { exit 1 }
 Write-Host "-> dist\C-Cut-Setup.exe"

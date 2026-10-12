@@ -31,12 +31,12 @@ class Ctx:
         self.log = log
         self.cancel = cancel or (lambda: False)
         p = self.dir / "project.json"
-        self.project = Project.model_validate_json(p.read_text()) if p.exists() else Project(id=pid, name=pid)
+        self.project = Project.model_validate_json(p.read_text(encoding="utf-8")) if p.exists() else Project(id=pid, name=pid)
 
     def save(self):
         self.dir.mkdir(parents=True, exist_ok=True)
         tmp = self.dir / "project.json.tmp"
-        tmp.write_text(self.project.model_dump_json(indent=1))
+        tmp.write_text(self.project.model_dump_json(indent=1), encoding="utf-8")
         tmp.replace(self.dir / "project.json")
 
     def path(self, *a) -> Path:
