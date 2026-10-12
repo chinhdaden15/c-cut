@@ -35,9 +35,10 @@ a = Analysis([os.path.join(SPECPATH, "launch.py")], pathex=[NK], binaries=binari
              hiddenimports=hidden, excludes=["tkinter", "matplotlib", "jax", "jaxlib", "IPython", "pytest", "thagent.anthropic"],
              noarchive=False)
 pyz = PYZ(a.pure)
-app_exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="C-Cut", console=False,
+UTF8 = [("X utf8_mode=1", None, "OPTION")]   # đọc/ghi file + subprocess luôn UTF-8 (Windows mặc định cp1252)
+app_exe = EXE(pyz, a.scripts, UTF8, exclude_binaries=True, name="C-Cut", console=False,
               icon=os.path.join(SPECPATH, "icon.icns" if sys.platform == "darwin" else "icon.ico"))
-py_exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="ccut-py", console=True)
+py_exe = EXE(pyz, a.scripts, UTF8, exclude_binaries=True, name="ccut-py", console=True)
 coll = COLLECT(app_exe, py_exe, a.binaries, a.datas, name="C-Cut")
 if sys.platform == "darwin":
     app = BUNDLE(coll, name="C-Cut.app", icon=os.path.join(SPECPATH, "icon.icns"), bundle_identifier="vn.ccut.app",

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.1"
+APP_VERSION = "1.1.1"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -574,6 +574,11 @@ def _run_queue(settings: dict):
             item["status"] = "cancelled" if cancelled else "failed"
             item["error"] = None if cancelled else str(e)[:300]
             job["log"].append(traceback.format_exc()[-1200:])   # ghi thẳng, không qua log() (log() ném lệnh dừng)
+            try:
+                with open(ROOT / "error.log", "a", encoding="utf-8") as f:
+                    f.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} · {item['name']} · {job['stage']}\n{traceback.format_exc()}")
+            except Exception:
+                pass
             for part in c.dir.rglob("*.part*"):                 # dọn file tạm dở dang
                 part.unlink(missing_ok=True)
             notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")

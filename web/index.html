@@ -321,7 +321,8 @@ function renderJob(){
   if(!j){$('#pct').textContent='Chưa chạy';$('#barfill').style.width='0';$('#logline').textContent='';return}
   $('#barfill').style.width=(j.percent||0)+'%';
   $('#pct').textContent=running?`${Math.round(j.percent||0)}%${j.eta_s?' · còn ~'+fmt(j.eta_s):''} · ${esc(j.video||'')}`:(S.queue.some(q=>q.status==='waiting_claude')?'Chờ Claude lập kế hoạch':j.state==='done'?'Xong':'Đã dừng');
-  $('#logline').textContent=(j.log_tail||[]).filter(Boolean).slice(-1)[0]||'';
+  const ll=$('#logline'),lt=(j.log_tail||[]).filter(Boolean).slice(-1)[0]||'';ll.textContent=lt;ll.title=lt?lt+'\n\n(bấm để chép toàn bộ lỗi)':'';
+  ll.onclick=()=>{if(!lt)return;const ta=document.createElement('textarea');ta.value=lt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();toast('Đã chép lỗi — dán gửi cho người hỗ trợ')};
   if(j.stage==='plan'&&running&&j.activity)$('#logline').textContent='Claude: '+j.activity;
 }
 let curPid=null;
@@ -476,13 +477,15 @@ async function loadSetup(){try{SU=await api('/api/ccut/setup')}catch(e){return n
 function renderSetup(){
   if(!SU)return;const c=SU.claude,w=SU.whisper,steps=[];
   const btn=(k,t)=>`<button class="small" data-run="${k}">${t}</button>`;
-  steps.push({ok:c.installed,t:'Cài Claude Code',d:c.installed?'Đã cài.':`Bộ não lên kế hoạch dựng, chạy bằng tài khoản Claude của bạn (gói Pro/Max).<br><code>${esc(SU.cmds.claude_install)}</code><div style="margin-top:6px">${btn('claude_install','Mở cửa sổ cài đặt')}</div>`});
-  if(SU.os==='windows')steps.push({ok:SU.git,t:'Cài Git for Windows',d:SU.git?'Đã cài.':`Claude Code trên Windows cần Git.<br><code>${esc(SU.cmds.git_install)}</code><div style="margin-top:6px">${btn('git_install','Mở cửa sổ cài đặt')}</div>`});
+  const cmd=k=>`<code style="user-select:all">${esc(SU.cmds[k])}</code> <button class="small" data-copy="${k}">Chép</button>`;
+  steps.push({ok:c.installed,t:'Cài Claude Code',d:c.installed?'Đã cài.':`Bộ não lên kế hoạch dựng, chạy bằng tài khoản Claude của bạn (gói Pro/Max).<br>${cmd('claude_install')}<div style="margin-top:6px">${btn('claude_install','Mở cửa sổ cài đặt')}</div>`});
+  if(SU.os==='windows')steps.push({ok:SU.git,t:'Cài Git for Windows',d:SU.git?'Đã cài.':`Claude Code trên Windows cần Git.<br>${cmd('git_install')}<div style="margin-top:6px">${btn('git_install','Mở cửa sổ cài đặt')}</div>`});
   steps.push({ok:c.logged_in,t:'Đăng nhập Claude',d:c.logged_in?'Đã đăng nhập.':!c.installed?'Cài Claude Code trước.':`Trình duyệt sẽ mở để đăng nhập tài khoản Claude.<div style="margin-top:6px">${btn('claude_login','Đăng nhập')}</div>`});
   steps.push({ok:w.ready,t:'Tải model chép lời (~3 GB, một lần)',d:w.ready?'Đã có.':w.running?`Đang tải… ${w.pct}%<div class="pbar"><i style="width:${w.pct}%"></i></div>`:`${w.error?`<span style="color:var(--err)">${esc(w.error)}</span><br>`:''}Dùng để nghe lời nói tiếng Việt trong clip. Nên tải ngay, không thì lần dựng đầu sẽ phải chờ.<div style="margin-top:6px"><button class="small" id="dlWhisper">Tải ngay</button></div>`});
   $('#setupSteps').innerHTML=steps.map((s,i)=>`<div class="sustep ${s.ok?'ok':''}"><div class="num">${s.ok?'✓':i+1}</div><div class="body"><b>${s.t}</b><div class="small dim" style="margin-top:3px">${s.d}</div></div></div>`).join('');
   $('#setupNote').textContent=SU.done?'Đã đủ — có thể bắt đầu.':'Làm xong từng bước rồi bấm Kiểm tra lại.';
   $('#setupDone').disabled=!SU.done;
+  document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const t=SU.cmds[b.dataset.copy],ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();navigator.clipboard?.writeText(t).catch(()=>{});toast('Đã chép lệnh')});
   document.querySelectorAll('[data-run]').forEach(b=>b.onclick=async()=>{await post('/api/ccut/setup/run/'+b.dataset.run);toast('Đã mở cửa sổ — làm theo hướng dẫn trong đó')});
   const d=$('#dlWhisper');if(d)d.onclick=async()=>{SU=await post('/api/ccut/setup/whisper');renderSetup()};
 }

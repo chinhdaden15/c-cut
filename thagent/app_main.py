@@ -126,7 +126,21 @@ def _free_port(start=8765) -> int:
     raise RuntimeError("không còn cổng trống")
 
 
+def _hide_consoles():
+    """app không có cửa sổ console → mỗi tiến trình con (claude, ffmpeg, git…) sẽ bật một cửa sổ đen; ẩn đi."""
+    import subprocess
+    orig = subprocess.Popen.__init__
+
+    def init(self, *a, **kw):
+        if not kw.get("creationflags"):
+            kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+        orig(self, *a, **kw)
+    subprocess.Popen.__init__ = init
+
+
 def run_app():
+    if IS_WIN:
+        _hide_consoles()
     res, home = setup_env()
     seed(res, home)
     os.chdir(home)
@@ -145,7 +159,8 @@ def run_app():
         if srv.started:
             break
         time.sleep(0.05)
-    win = webview.create_window(APP_NAME, f"http://127.0.0.1:{port}", width=1440, height=900, min_size=(1100, 700))
+    win = webview.create_window(APP_NAME, f"http://127.0.0.1:{port}", width=1440, height=900, min_size=(1100, 700),
+                                text_select=True)
     ccut_api.WINDOW = win
     webview.start()
     srv.should_exit = True
