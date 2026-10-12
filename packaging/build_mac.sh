@@ -12,7 +12,7 @@ APP=build/pyi/C-Cut.app
 codesign --force --deep --sign - "$APP"          # ký ad-hoc (chưa có Apple Developer ID)
 STAGE=build/dmg; rm -rf $STAGE; mkdir -p $STAGE
 cp -R "$APP" $STAGE/; ln -s /Applications $STAGE/Applications
-[ -f "dist/Huong dan su dung C-Cut.pdf" ] && cp "dist/Huong dan su dung C-Cut.pdf" $STAGE/
+cp "packaging/guide/Huong dan su dung C-Cut.pdf" $STAGE/
 mkdir -p dist; rm -f dist/C-Cut-mac-$TAG.dmg
 hdiutil create -volname "C-Cut" -srcfolder $STAGE -ov -format UDZO dist/C-Cut-mac-$TAG.dmg
 echo "→ dist/C-Cut-mac-$TAG.dmg"

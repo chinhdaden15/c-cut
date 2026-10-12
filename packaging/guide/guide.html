@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>Hướng dẫn sử dụng C-Cut</title>
+<style>
+@font-face{font-family:BVP;src:url(../../assets/fonts/BeVietnamPro-Regular.ttf)}
+@font-face{font-family:BVP;font-weight:700;src:url(../../assets/fonts/BeVietnamPro-Bold.ttf)}
+@page{size:A4;margin:18mm 16mm}
+body{font:10.5pt/1.55 BVP,sans-serif;color:#1b1b1b}
+h1{font-size:24pt;margin:0 0 4px}h2{font-size:14pt;margin:22px 0 6px;padding-top:8px;border-top:2px solid #D4A63C;break-after:avoid}
+h3{font-size:11pt;margin:14px 0 4px;break-after:avoid}
+.sub{color:#666;margin:0 0 18px}
+code{background:#f2f0ea;padding:1px 5px;border-radius:4px;font-size:9.5pt}
+.box{background:#faf6ea;border-left:4px solid #D4A63C;padding:8px 12px;margin:10px 0;break-inside:avoid}
+.warn{background:#fdeeee;border-left-color:#d05050}
+table{border-collapse:collapse;width:100%;margin:8px 0;break-inside:avoid}td,th{border:1px solid #ddd;padding:5px 8px;text-align:left;vertical-align:top}th{background:#f5f3ee}
+img{width:100%;border:1px solid #ccc;border-radius:6px;margin:6px 0}
+ol li,ul li{margin:3px 0}
+.cover{display:flex;align-items:center;gap:16px;margin-bottom:6px}.cover img{width:64px;border:0;margin:0}
+</style></head><body>
+<div class="cover"><img src="../icon.png"><div><h1>C-Cut</h1></div></div>
+<p class="sub">Hướng dẫn sử dụng · phiên bản 1.1 · Style Talking Head 1.2.0<br>App dựng video talking head bất động sản tự động, chạy trên máy của bạn.</p>
+
+<h2>1. Cài đặt</h2>
+<table><tr><th>Máy</th><th>File cài</th><th>Cách cài</th></tr>
+<tr><td>Mac chip M (M1–M4…)</td><td><code>C-Cut-mac-arm64.dmg</code></td><td rowspan="2">Mở file .dmg → kéo <b>C-Cut</b> vào thư mục <b>Applications</b>.</td></tr>
+<tr><td>Mac chip Intel</td><td><code>C-Cut-mac-intel.dmg</code></td></tr>
+<tr><td>Windows 10/11 64-bit</td><td><code>C-Cut-Setup.exe</code></td><td>Chạy file → Tiếp → Cài. Không cần quyền quản trị.</td></tr></table>
+<p>Không biết máy Mac dùng chip gì? Bấm menu Apple (góc trên trái) → <b>Giới thiệu về máy Mac này</b>: dòng “Chip Apple M…” là chip M, dòng “Bộ xử lý Intel…” là Intel.</p>
+<div class="box warn"><b>Lần đầu mở app có thể bị chặn</b> vì app chưa đăng ký chữ ký số:<br>
+• <b>Mac:</b> chuột phải vào C-Cut trong Applications → <b>Mở</b> → <b>Mở</b>. Nếu vẫn bị chặn: <b>Cài đặt hệ thống → Quyền riêng tư &amp; Bảo mật</b> → kéo xuống bấm <b>Vẫn mở</b>.<br>
+• <b>Windows:</b> nếu hiện màn hình xanh “Windows protected your PC”, bấm <b>More info → Run anyway</b>.</div>
+<p>Cần trống ít nhất <b>10 GB</b> ổ đĩa (app ~1 GB, model chép lời ~3 GB, phần còn lại cho dự án). Nên dùng máy RAM 8 GB trở lên.</p>
+
+<h2>2. Thiết lập lần đầu</h2>
+<p>Lần đầu mở, C-Cut hiện bảng <b>Thiết lập lần đầu</b>. Python, ffmpeg, font, SFX và style đã có sẵn trong app — chỉ còn:</p>
+<ol>
+<li><b>Cài Claude Code</b> — “bộ não” lên kế hoạch dựng. Bấm <b>Mở cửa sổ cài đặt</b>, một cửa sổ Terminal (Mac) / PowerShell (Windows) chạy lệnh cài, chờ đến khi báo xong.</li>
+<li><b>(Chỉ Windows) Cài Git for Windows</b> — Claude Code cần. Bấm nút tương ứng, hoặc tải tại git-scm.com.</li>
+<li><b>Đăng nhập Claude</b> — bấm <b>Đăng nhập</b>, trình duyệt mở trang Claude, đăng nhập và bấm cho phép. Cần tài khoản Claude trả phí (Pro hoặc Max).</li>
+<li><b>Tải model chép lời</b> (~3 GB, một lần) — bấm <b>Tải ngay</b> và chờ thanh tiến trình chạy hết.</li>
+</ol>
+<p>Làm xong bấm <b>Kiểm tra lại</b>, đủ 4 dấu ✓ thì bấm <b>Bắt đầu dùng</b>. Muốn mở lại bảng này: biểu tượng ⚙ → <b>Công cụ</b> → <b>Thiết lập lần đầu…</b></p>
+
+<h2>3. Màn hình chính</h2>
+<img src="main.png">
+<table><tr><th>Vùng</th><th>Dùng để</th></tr>
+<tr><td>1 · Video gốc</td><td>Kéo thả hoặc <b>Chọn file</b> / <b>Chọn thư mục</b> clip đã quay.</td></tr>
+<tr><td>2 · Style</td><td>Chọn style dựng (mặc định <b>Style Talking Head</b>).</td></tr>
+<tr><td>3 · Nơi xuất</td><td>Thư mục lưu video hoàn chỉnh (1080×1920, 30fps, MP4). Bấm <b>Đổi</b> để chọn chỗ khác.</td></tr>
+<tr><td>Thẻ Claude (trái)</td><td>Model đang dùng và phần giới hạn còn lại của tài khoản trong 5 giờ / 7 ngày.</td></tr>
+<tr><td>Xem trước · Dòng thời gian</td><td>Ảnh tĩnh các điểm nhấn và vị trí các đoạn graphic.</td></tr>
+<tr><td>Tiến trình</td><td>Nhập → Chép lời → Tách nền → Kế hoạch → Kiểm tra → Xuất.</td></tr>
+<tr><td>Nguồn và bản quyền</td><td>Danh sách ảnh minh họa và nguồn — bấm <b>Chép</b> để dán vào phần mô tả video.</td></tr>
+<tr><td>Khung Claude (phải)</td><td>Claude báo việc đang làm, những chỗ đã tự quyết; bạn gõ góp ý để sửa.</td></tr>
+<tr><td>Thanh trên</td><td>Tên dự án (bấm để đổi), trạng thái công cụ, 🔔 thông báo, ⚙ cài đặt.</td></tr></table>
+
+<h2>4. Làm một video</h2>
+<ol>
+<li><b>Thêm video</b>: chọn 1 file clip. Chọn một <b>thư mục</b> thì app hỏi: mỗi file là <i>video riêng</i>, hay là <i>các đoạn của 1 video</i> (app tự ghép theo kịch bản, xen cảnh quay phụ).</li>
+<li><b>Kịch bản (nên có)</b>: ở mỗi video trong hàng chờ bấm <b>+ kịch bản</b>, dán chữ hoặc chọn file .txt/.docx/.srt. Claude dựa vào đó để sửa chính tả, tên riêng, số liệu.</li>
+<li>Bấm <b>Bắt đầu dựng</b>. App tự chạy hết các bước; Claude tự quyết những chỗ chưa rõ và liệt kê lại trong khung chat.</li>
+<li>Khi xong, có thông báo và file MP4 nằm trong <b>Nơi xuất</b>. Thời gian dựng thường 10–30 phút cho clip 1–2 phút, tùy máy.</li>
+<li><b>Muốn sửa</b>: gõ góp ý vào khung Claude, ví dụ “câu ở giây 35 đổi thành …”, “ảnh phòng họp chọn ảnh khác”, “bỏ graphic đoạn cuối” → Claude sửa và xuất bản mới.</li>
+</ol>
+<div class="box">Có thể thêm nhiều video vào hàng chờ; app làm lần lượt. Tắt app giữa chừng thì lần sau mở lại sẽ chạy tiếp từ bước đã xong.</div>
+
+<h2>5. Mẹo quay để dựng đẹp</h2>
+<ul>
+<li>Quay <b>khung dọc</b> 9:16, đủ sáng, người nói rõ trong khung từ ngực trở lên.</li>
+<li>Nói nhìn vào máy. Khi quay đi giới thiệu không gian, app giữ lại; các đoạn khác app che bằng graphic.</li>
+<li>Khi <b>chỉ tay</b> vào vật, giữ tay khoảng 1 giây để app nhận ra và làm nổi bật vật đó.</li>
+<li>Quay thêm cảnh thật của dự án (thang máy, máy lạnh, tủ điện, mặt tiền…) — app cắt từ đó làm hình minh họa đúng vật. Thứ không có trong clip, app dùng ảnh minh họa có ghi nhãn “Hình ảnh minh họa”.</li>
+<li>Âm thanh: dùng micro cài áo nếu có, tránh nơi ồn và gió.</li>
+</ul>
+
+<h2>6. Lỗi thường gặp</h2>
+<table><tr><th>Hiện tượng</th><th>Cách xử lý</th></tr>
+<tr><td>“Chưa cài Claude Code”</td><td>⚙ → Công cụ → Thiết lập lần đầu… → làm lại bước 1–3.</td></tr>
+<tr><td>Claude dừng giữa chừng, báo hết giới hạn</td><td>Xem thẻ Claude: chờ đến giờ <b>reset</b> rồi bấm Bắt đầu dựng lại — app chạy tiếp từ chỗ dừng.</td></tr>
+<tr><td>Chép lời rất lâu ở lần đầu</td><td>Model chép lời đang tải (~3 GB). Tải sẵn ở bảng Thiết lập lần đầu.</td></tr>
+<tr><td>Báo thiếu dung lượng / render dừng</td><td>Giải phóng ổ đĩa; dự án cũ có thể xóa trong thư mục dự án (⚙ → Cài đặt → Nơi lưu dự án).</td></tr>
+<tr><td>Không mở được app trên Mac</td><td>Xem hộp cảnh báo ở mục 1 (chuột phải → Mở).</td></tr>
+<tr><td>Trạng thái góc trên màu đỏ</td><td>Bấm vào để xem công cụ nào thiếu → Kiểm tra lại.</td></tr></table>
+
+<h2>7. Cập nhật</h2>
+<ul>
+<li><b>App</b>: tải bản mới ở trang tải, cài đè lên bản cũ. Dự án, cài đặt và model đã tải được giữ nguyên.</li>
+<li><b>Style</b>: style mới đi kèm bản app mới và tự cập nhật khi mở app.</li>
+</ul>
+<p class="sub" style="margin-top:20px">Dữ liệu app nằm tại: Mac <code>~/Library/Application Support/C-Cut</code> · Windows <code>%LOCALAPPDATA%\C-Cut</code>.</p>
+</body></html>
