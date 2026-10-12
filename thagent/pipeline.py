@@ -89,14 +89,22 @@ def step_ingest(c: Ctx, source: str):
 def step_transcribe(c: Ctx, vocab=None, model="large-v3"):
     from .transcribe import transcribe
     tj = c.path("work", "transcript.json")
+    d = None
     if tj.exists():
-        d = json.loads(tj.read_text())
+        try:
+            d = json.loads(tj.read_text(encoding="utf-8"))
+        except ValueError:          # file dở dang từ lần chạy lỗi trước → chép lời lại
+            tj.unlink()
+    if d:
         words = [TranscriptWord(**w) for w in d["words"]]
         sents = [Sentence(**s) for s in d["sentences"]]
     else:
         words, sents = transcribe(str(c.path("proxy", "asr16k.wav")), model, vocab, progress=c.log)
-        tj.write_text(json.dumps({"words": [w.model_dump() for w in words],
-                                  "sentences": [s.model_dump() for s in sents]}, ensure_ascii=False, indent=1))
+        tmp = tj.with_suffix(".json.part")
+        tmp.write_text(json.dumps({"words": [w.model_dump() for w in words],
+                                   "sentences": [s.model_dump() for s in sents]}, ensure_ascii=False, indent=1),
+                       encoding="utf-8")
+        tmp.replace(tj)
     if not c.project.words:
         from .transcribe import fix_numbers
         for m in fix_numbers(words):
