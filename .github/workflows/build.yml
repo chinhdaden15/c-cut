@@ -49,5 +49,14 @@ jobs:
         env: {PYTHONUTF8: "0", PYTHONIOENCODING: "", CCUT_HOME: build/res/seed}
         run: build\pyi\C-Cut\ccut-py.exe packaging\smoke.py
         shell: pwsh
+      - name: kiểm tra lệnh python Claude gọi qua Git Bash (giống app)
+        shell: bash
+        env: {PYTHONUTF8: "0", PYTHONIOENCODING: ""}
+        run: |
+          H=$(mktemp -d); mkdir -p "$H/.venv/bin"
+          EXE=$(cygpath -m "$PWD/build/pyi/C-Cut/ccut-py.exe")
+          printf '#!/bin/sh\nexec "%s" "$@"\n' "$EXE" > "$H/.venv/bin/python"; chmod +x "$H/.venv/bin/python"
+          export CCUT_HOME=$(cygpath -m "$PWD/build/res/seed") PYTHONPATH=$(cygpath -m "$H")
+          cd "$H" && .venv/bin/python -c "import thagent.tools; print('SHIM OK')"
       - uses: actions/upload-artifact@v4
         with: {name: C-Cut-windows, path: dist/C-Cut-Setup.exe}

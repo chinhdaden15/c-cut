@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import threading
@@ -17,7 +18,8 @@ from . import pipeline as P
 
 ROOT = P.ROOT
 ALLOWED = ["Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch",
-           "Bash(.venv/bin/python:*)", "Bash(ffmpeg:*)", "Bash(ffprobe:*)", "Bash(curl:*)",
+           "Bash(.venv/bin/python:*)", "Bash(./.venv/bin/python:*)", "Bash(PYTHONPATH=. .venv/bin/python:*)",
+           "Bash(ffmpeg:*)", "Bash(ffprobe:*)", "Bash(curl:*)",
            "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(file:*)"]
 
 SYSTEM = """Bạn là agent biên tập video của app C-Cut, làm việc trong thư mục app (cwd).
@@ -26,12 +28,13 @@ Dữ liệu đã có: {pdir}/project.json (nguồn, transcript), {pdir}/work/tra
 
 QUY TẮC TỐC ĐỘ (bắt buộc — mục tiêu clip 1 phút xong trong ~10 phút):
 - KHÔNG đọc/tham khảo dự án khác trong projects/ (mọi mẫu cần dùng nằm ở .claude/skills/{style}/reference/).
+- Gõ lệnh python ĐÚNG dạng `.venv/bin/python ...` (PYTHONPATH app đã cài sẵn): KHÔNG thêm tiền tố biến môi trường, KHÔNG `cd`, KHÔNG nối lệnh bằng && ; | — nếu không lệnh sẽ bị chặn quyền.
 - KHÔNG tự viết script phụ (_where.py, frames.py, fix_asr.py, fetch_imgs.py...). Dùng lệnh có sẵn:
-    PYTHONPATH=. .venv/bin/python -m thagent.tools where {pid}            đường dẫn, thời lượng
-    PYTHONPATH=. .venv/bin/python -m thagent.tools words {pid} [t0 t1]    transcript kèm giây
-    PYTHONPATH=. .venv/bin/python -m thagent.tools fix {pid} '[{{"t":32.7,"to":"chính"}}]'   sửa chữ (n=gộp n từ)
-    PYTHONPATH=. .venv/bin/python -m thagent.tools frames {pid} 3.2 10 25.5   ảnh ghép khung → Read work/frames.jpg
-    PYTHONPATH=. .venv/bin/python -m thagent.tools img {pid} <url> i_ten.jpg [nguồn]   tải ảnh minh họa
+    .venv/bin/python -m thagent.tools where {pid}            đường dẫn, thời lượng
+    .venv/bin/python -m thagent.tools words {pid} [t0 t1]    transcript kèm giây
+    .venv/bin/python -m thagent.tools fix {pid} '[{{"t":32.7,"to":"chính"}}]'   sửa chữ (n=gộp n từ)
+    .venv/bin/python -m thagent.tools frames {pid} 3.2 10 25.5   ảnh ghép khung → Read work/frames.jpg
+    .venv/bin/python -m thagent.tools img {pid} <url> i_ten.jpg [nguồn]   tải ảnh minh họa
 - gaze.json, pointing.json, anchors, Cắt sạch đã do app/mẫu tính sẵn — không tính lại.
 - Thứ tự cố định, mỗi bước 1 lần: sửa chữ → design.py từ mẫu (Cắt sạch tự chạy) → preflight → stills → plan_ready. Không lặp vòng thử nghiệm.
 
@@ -64,7 +67,7 @@ GHÉP NHIỀU ĐOẠN (chỉ khi app yêu cầu viết edl.json — dự án g�
 2b. Vật nhân vật chỉ tay/giới thiệu: đọc {pdir}/work/pointing.json (t0,t1,box,said), xem ảnh tĩnh để chỉnh box cho trúng vật, rồi thêm
    VideoFxEvent(type="highlight", params={{"box":[x,y,w,h] (0–1, khung gốc), "label":"THANG MÁY", "tone":"gold", "shape":"rect|ring"}}) — viền sáng + làm tối xung quanh.
    Số bị ASR nghe nhầm thành chữ (“Chín”→“Chính máy lạnh”) app đã tự sửa qua fix_numbers và đánh dấu cần xác nhận; số liệu phải là chữ chính cả cụm (9 MÁY LẠNH).
-3. Viết {pdir}/design.py và {pdir}/design_mg.py từ mẫu .claude/skills/{style}/reference/ (đổi "bta" thành "{pid}", viết lại toàn bộ nội dung theo transcript mới). Chạy: .venv/bin/python {pdir}/design.py (PYTHONPATH=. qua lệnh: PYTHONPATH=. .venv/bin/python ...).
+3. Viết {pdir}/design.py và {pdir}/design_mg.py từ mẫu .claude/skills/{style}/reference/ (đổi "bta" thành "{pid}", viết lại toàn bộ nội dung theo transcript mới). Chạy: .venv/bin/python {pdir}/design.py
 4. Chạy .venv/bin/python -m thagent.preflight {pid} cho đến 0 lỗi 0 cảnh báo.
 5. Chạy .venv/bin/python -m thagent.stills {pid} rồi Read {pdir}/stills/sheet.jpg để tự duyệt bố cục; sửa đến khi đạt.
 6. Khi xong: ghi {pdir}/plan_ready.json = {{"ready": true, "summary": "<1-2 câu>"}} và báo ngắn gọn cho người dùng, kèm danh sách ngắn các chỗ đã tự sửa/tự quyết (từ confirm.json).
@@ -156,6 +159,7 @@ class Session:
         self.last_evt = time.time()       # lần cuối Claude gửi gì đó (để phát hiện treo)
         self.err_tail = ""
         self.restarts = 0
+        self.denied = ""                  # lệnh bị Claude Code chặn quyền (báo ngay, không nhắc lại vô ích)
 
     # ---------- lưu ----------
     def _save(self):
@@ -180,7 +184,8 @@ class Session:
         cmd += ["--model", self.model, "--add-dir", str(self.dir.parent)]   # thư mục dự án có thể nằm ngoài thư mục app
         if self.session_id:
             cmd += ["--resume", self.session_id]
-        self.proc = subprocess.Popen(cmd, cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join(x for x in (str(ROOT), os.environ.get("PYTHONPATH")) if x))
+        self.proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", bufsize=1,
                                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.last_evt = time.time()
@@ -238,7 +243,16 @@ class Session:
                     elif b.get("type") == "tool_use":
                         self.activity = _describe(b)
                         self._add("claude", self.activity, kind="tool")
+            elif t == "user":
+                for b in (d.get("message") or {}).get("content") or []:
+                    if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("is_error"):
+                        txt = b.get("content")
+                        txt = txt if isinstance(txt, str) else json.dumps(txt, ensure_ascii=False)
+                        if "requires approval" in txt or "permission" in txt.lower() and "denied" in txt.lower():
+                            self.denied = self.activity or txt[:200]
             elif t == "result":
+                for x in d.get("permission_denials") or []:
+                    self.denied = self.denied or str((x.get("tool_input") or {}).get("command") or x.get("tool_name"))[:200]
                 self.busy = False
                 self.activity = ""
                 if d.get("is_error"):
@@ -259,6 +273,7 @@ class Session:
             if show:
                 self._add("user", text)
             self.busy = True
+            self.denied = ""
             self.last_evt = time.time()
             msg = {"type": "user", "message": {"role": "user", "content": text}}
             self.proc.stdin.write(json.dumps(msg, ensure_ascii=False) + "\n")

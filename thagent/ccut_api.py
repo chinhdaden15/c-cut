@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.2.3"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -626,6 +626,8 @@ def _run_queue(settings: dict):
                     if job["cancel"]:
                         sess.stop(); raise RuntimeError("cancelled")
                     job["activity"] = sess.activity
+                    if sess.denied and not sess.busy and not sess.plan_ready():
+                        raise RuntimeError(f"Claude bị chặn quyền chạy lệnh: {sess.denied} — báo lỗi này cho nhà phát triển")
                     if not sess.busy and not sess.plan_ready():   # Claude đã dừng giữa chừng mà chưa xong → giao lại việc
                         time.sleep(5)
                         if not sess.busy and not sess.plan_ready():
