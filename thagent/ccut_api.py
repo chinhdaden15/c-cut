@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -36,6 +36,7 @@ STAGES_MULTI = [("analyze", "Phân tích đoạn", 15), ("edl", "Ghép", 10), ("
 
 DEFAULTS = {"project_name": "", "project_dir": str(ROOT / "projects"),
             "export_dir": str(Path.home() / "Videos" / "C-Cut"), "style": "talking-head-style",
+            "build_model": "sonnet",
             "notify_sound": True, "notify_system": True}
 
 STATE = {"queue": [], "job": None, "notifications": []}
@@ -77,6 +78,7 @@ class SettingsIn(BaseModel):
     project_dir: str | None = None
     export_dir: str | None = None
     style: str | None = None
+    build_model: str | None = None
     notify_sound: bool | None = None
     notify_system: bool | None = None
 
@@ -449,6 +451,18 @@ def _progress(job: dict) -> None:
             if m:
                 frac = float(m.group(1)) / float(m.group(2))
                 break
+    now = time.time()
+    if job.get("_st") != job["stage"]:      # đổi bước → ghi thời gian bước trước vào timing.log
+        if job.get("_st"):
+            try:
+                from . import agent as A
+                with open(ROOT / "timing.log", "a", encoding="utf-8") as f:
+                    f.write(f"{time.strftime('%Y-%m-%d %H:%M')}\t{job.get('project')}\t{job['_st']}\t"
+                            f"{now - job['_st_t0']:.0f}s\t{load_settings().get('build_model')}\n")
+            except Exception:
+                pass
+        job["_st"], job["_st_t0"] = job["stage"], now
+    job["stage_s"] = round(now - job["_st_t0"])
     pct = done_w + (cur[2] * frac if cur else 0)
     job["percent"] = round(pct, 1)
     el = time.time() - job["t0"]
@@ -675,7 +689,7 @@ def state(project: str | None = None):
     pub_job = None
     if job:
         _progress(job) if job["state"] == "running" else None
-        pub_job = {k: job.get(k) for k in ("state", "stage", "done", "percent", "eta_s", "video", "project", "activity")}
+        pub_job = {k: job.get(k) for k in ("state", "stage", "done", "percent", "eta_s", "stage_s", "video", "project", "activity")}
         pub_job["stages"] = [{"key": k, "label": l} for k, l, _ in (job.get("stages") or STAGES)]
         pub_job["log_tail"] = job["log"][-4:]
     pid = project or (job or {}).get("project") or next((q["project"] for q in reversed(STATE["queue"]) if q["project"]), None)

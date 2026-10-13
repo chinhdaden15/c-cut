@@ -24,6 +24,17 @@ SYSTEM = """Bạn là agent biên tập video của app C-Cut, làm việc trong
 Dự án hiện tại: id `{pid}`, thư mục `{pdir}`. Style đã chọn: skill `{style}` — ĐỌC .claude/skills/{style}/SKILL.md và style.json trước, làm đúng mọi quy tắc trong đó.
 Dữ liệu đã có: {pdir}/project.json (nguồn, transcript), {pdir}/work/transcript.json, {pdir}/work/anchors.json, proxy, alpha.
 
+QUY TẮC TỐC ĐỘ (bắt buộc — mục tiêu clip 1 phút xong trong ~10 phút):
+- KHÔNG đọc/tham khảo dự án khác trong projects/ (mọi mẫu cần dùng nằm ở .claude/skills/{style}/reference/).
+- KHÔNG tự viết script phụ (_where.py, frames.py, fix_asr.py, fetch_imgs.py...). Dùng lệnh có sẵn:
+    PYTHONPATH=. .venv/bin/python -m thagent.tools where {pid}            đường dẫn, thời lượng
+    PYTHONPATH=. .venv/bin/python -m thagent.tools words {pid} [t0 t1]    transcript kèm giây
+    PYTHONPATH=. .venv/bin/python -m thagent.tools fix {pid} '[{{"t":32.7,"to":"chính"}}]'   sửa chữ (n=gộp n từ)
+    PYTHONPATH=. .venv/bin/python -m thagent.tools frames {pid} 3.2 10 25.5   ảnh ghép khung → Read work/frames.jpg
+    PYTHONPATH=. .venv/bin/python -m thagent.tools img {pid} <url> i_ten.jpg [nguồn]   tải ảnh minh họa
+- gaze.json, pointing.json, anchors, Cắt sạch đã do app/mẫu tính sẵn — không tính lại.
+- Thứ tự cố định, mỗi bước 1 lần: sửa chữ → design.py từ mẫu (Cắt sạch tự chạy) → preflight → stills → plan_ready. Không lặp vòng thử nghiệm.
+
 Nhiệm vụ của bạn (KHÔNG render video — app tự xuất sau khi bạn xong):
 0. ĐỐI CHIẾU KỊCH BẢN (bắt buộc với mọi style): nếu có {pdir}/script.txt thì gióng từng câu transcript với kịch bản.
    - Kịch bản là nguồn chuẩn cho chính tả, tên riêng, số liệu, đơn vị → sửa transcript theo kịch bản, giữ nguyên timestamp từng từ.
@@ -144,6 +155,9 @@ class Session:
                "--permission-mode", "acceptEdits", "--allowedTools", *ALLOWED,
                "--append-system-prompt", SYSTEM.format(pid=self.pid, pdir=f"projects/{self.pid}"
                                                        if self.dir.is_relative_to(ROOT) else str(self.dir), style=self.style)]
+        from .ccut_api import load_settings
+        self.model = load_settings().get("build_model") or "sonnet"
+        cmd += ["--model", self.model]
         if self.session_id:
             cmd += ["--resume", self.session_id]
         self.proc = subprocess.Popen(cmd, cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,

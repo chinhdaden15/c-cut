@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 
 import av, cv2, faster_whisper, mediapipe as mp, numpy, onnxruntime as ort  # noqa: F401
-from thagent import matting, pointing, gaze, clips, render, preflight, stills, transcribe, sfx, typography, cleancut, updater, agent  # noqa: F401
+from thagent import matting, pointing, gaze, clips, render, preflight, stills, transcribe, sfx, typography, cleancut, updater, agent, tools  # noqa: F401
 from thagent.paths import ROOT
 
 ort.InferenceSession(str(matting.RVM_MODEL), providers=["CPUExecutionProvider"])
