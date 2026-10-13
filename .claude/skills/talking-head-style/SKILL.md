@@ -1,6 +1,6 @@
 ---
 name: talking-head-style
-description: Phong cách dựng video Talking Head “Talking Head Style” (BĐS, tiếng Việt, dọc 9:16) đã được người dùng duyệt — chữ neon Montserrat 3 màu (vàng cam/đỏ/xanh), chữ dẫn rơi từng từ + tick, xếp lớp sau đầu/trước ngực, icon Flaticon gradient phát sáng, Motion Graphics nền xanh mỗi ~15s, SFX tiết chế, preflight trước render. Dùng khi người dùng chọn “Talking Head Style”, nói “dựng theo Talking Head Style”, “dựng video talking head như bản B.TA”, hoặc đưa video người nói vào app và muốn dựng full.
+description: Phong cách dựng video Talking Head “Talking Head Style” (mọi lĩnh vực, tiếng Việt, dọc 9:16) đã được người dùng duyệt — chữ neon Montserrat 3 màu (vàng cam/đỏ/xanh), chữ dẫn rơi từng từ + tick, xếp lớp sau đầu/trước ngực, icon Flaticon gradient phát sáng, Motion Graphics nền xanh mỗi ~15s, SFX tiết chế, preflight trước render. Dùng khi người dùng chọn “Talking Head Style”, nói “dựng theo Talking Head Style”, “dựng video talking head như bản B.TA”, hoặc đưa video người nói vào app và muốn dựng full.
 ---
 
 # Talking Head Style
@@ -9,13 +9,17 @@ Bản chuẩn đã duyệt: `projects/bta/renders/v009_v6_clean/bta_v6_clean.mp4
 Mọi thông số máy đọc: [style.json](style.json). Mẫu code đã duyệt (copy rồi sửa cho video mới):
 [reference/design_example.py](reference/design_example.py) (chữ, SFX, zoom, ảnh trên đầu) và
 [reference/design_mg_example.py](reference/design_mg_example.py) (Motion Graphics).
+Hai mẫu đó là video BĐS — **chỉ học cấu trúc và nhịp, không học nội dung**. Ví dụ ngắn lĩnh vực khác: [reference/domain_examples.md](reference/domain_examples.md).
 
-Giọng nói và ý nghĩa nguyên bản là nền tảng. Không đổi số, đơn vị, điều kiện, tên dự án.
+**Mọi lĩnh vực:** trước khi lập kế hoạch, đọc transcript và xác định lĩnh vực + khán giả + chủ thể chính (thương hiệu/sản phẩm/địa điểm/người/sự kiện),
+ghi mục đầu `confirm.json` `{"id":"domain","text":"Lĩnh vực: … · Khán giả: … · Chủ thể: …","status":"auto"}`. Chữ, ảnh, icon, bối cảnh minh họa theo đúng lĩnh vực đó.
+
+Giọng nói và ý nghĩa nguyên bản là nền tảng. Không đổi số, đơn vị, điều kiện, tên riêng.
 
 ## Quy trình (theo đúng thứ tự — render là bước CUỐI)
 
-1. **Nhận nguồn** — `P.step_ingest` (proxy 1080×1920@30, tự tonemap HDR). Hỏi/ghi nhận: nguồn đã lọc tạp âm + cắt thô chưa? Nếu rồi → `style["voice_preprocessed"]=True`, 1 đoạn giữ nguyên, không khử tạp âm. Nếu chưa → **Cắt sạch** (`thagent/cleancut.py`, template tự gọi): bỏ đầu trước chữ đầu, đuôi sau câu kết (+0.4s, cắt đoạn tắt máy), rút lặng còn 0.3s giữa câu / 0.15s giữa từ, bỏ hiệu lệnh “1 2 3 diễn / 2 3 nói / 3 2 1” + câu hỏng ngay trước, từ đệm ừ/à/ờ, lắp bắp cụm ≥2 từ; đoạn giữ thứ lẻ phóng 108% để giấu jump cut. Nói lại nhiều lần cùng câu → giữ lần trôi chảy nhất (tự chấm, cắt các lần kia bằng EditSegment keep=False). In `K.report` vào chat để người dùng biết đã cắt gì; muốn giữ chỗ nào thì bỏ cut đó. Mọi mốc giây trong design là giây NGUỒN, `F` tự đổi sang timeline sau cắt.
-2. **Chép lời** — `P.step_transcribe` (faster-whisper large-v3, timestamp từng từ). Đọc toàn bộ, **sửa lỗi ASR theo ngữ cảnh + nguồn chính thức** (tên dự án, “trục đường”, “cho thuê”…), tự quyết rồi ghi nhật ký vào confirm.json (không chờ duyệt — người dùng góp ý khi xem bản hoàn thiện).
+1. **Nhận nguồn** — `P.step_ingest` (proxy 1080×1920@30, tự tonemap HDR). Hỏi/ghi nhận: nguồn đã lọc tạp âm + cắt thô chưa? Nếu rồi → `style["voice_preprocessed"]=True`, 1 đoạn giữ nguyên, không khử tạp âm. Nếu chưa → **Cắt sạch** (`thagent/cleancut.py`, template tự gọi; ngưỡng lặng theo độ to CHÍNH clip): bỏ đầu trước chữ đầu, đuôi sau câu kết (+0.4s, cắt đoạn tắt máy), rút lặng còn 0.3s giữa câu / 0.15s giữa từ, bỏ hiệu lệnh “1 2 3 diễn / 2 3 nói / 3 2 1” + câu hỏng ngay trước, từ đệm ừ/à/ờ, ậm ừ không thành lời, chữ kéo dài, nói vấp 1 từ (“Đến… Đến bây giờ”), lắp bắp cụm ≥2 từ; đoạn giữ thứ lẻ phóng 108% để giấu jump cut. Nói lại nhiều lần cùng câu → giữ lần trôi chảy nhất (tự chấm, cắt các lần kia bằng EditSegment keep=False). In `K.report` vào chat để người dùng biết đã cắt gì; muốn giữ chỗ nào thì bỏ cut đó. Mọi mốc giây trong design là giây NGUỒN, `F` tự đổi sang timeline sau cắt.
+2. **Chép lời** — `P.step_transcribe` (faster-whisper large-v3, timestamp từng từ). Đọc toàn bộ, **sửa lỗi ASR theo ngữ cảnh + nguồn chính thức** (tên riêng, thuật ngữ ngành, số liệu…), tự quyết rồi ghi nhật ký vào confirm.json (không chờ duyệt — người dùng góp ý khi xem bản hoàn thiện).
    - **Đối chiếu kịch bản** (nếu người dùng nhập `projects/<id>/script.txt`): kịch bản là chuẩn cho chính tả/tên riêng/số liệu; chỗ nhân vật nói khác kịch bản, đoạn bỏ sót, đoạn nói thêm, câu nói vấp/lặp → đưa vào `confirm.json`, không tự quyết. Ghi `script_check.json`.
    - **Nhiều đoạn → 1 video** (app gửi thư mục chế độ “các đoạn của 1 video”): trước tiên viết `edl.json` (chọn take tốt nhất theo kịch bản, đoạn không nhìn máy — kể cả quay sang nhìn bảng trình chiếu — chỉ lấy tiếng + che b-roll/MG); app ghép thành `work/assembled.mov` và `covers.json` — khoảng `mg`/`audio_only` bắt buộc có MG, khoảng b-roll chỉ dùng chữ `front_of_subject`.
 3. **Tách nhân vật + neo** — `P.step_matting` (RVM alpha + đỉnh đầu/mặt).
@@ -23,24 +27,26 @@ Giọng nói và ý nghĩa nguyên bản là nền tảng. Không đổi số, �
 5. **Lập kế hoạch** (viết `projects/<id>/design.py` + `design_mg.py` từ mẫu):
    - Nhóm chữ: `(id, lớp, tông, start, end, lead(text, near), main(TEXT, size, at), pill|None, element)`; lead là **nguyên văn chuỗi từ trong transcript** (hàm `word_frames` sẽ báo lỗi nếu không khớp).
    - **Nội dung chữ (preflight kiểm tự động):**
-     - Số liệu = ý nổi bật → chữ chính **cả cụm đủ nghĩa**: `DIỆN TÍCH 30M²`, `9 MÁY LẠNH`, `4 TỶ USD` — không để số đứng riêng.
+     - Số liệu = ý nổi bật → chữ chính **cả cụm đủ nghĩa**: `DIỆN TÍCH 30M²`, `3 VIÊN/NGÀY`, `200 GRAM BỘT`, `GIẢM 40%`, `4 TỶ USD` — không để số đứng riêng.
      - **Không lặp chữ:** dòng dẫn là phần nói TRƯỚC chữ chính và dừng ngay trước nó. Sai: “một sự lựa chọn đáng xem” + `ĐÁNG XEM`. Đúng: “một sự lựa chọn” + `ĐÁNG XEM`.
      - **Liệt kê** (điều/lý do/bước thứ N): chỉ chữ chính `ĐIỀU 2` / `LÝ DO 1`, **không có dòng dẫn**.
    - Tông màu theo nghĩa: gold = thường, red = cảnh báo/mức độ/sai lầm, blue = tin tưởng/giải pháp.
    - Tiêu đề lớn mở đầu/kết và câu “bẻ lái” → lớp sau (trên vai/đầu). Còn lại → trước ngực.
-   - Motion Graphics: đặt sao cho **không đoạn nói liên tục nào > ~15s**, ưu tiên đoạn mô tả và đoạn không nói vào máy; mỗi đoạn 3.5–13s, các cảnh 1.5–4s; sáng tạo theo nội dung. **Mỗi cảnh MG bắt buộc có ẢNH (PH)**: CLIP chỉ khi clip quay ĐÚNG vật đang nói (thang máy, máy lạnh, điện smart home, chữa cháy) → cắt khung c_*; nội thất/chung chung clip không có (phòng làm việc, WC, phòng họp, tiếp khách, trường, TTTM) → ảnh minh họa i_* (Unsplash/Pexels qua Bing, đúng bối cảnh VĂN PHÒNG chứ không kiểu ở nhà), app tự ghi nhãn “Hình ảnh minh họa”, nguồn lưu assets_web/illus_sources.json; ảnh ĐÚNG dự án w_* chỉ khi nói bên ngoài/toàn cảnh/bản đồ. Không cố cắt clip cho vừa ý.; icon chỉ là phụ trang trí, icon đứng một mình là vô nghĩa.
+   - Motion Graphics: đặt sao cho **không đoạn nói liên tục nào > ~15s**, ưu tiên đoạn mô tả và đoạn không nói vào máy; mỗi đoạn 3.5–13s, các cảnh 1.5–4s; sáng tạo theo nội dung. **Mỗi cảnh MG bắt buộc có ẢNH (PH)**: CLIP chỉ khi clip quay ĐÚNG vật/cảnh đang nói → cắt khung c_*; thứ clip không có (khái niệm, cảnh chung) → ảnh minh họa i_* (Unsplash/Pexels qua Bing, ĐÚNG BỐI CẢNH CHỦ ĐỀ và khán giả — vd y tế: phòng khám/bác sĩ, ẩm thực: món/bếp, công nghệ: thiết bị, BĐS văn phòng: không gian văn phòng chứ không kiểu ở nhà), app tự ghi nhãn “Hình ảnh minh họa”, nguồn lưu assets_web/illus_sources.json; ảnh ĐÚNG CHỦ THỂ w_* (thương hiệu, sản phẩm, địa điểm, dự án, người, sự kiện có thật — nguồn thật có URL, nhãn tên chủ thể) khi nói tới chính chủ thể đó. Không cố cắt clip cho vừa ý.; icon chỉ là phụ trang trí, icon đứng một mình là vô nghĩa.
      **Xấp ảnh theo lời** (`PHS`, type `photos`): mỗi ảnh có `kw` = từ đang nói khi ảnh vào (preflight kiểm ±4s); **không dùng lại cùng ảnh trong 30s**. **Nhịp:** Mỗi ảnh hiện ≥1.8s (preflight báo lỗi), cảnh ngắn chỉ 1 ảnh; cảnh MG ≥2.5s, gộp cảnh vụn. Dòng dẫn rơi nhanh 3 frame/từ ngay đầu cảnh/nhóm (được phép chạy trước lời), chữ chính vào ngay sau dòng dẫn và đứng yên tới hết — không bám từng từ để khỏi khựng.
      **Chuyển cảnh MG = tấm trượt ngang đè lên video** (vào từ phải, ra sang trái); đoạn MG liền nhau tự nối, không lộ cảnh cầm điện thoại ở giữa.
    - **Highlight vật được chỉ tay** — `work/pointing.json` (`python -m thagent.pointing <id>`) cho các đoạn nhân vật chỉ/giới thiệu vật + box gợi ý; xem ảnh tĩnh, chỉnh box cho trúng vật rồi thêm `VideoFxEvent(type="highlight", params={"box":[x,y,w,h], "label":"THANG MÁY", "tone":"gold", "shape":"rect"})`: viền sáng vẽ dần + làm tối xung quanh. Box theo toạ độ khung gốc (trước zoom).
-   - **Số bị ASR nghe nhầm** (“Chín máy lạnh” → “Chính máy lạnh”): `fix_numbers` tự đổi thành số và đưa vào confirm; số liệu luôn làm chữ chính cả cụm.
+   - **Số bị ASR nghe nhầm** (“Chín máy lạnh” → “Chính máy lạnh”, “Ba viên” → “Bà viên”): `fix_numbers` tự đổi thành số và đưa vào confirm; số liệu luôn làm chữ chính cả cụm.
      **Mỗi cảnh bắt buộc có ≥1 minh họa** (ảnh/icon lớn/mũi tên/sơ đồ/checklist) — không cảnh chỉ có chữ. Thẻ nhấn ý `TAG` cỡ 64, bỏ trống `y` để tự nằm sát dưới chữ lớn. Dòng dẫn dài tự cắt từng đoạn 1 dòng trong vùng an toàn.
-   - Ảnh: dự án → nguồn thật có URL; minh họa chung → Unsplash/Pexels/Pinterest qua Bing Images, nhãn “Ảnh minh họa”. Google Images/Flaticon web chặn bot → không vượt CAPTCHA/bộ lọc; icon dùng Uicons đã có trong `assets/uicons` (~3.400 icon, mọi chủ đề): ghi đúng tên Uicons solid-rounded như `heart`, `syringe`, `pills`, `dumbbell-fitness` (tra trong `assets/uicons/solid.css`, bỏ tiền tố `fi-sr-`); preflight báo lỗi nếu tên không có.
+   - Ảnh: đúng chủ thể (thương hiệu/sản phẩm/địa điểm/dự án/người/sự kiện) → nguồn thật có URL, nhãn tên chủ thể; minh họa chung → Unsplash/Pexels/Pinterest qua Bing Images, nhãn “Ảnh minh họa”. Google Images/Flaticon web chặn bot → không vượt CAPTCHA/bộ lọc; icon dùng Uicons đã có trong `assets/uicons` (~3.400 icon, mọi chủ đề): ghi đúng tên Uicons solid-rounded như `heart`, `syringe`, `pills`, `dumbbell-fitness` (tra trong `assets/uicons/solid.css`, bỏ tiền tố `fi-sr-`); preflight báo lỗi nếu tên không có.
    - Zoom punch 1.14 ở 6–7 ý chính, zoom-out 1.12 ở 5–6 nhóm.
    - SFX theo `style.json → sfx` (tick cho chữ rơi, âm nhẹ cho chữ chính/tích, flash cho chuyển cảnh/tiêu đề sau đầu, tiền tối đa 1 lần). Không whoosh.
 6. **Preflight** — `python -m thagent.preflight <id>` phải **0 lỗi, 0 cảnh báo** (hoặc cảnh báo đã giải thích được với người dùng). Kiểm: âm bị loại/đè tiếng chữ rơi, mật độ âm, số frame nguồn, tràn khung, element đè chữ (theo nét thật), chồng nhóm cùng lớp, giữ chữ chính ≥1.5s, quy tắc 15s, lặp chữ dẫn/chính, liệt kê có dòng dẫn, số liệu chưa nổi bật, cảnh MG chưa có ảnh, ảnh không khớp lời (kw), ảnh lặp trong 30s, ảnh hiện <1.8s, cảnh MG <2.5s, lặp chữ dẫn/chính (≥60% từ), đoạn chỉ tay chưa highlight, cúi nhìn trong lúc MG đang trượt, đoạn nói không nhìn máy chưa được che (gaze.json), thẻ MG ra ngoài vùng an toàn.
 7. **Xem ảnh tĩnh** tại các điểm nhấn và mọi chỗ vừa sửa (script still: đọc frame proxy + alpha, vẽ nhóm/thẻ/MG đúng như renderer). Sửa đến khi sạch.
 8. **Render một lần** — `P.step_render(c, None, "<label>")`. Kiểm `qa.json`: số frame = timeline, AV lệch < 2 frame, ~-16 LUFS, TP ≤ -1 dBTP.
 9. **Báo cáo** — đường dẫn MP4, các chỗ sửa ASR cần xác nhận, nguồn ảnh (bản quyền), ghi nguồn “Uicons by Flaticon”, những gì chưa nghe/nhìn được. Trạng thái là bản xem trước cho tới khi người dùng duyệt.
+
+**Tốc độ:** người dùng nói “tăng tốc 1.1” → `python -m thagent.tools speed <id> 1.1` (0.8–1.5), app tăng cả hình + tiếng lúc xuất, giọng giữ cao độ; không đổi timing chữ/MG.
 
 Sửa theo góp ý: chỉnh plan → preflight → stills → render. Chỉ sửa tiếng (SFX, lọc nhiễu) thì **trộn lại audio và ghép vào hình cũ**, không render lại hình.
 
@@ -54,7 +60,7 @@ Sửa theo góp ý: chỉnh plan → preflight → stills → render. Chỉ sử
 - Element chỉ ở chỗ trống, không bao giờ đè chữ; cụm lớp sau có nhãn thì không thêm element.
 - Cụm lớp sau có nhãn: đặt cả cụm trên đỉnh đầu cao nhất trong thời gian hiển thị (pc10), tự thu nhỏ nếu thiếu chỗ.
 - Không âm nào đè tiếng chữ rơi; âm nhẹ cách nhau ≥10 frame; SFX tiết chế, dịu tai.
-- Không sinh ảnh dự án/bản đồ bằng AI; không dùng ảnh dự án khác thay thế; thiếu tư liệu → báo người dùng.
+- Không sinh ảnh chủ thể có thật (sản phẩm, địa điểm, dự án, người, bản đồ) bằng AI; không dùng ảnh chủ thể khác thay thế; thiếu tư liệu → báo người dùng.
 - Không dùng `-shortest` khi mux; luôn để hình và tiếng dài đúng timeline.
 
 ## Vị trí code

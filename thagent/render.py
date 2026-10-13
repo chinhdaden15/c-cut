@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import subprocess
 from pathlib import Path
 
@@ -371,6 +372,16 @@ def mux(video: str, audio: str, out: str, duration: float | None = None):
     t = ["-t", f"{duration:.4f}"] if duration else []
     run(["ffmpeg", "-v", "error", "-y", "-i", video, "-i", audio, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-ar", "48000", *t, "-movflags", "+faststart", out])
+
+
+def change_speed(path: str, speed: float, fps: int = 30):
+    """đổi tốc độ file đã xuất (hình + tiếng cùng lúc → chữ/MG/âm thanh không lệch nhau); giọng giữ cao độ (atempo)."""
+    tmp = path + ".speed.mp4"
+    run(["ffmpeg", "-v", "error", "-y", "-i", path, "-filter_complex",
+         f"[0:v]setpts=PTS/{speed},fps={fps}[v];[0:a]atempo={speed}[a]", "-map", "[v]", "-map", "[a]",
+         "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p",
+         "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-movflags", "+faststart", tmp])
+    os.replace(tmp, path)
 
 
 # ---------------- thẻ ảnh tư liệu ----------------

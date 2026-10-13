@@ -167,6 +167,7 @@ class Plan(BaseModel):
     hook_candidates: list[dict] = []
     duration_frames: int = 0
     mg: list[dict] = []          # đoạn Motion Graphics toàn khung (thagent/mg.py)
+    speed: float = 1.0           # tăng/giảm tốc cả video lúc xuất (0.8–1.5), giọng giữ cao độ
 
 
 class Project(BaseModel):

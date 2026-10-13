@@ -5,6 +5,7 @@
                                                                (từ gần giây t nhất; n = gộp n từ liên tiếp thành 1)
   python -m thagent.tools frames <pid> t1 t2 ...               ảnh ghép các khung ở giây nguồn → work/frames.jpg (Read để xem)
   python -m thagent.tools img    <pid> <url> <tên_file> [nguồn] tải ảnh vào assets_web/, ghi nguồn vào illus_sources.json
+  python -m thagent.tools speed  <pid> 1.1                     tốc độ cả video lúc xuất (0.8–1.5; 1 = gốc), giọng giữ cao độ
 """
 from __future__ import annotations
 
@@ -81,6 +82,15 @@ def img(pid, url, name, source=""):
     print(d / name)
 
 
+def speed(pid, v):
+    c = P.Ctx(pid)
+    if c.project.plan is None:
+        raise SystemExit("chưa có plan — chạy design.py trước")
+    c.project.plan.speed = min(1.5, max(0.8, float(v)))
+    c.save()
+    print(f"tốc độ xuất ×{c.project.plan.speed:g} — app áp lúc xuất, không cần đổi timing chữ/MG")
+
+
 def main():
     # bản đóng gói (nuitka) không chạy được `-m` theo kiểu __main__ → app gọi thẳng main()
     if len(sys.argv) < 2 or sys.argv[1] not in CMDS:
@@ -90,7 +100,7 @@ def main():
     CMDS[cmd](*a)
 
 
-CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img}
+CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img, "speed": speed}
 
 if __name__ == "__main__":
     main()

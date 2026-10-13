@@ -1,3 +1,4 @@
+# [MẪU BĐS — CHỈ HỌC CẤU TRÚC VÀ NHỊP, KHÔNG HỌC NỘI DUNG; lĩnh vực khác xem domain_examples.md]
 # v1.1d (TGC thuê 118): ảnh clip chỉ khi đúng vật, còn lại i_* minh họa có nhãn; ảnh ≥1.8s; dòng dẫn rơi nhanh từ đầu cảnh, chữ chính vào ngay sau rồi giữ.
 # Motion Graphics cho TGC.Thuê.118_N3D.B — được exec trong design.py (dùng F, word_frames, pl, SoundEvent, VideoFxEvent).
 # 7 đoạn graphic trám vào mạch nói liên tục 15→95s: tiêu đề dự án, 2 lý do (hoàn thiện + vị trí),

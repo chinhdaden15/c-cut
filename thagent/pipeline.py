@@ -128,6 +128,37 @@ def step_plan(c: Ctx, force=False):
     c.save()
 
 
+def denoise_voice(src: str, out: str, log=print, sr=48000):
+    """khử ồn theo CHÍNH clip: lấy mẫu ồn từ 15% khung yên nhất → noisereduce (stationary) → nâng giọng về ~−20 dB
+    → gate nhẹ ở chỗ nghỉ. Bộ lọc cố định cũ (afftdn nf=−46) gần như không ăn với clip thu nhỏ / ồn phòng."""
+    import wave
+    import numpy as np
+    import noisereduce as nr
+    import subprocess
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", src, "-vn", "-f", "f32le", "-ac", "1", "-ar", str(sr), "-"],
+                         capture_output=True, check=True).stdout
+    x = np.frombuffer(raw, np.float32).astype(np.float64)
+    h = int(sr * 0.02)
+    n = len(x) // h
+    fr = x[:n * h].reshape(n, h)
+    lv = 20 * np.log10(np.sqrt((fr ** 2).mean(1)) + 1e-9)
+    speech, noise = float(np.percentile(lv, 90)), float(np.percentile(lv, 10))
+    y = nr.reduce_noise(y=x, sr=sr, y_noise=fr[lv <= np.percentile(lv, 15)].ravel(), stationary=True,
+                        prop_decrease=0.9, n_fft=2048)
+    ly = 20 * np.log10(np.sqrt((y[:n * h].reshape(n, h) ** 2).mean(1)) + 1e-9)
+    gain = max(0.0, min(24.0, -20.0 - float(np.percentile(ly, 90))))
+    thr = min(-36.0, float(np.percentile(ly, 10)) + gain + 8)
+    log(f"Khử tạp âm giọng theo clip (giọng {speech:.0f} dB, ồn nền {noise:.0f} dB → nâng {gain:.0f} dB)")
+    tmp = out + ".nr.wav"
+    with wave.open(tmp, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)
+        w.writeframes((np.clip(y, -1, 1) * 32767).astype(np.int16).tobytes())
+    R.run(["ffmpeg", "-v", "error", "-y", "-i", tmp, "-af",
+           f"highpass=f=80,volume={gain:.1f}dB,agate=threshold={10 ** (thr / 20):.4f}:ratio=3:range=0.1:attack=5:release=200",
+           "-ar", str(sr), "-ac", "1", out])
+    Path(tmp).unlink(missing_ok=True)
+
+
 def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None) -> dict:
     plan = plan or c.project.plan
     T.build_mapping(plan)
@@ -137,15 +168,12 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     c.project.status = "rendering"; c.save()
     t0 = time.time()
     c.log("Dựng thô (ghép đoạn giữ, alpha và voice cùng mapping)")
-    clean = c.path("work", "voice_clean.wav")
+    clean = c.path("work", "voice_clean2.wav")
     if c.project.style.get("voice_preprocessed"):
         c.log("Giọng đã được người dùng lọc sẵn — giữ nguyên, không khử tạp âm thêm")
         clean = Path(c.project.proxy)
     elif not clean.exists():
-        c.log("Khử tạp âm giọng (highpass + afftdn + gate nhẹ)")
-        R.run(["ffmpeg", "-v", "error", "-y", "-i", c.project.proxy, "-vn", "-af",
-               "highpass=f=80,afftdn=nr=22:nf=-46:tn=1,agate=threshold=0.012:ratio=2.5:range=0.2:attack=5:release=180",
-               "-ar", "48000", "-ac", "1", str(clean)])
+        denoise_voice(c.project.proxy, str(clean), c.log)
     rc = R.rough_cut(plan, c.project.proxy, str(c.path("work", "alpha.mp4")), vdir, str(clean))
     if c.project.style.get("hf_denoise"):
         from .declean import reduce_hf_noise
@@ -164,6 +192,10 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     out = vdir / f"{c.project.id}_{label}.mp4"
     R.mux(str(vdir / "video_noaudio.mp4"), str(vdir / "mix.wav"), str(out), (fr[1] - fr[0]) / plan.fps)
     issues, meta = check_output(plan, str(out), fr[1] - fr[0], rep, layout)
+    sp = min(1.5, max(0.8, plan.speed or 1.0))
+    if abs(sp - 1) > 0.005:
+        c.log(f"Đổi tốc độ video ×{sp:g} (giọng giữ cao độ)")
+        R.change_speed(str(out), sp, plan.fps)
     for f in ("rc_video.mp4", "rc_alpha.mp4", "video_noaudio.mp4"):
         (vdir / f).unlink(missing_ok=True)
     (vdir / "plan.json").write_text(plan.model_dump_json(indent=1))

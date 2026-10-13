@@ -1,4 +1,5 @@
-"""TGC.Thuê.118_N3D.B — cho thuê văn phòng tại The Global City (Talking Head Style).
+"""[MẪU BĐS — CHỈ HỌC CẤU TRÚC VÀ NHỊP, KHÔNG HỌC NỘI DUNG; lĩnh vực khác xem domain_examples.md]
+TGC.Thuê.118_N3D.B — cho thuê văn phòng tại The Global City (Talking Head Style).
 1 font Montserrat (Black chữ chính / SemiBold chữ dẫn); 3 tông gold/red/blue.
 Lớp trước: ngực trở xuống; lớp sau: vai trở lên; không chồng câu cùng lớp; chữ dẫn rơi từng từ + tick.
 Nhân vật nói gần như liên tục 21→97s nên dùng 7 đoạn Motion Graphics phá luật 15s + minh hoạ tiện ích.

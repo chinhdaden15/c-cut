@@ -144,9 +144,9 @@
     "creative": "kiểu chuyển động sáng tạo theo nội dung nhân vật nói; mẫu tham khảo chỉ lấy màu nền"
   },
   "media": {
-    "project_photos": "tư liệu thật, đúng dự án, có nguồn (báo/chính chủ); nhãn tên dự án · địa điểm; phối cảnh ghi “phối cảnh”",
-    "generic_photos": "Unsplash/Pexels qua Bing, đúng bối cảnh văn phòng; app tự ghi “Hình ảnh minh họa” (file i_*); không gắn tên dự án",
-    "never": "không sinh AI ảnh dự án/bản đồ; không dùng ảnh dự án khác thay thế",
+    "subject_photos": "tư liệu thật, ĐÚNG CHỦ THỂ (thương hiệu, sản phẩm, địa điểm, dự án, người, sự kiện), có nguồn (báo/chính chủ); nhãn tên chủ thể; phối cảnh ghi “phối cảnh”",
+    "generic_photos": "Unsplash/Pexels qua Bing, đúng bối cảnh chủ đề và khán giả; app tự ghi “Hình ảnh minh họa” (file i_*); không gắn tên chủ thể",
+    "never": "không sinh AI ảnh chủ thể có thật/bản đồ; không dùng ảnh chủ thể khác thay thế",
     "card_behind_head": "thẻ ảnh bo góc viền trắng, sau nhân vật, trên đầu, đáy chồng ~22% xuống đỉnh đầu"
   },
   "sfx": {
@@ -191,11 +191,14 @@
   "audio": {
     "voice_preprocessed": "nếu người dùng đã lọc/cắt thô sẵn → không khử tạp âm thêm, không cắt",
     "hf_denoise": "bật khi có tiếng máy/nhiễu tần cao hiện trường: giữ < 3.5 kHz, noisereduce non-stationary dải cao",
-    "mux": "cắt theo độ dài timeline (-t), không dùng -shortest"
+    "mux": "cắt theo độ dài timeline (-t), không dùng -shortest",
+    "clean_cut": "ngưỡng lặng theo độ to từng clip; cắt nói vấp 1 từ, ậm ừ không thành lời, chữ kéo dài",
+    "denoise": "lọc ồn theo từng clip (noisereduce theo mẫu ồn của chính clip + gate), trừ khi voice_preprocessed",
+    "speed": "plan.speed 0.8–1.5 (tools speed), áp lúc xuất cho cả hình + tiếng, giữ cao độ"
   },
-  "summary": "BĐS · chữ neon 3 màu · Motion Graphics nền xanh mỗi ~15s",
+  "summary": "Mọi lĩnh vực · chữ neon 3 màu · Motion Graphics nền xanh mỗi ~15s",
   "content_rules": {
-    "numbers": "mọi số liệu (giá, diện tích, khoảng cách, số lượng, thời gian) là ý nổi bật → chữ chính CẢ CỤM đủ nghĩa: DIỆN TÍCH 30M², 9 MÁY LẠNH, 4 TỶ USD; không để số đứng một mình",
+    "numbers": "mọi số liệu (giá, diện tích, khoảng cách, số lượng, thời gian) là ý nổi bật → chữ chính CẢ CỤM đủ nghĩa: DIỆN TÍCH 30M², 3 VIÊN/NGÀY, 200 GRAM BỘT, GIẢM 40%, 4 TỶ USD; không để số đứng một mình",
     "no_repeat": "chữ chính không chép lại chữ đã có trong dòng dẫn; dòng dẫn = phần nói TRƯỚC chữ chính, dừng ngay trước cụm chữ chính",
     "listing": "điều/lý do/bước thứ N → chỉ chữ chính ĐIỀU N / LÝ DO N / BƯỚC N, KHÔNG dòng dẫn",
     "mg_visual": "mỗi cảnh MG bắt buộc ≥1 minh họa: ảnh, icon lớn, mũi tên, sơ đồ vòng, checklist — không cảnh chỉ có chữ",
@@ -204,9 +207,10 @@
     "mg_photos": "mỗi ảnh ≥1.8s, cảnh ngắn 1 ảnh, cảnh MG ≥2.5s; kw khớp lời ±4s; không lặp ảnh trong 30s",
     "mg_transition": "tấm MG trượt ngang đè lên video (8 frame), đoạn MG liền nhau nối thẳng",
     "highlight": "vật nhân vật chỉ vào (work/pointing.json): viền sáng vẽ dần + tối xung quanh 38%, nhãn gold",
-    "asr_numbers": "fix_numbers: chữ đồng âm trước danh từ đếm → số (Chính máy lạnh → 9 máy lạnh), đưa vào confirm"
+    "asr_numbers": "fix_numbers: chữ đồng âm trước danh từ đếm → số (Chính máy lạnh → 9 máy lạnh, Bà viên → 3 viên), đưa vào confirm"
   },
   "rules": {
-    "image_source": "CLIP chỉ khi clip quay ĐÚNG vật đang nói (thang máy, máy lạnh, điện smart home, chữa cháy) → cắt khung c_*; nội thất/chung chung clip không có (phòng làm việc, WC, phòng họp, tiếp khách, trường, TTTM) → ảnh minh họa i_* (Unsplash/Pexels qua Bing, đúng bối cảnh VĂN PHÒNG chứ không kiểu ở nhà), app tự ghi nhãn “Hình ảnh minh họa”, nguồn lưu assets_web/illus_sources.json; ảnh ĐÚNG dự án w_* chỉ khi nói bên ngoài/toàn cảnh/bản đồ. Không cố cắt clip cho vừa ý."
-  }
+    "image_source": "CLIP chỉ khi clip quay ĐÚNG vật/cảnh đang nói → cắt khung c_*; thứ clip không có (khái niệm, cảnh chung) → ảnh minh họa i_* (Unsplash/Pexels qua Bing, ĐÚNG BỐI CẢNH CHỦ ĐỀ và khán giả — vd y tế: phòng khám/bác sĩ, ẩm thực: món/bếp, công nghệ: thiết bị, BĐS văn phòng: không gian văn phòng chứ không kiểu ở nhà), app tự ghi nhãn “Hình ảnh minh họa”, nguồn lưu assets_web/illus_sources.json; ảnh ĐÚNG CHỦ THỂ w_* (thương hiệu, sản phẩm, địa điểm, dự án, người, sự kiện có thật — nguồn thật có URL, nhãn tên chủ thể) khi nói tới chính chủ thể đó. Không cố cắt clip cho vừa ý."
+  },
+  "domain": "xác định lĩnh vực + khán giả + chủ thể từ transcript trước khi lập kế hoạch, ghi confirm.json id=domain; mẫu reference chỉ học cấu trúc và nhịp"
 }

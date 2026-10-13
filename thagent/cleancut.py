@@ -21,15 +21,54 @@ def _n(t: str) -> str:
     return NUM.get(t, t)
 
 
-def silences(media: str, db=-35, min_d=0.12) -> list[tuple[float, float]]:
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-i", media, "-af", f"silencedetect=n={db}dB:d={min_d}", "-f", "null", "-"],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace")
-    st, out = None, []
-    for ln in r.stderr.splitlines():
-        if "silence_start" in ln:
-            st = float(ln.split("silence_start:")[1].split()[0])
-        elif "silence_end" in ln and st is not None:
-            out.append((max(st, 0.0), float(ln.split("silence_end:")[1].split()[0]))); st = None
+def levels(media: str, hop=0.02):
+    """độ to từng khung 20ms (dB) + mức giọng (p90) và mức ồn nền (p10) của chính clip."""
+    import numpy as np
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", media, "-vn", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"],
+                         capture_output=True).stdout
+    a = np.frombuffer(raw, np.int16).astype(np.float32) / 32768
+    h = int(16000 * hop)
+    n = len(a) // h
+    if n < 10:
+        return np.zeros(0), -20.0, -60.0
+    r = 20 * np.log10(np.sqrt((a[:n * h].reshape(n, h) ** 2).mean(1)) + 1e-9)
+    return r, float(np.percentile(r, 90)), float(np.percentile(r, 10))
+
+
+def silences(media: str, min_d=0.12, hop=0.02) -> list[tuple[float, float]]:
+    """khoảng lặng theo độ to của CHÍNH clip (ngưỡng cố định −35 dB hỏng với clip thu nhỏ: giọng chỉ ~−30 dB)."""
+    import numpy as np
+    r, speech, noise = levels(media, hop)
+    if not len(r):
+        return []
+    thr = min(speech - 10, max(noise + 6, speech - 20))
+    q = np.convolve((r < thr).astype(float), np.ones(3) / 3, "same") > 0.5     # bỏ nhiễu lẻ 1 khung
+    out, st = [], None
+    for i, v in enumerate(np.append(q, False)):
+        if v and st is None:
+            st = i
+        elif not v and st is not None:
+            if (i - st) * hop >= min_d:
+                out.append((round(st * hop, 3), round(i * hop, 3)))
+            st = None
+    return out
+
+
+def _tighten(words, sil):
+    """ASR hay kéo dài 1 từ trùm lên đoạn ngập ngừng (“đến@0.20–1.60”): từ dài bất thường mà bên trong có khoảng lặng
+    → co về phần tiếng sát từ kế tiếp (hoặc sát từ trước nếu từ kế tiếp ở xa)."""
+    out = [w.model_copy() for w in words]
+    for k, w in enumerate(out):
+        if w.source_end - w.source_start < 0.6:
+            continue
+        inner = [(a, b) for a, b in sil if a > w.source_start + 0.05 and b < w.source_end + 0.05 and b - a >= 0.15]
+        if not inner:
+            continue
+        nxt = out[k + 1].source_start if k + 1 < len(out) else 1e9
+        if nxt - w.source_end < 0.15:
+            w.source_start = inner[-1][1]
+        else:
+            w.source_end = inner[0][0]
     return out
 
 
@@ -58,6 +97,10 @@ def _drops(words) -> list[tuple[int, int, str]]:
     for i, t in enumerate(toks):
         if t in FILLERS:
             out.append((i, i + 1, f"từ đệm “{words[i].text}”"))
+    for i in range(len(words) - 1):   # nói vấp rồi nói lại 1 từ, có ngập ngừng ở giữa: “Đến… Đến bây giờ”
+        if toks[i] and toks[i] == toks[i + 1] and words[i + 1].source_start - words[i].source_end > 0.25 \
+                and not any(a <= i < b for a, b, _ in out):
+            out.append((i, i + 1, f"nói vấp “{words[i].text}… {words[i + 1].text}”"))
     for n in (4, 3, 2):   # lắp bắp: cụm ≥2 từ lặp liền kề → bỏ lần đầu (1 từ lặp hay là 2 câu: “bữa ăn. Ăn theo”)
         for i in range(len(words) - 2 * n + 1):
             if toks[i:i + n] == toks[i + n:i + 2 * n] and all(toks[i:i + n]) and not any(a <= i < b for a, b, _ in out):
@@ -67,12 +110,13 @@ def _drops(words) -> list[tuple[int, int, str]]:
 
 def clean_cut(words, src_dur: float, media: str, zoom=1.08, fps=30):
     """→ (segments keep theo order, cuts keep=False, zoom fx xen kẽ theo timeline)."""
+    sil = silences(media)
+    words = _tighten(words, sil)
     drops = _drops(words)
     gone = set()
     for a, b, _ in drops:
         gone.update(range(a, b))
     keep_w = [w for i, w in enumerate(words) if i not in gone]
-    sil = silences(media)
 
     def voice_end(t):        # kéo biên tới hết tiếng thật (ASR hay cắt sớm đuôi từ)
         for a, b in sil:
@@ -105,6 +149,28 @@ def clean_cut(words, src_dur: float, media: str, zoom=1.08, fps=30):
                                     reason=f"lặng {g:.2f}s → giữ {k:.2f}s" if not jumped else "nối qua đoạn bỏ", confidence=0.9))
     end = min(src_dur, voice_end(keep_w[-1].source_end) + TAIL)
     spans.append((a, end))
+    # ậm ừ: tiếng đệm không thành lời giữa 2 từ (ASR bỏ qua “ờ/ừm”) + từ 1 âm tiết bị kéo dài (“ởờờ”, “vớiii”)
+    lv, sp, no = levels(media)
+    thr = min(sp - 10, max(no + 6, sp - 20))
+    holes = []
+    for p, w in zip(keep_w, keep_w[1:]):
+        g0, g1 = p.source_end, w.source_start
+        seg = lv[int(g0 / 0.02):int(g1 / 0.02)]
+        if g1 - g0 >= 0.35 and len(seg) and (seg > thr).mean() > 0.5:
+            holes.append((g0 + 0.12, g1 - 0.12, f"âm đệm không thành lời {g1 - g0:.2f}s"))
+    for w in keep_w:
+        d = w.source_end - w.source_start
+        if d > 0.6 and " " not in w.text.strip() and len(re.sub(r"[^\w]", "", w.text)) <= 5 and not any(ch.isdigit() for ch in w.text):
+            holes.append((w.source_start + 0.2, w.source_end - 0.15, f"kéo dài chữ “{w.text}” {d:.2f}s"))
+    for x, y, why in holes:
+        for k, (sa, sb) in enumerate(spans):
+            if sa < x and y < sb and y - x > 0.08:
+                spans[k:k + 1] = [(sa, x), (y, sb)]
+                cuts.append(EditSegment(id=f"cut_h{len(cuts)}", source_in=round(x, 3), source_out=round(y, 3), keep=False,
+                                        reason=why, confidence=0.75))
+                break
+    seen = set()
+    cuts = [c for c in cuts if (c.source_in, c.source_out) not in seen and not seen.add((c.source_in, c.source_out))]
     if src_dur - end > 0.1:
         cuts.append(EditSegment(id="cut_tail", source_in=round(end, 3), source_out=src_dur, keep=False,
                                 reason="sau câu kết (đoạn tắt máy)", confidence=0.9))

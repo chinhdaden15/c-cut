@@ -35,10 +35,18 @@ QUY TẮC TỐC ĐỘ (bắt buộc — mục tiêu clip 1 phút xong trong ~10 
     .venv/bin/python -m thagent.tools fix {pid} '[{{"t":32.7,"to":"chính"}}]'   sửa chữ (n=gộp n từ)
     .venv/bin/python -m thagent.tools frames {pid} 3.2 10 25.5   ảnh ghép khung → Read work/frames.jpg
     .venv/bin/python -m thagent.tools img {pid} <url> i_ten.jpg [nguồn]   tải ảnh minh họa
+    .venv/bin/python -m thagent.tools speed {pid} 1.1        tốc độ cả video lúc xuất (0.8–1.5), giọng giữ cao độ
+- Người dùng muốn tăng/giảm tốc (“tăng tốc 1.1”, “nhanh hơn chút”) → chạy lệnh speed (nhanh hơn chút ≈ 1.1) rồi ghi lại plan_ready.json;
+  KHÔNG đổi timing chữ/MG/cắt (app áp tốc độ khi xuất). Đây là tính năng có sẵn — không trả lời là không làm được.
+- Cắt sạch (cleancut) đã tự cắt: lặng theo độ to từng clip, hiệu lệnh đếm, ừ/à, nói vấp 1 từ (“Đến… Đến”), ậm ừ không thành lời, chữ kéo dài;
+  app lọc ồn theo từng clip khi xuất. Đọc K.report, chỉ bỏ cut nào cắt nhầm lời.
 - gaze.json, pointing.json, anchors, Cắt sạch đã do app/mẫu tính sẵn — không tính lại.
 - Thứ tự cố định, mỗi bước 1 lần: sửa chữ → design.py từ mẫu (Cắt sạch tự chạy) → preflight → stills → plan_ready. Không lặp vòng thử nghiệm.
 
 Nhiệm vụ của bạn (KHÔNG render video — app tự xuất sau khi bạn xong):
+LĨNH VỰC: video có thể thuộc MỌI lĩnh vực (BĐS, y tế, ẩm thực, giáo dục, công nghệ, tài chính, làm đẹp, du lịch…). Đọc transcript trước,
+   xác định lĩnh vực + khán giả + chủ thể chính, ghi mục đầu confirm.json {{"id":"domain","text":"Lĩnh vực: … · Khán giả: … · Chủ thể: …","status":"auto"}}.
+   Chữ, ảnh, icon, tông màu, bối cảnh minh họa theo ĐÚNG lĩnh vực đó. Mẫu reference chỉ học CẤU TRÚC và NHỊP, không học nội dung.
 0. ĐỐI CHIẾU KỊCH BẢN (bắt buộc với mọi style): nếu có {pdir}/script.txt thì gióng từng câu transcript với kịch bản.
    - Kịch bản là nguồn chuẩn cho chính tả, tên riêng, số liệu, đơn vị → sửa transcript theo kịch bản, giữ nguyên timestamp từng từ.
    - Nhân vật nói KHÁC kịch bản (thêm/bớt/đổi ý, nói sai số) → tự chọn phương án hợp lý nhất theo ngữ cảnh (số liệu ưu tiên kịch bản), ghi lại vào confirm.json.
@@ -59,20 +67,20 @@ GHÉP NHIỀU ĐOẠN (chỉ khi app yêu cầu viết edl.json — dự án g�
    - Sau khi app ghép xong: {pdir}/covers.json liệt kê các khoảng (giây trên video mới) kind=broll/mg/audio_only.
      kind=mg và audio_only phải có MG phủ kín; trên khoảng broll/mg chỉ dùng chữ lớp front_of_subject (không có người để tách nền).
 1. Đọc transcript, sửa lỗi chép lời theo ngữ cảnh. Mỗi chỗ sửa/nghi vấn (tên riêng, số liệu, điều kiện) ghi vào {pdir}/confirm.json dạng
-   [{{"id":"c1","text":"“Đời Global City” → The Global City","status":"auto"}}] — đây là NHẬT KÝ, không chờ duyệt: tự quyết theo nhận định của bạn và làm tiếp ngay; người dùng sẽ góp ý khi xem bản hoàn thiện.
+   [{{"id":"c1","text":"“vi ta min đê” → vitamin D","status":"auto"}}] — đây là NHẬT KÝ, không chờ duyệt: tự quyết theo nhận định của bạn và làm tiếp ngay; người dùng sẽ góp ý khi xem bản hoàn thiện.
 2. Tìm đoạn nhân vật không nói vào máy: đọc {pdir}/work/gaze.json (cam=false khi nhìn điện thoại/quay đi) + xem ảnh để chắc; các đoạn đó che kín bằng MG.
-   Mỗi cảnh MG phải có ảnh (lưu {pdir}/assets_web/). CLIP chỉ khi clip quay ĐÚNG vật đang nói (thang máy, máy lạnh, điện smart home, chữa cháy) → cắt khung c_*; nội thất/chung chung clip không có (phòng làm việc, WC, phòng họp, tiếp khách, trường, TTTM) → ảnh minh họa i_* (Unsplash/Pexels qua Bing, đúng bối cảnh VĂN PHÒNG chứ không kiểu ở nhà), app tự ghi nhãn “Hình ảnh minh họa”, nguồn lưu assets_web/illus_sources.json; ảnh ĐÚNG dự án w_* chỉ khi nói bên ngoài/toàn cảnh/bản đồ. Không cố cắt clip cho vừa ý.
+   Mỗi cảnh MG phải có ảnh (lưu {pdir}/assets_web/). CLIP chỉ khi clip quay ĐÚNG vật/cảnh đang nói → cắt khung c_*; thứ clip không có (khái niệm, cảnh chung) → ảnh minh họa i_* (Unsplash/Pexels qua Bing, ĐÚNG BỐI CẢNH CHỦ ĐỀ và khán giả — vd y tế: phòng khám/bác sĩ, ẩm thực: món/bếp, công nghệ: thiết bị, BĐS văn phòng: không gian văn phòng chứ không kiểu ở nhà), app tự ghi nhãn “Hình ảnh minh họa”, nguồn lưu assets_web/illus_sources.json; ảnh ĐÚNG CHỦ THỂ w_* (thương hiệu, sản phẩm, địa điểm, dự án, người, sự kiện có thật — nguồn thật có URL, nhãn tên chủ thể) khi nói tới chính chủ thể đó. Không cố cắt clip cho vừa ý.
    Dùng PHS (type "photos"), mỗi ảnh ghi "kw" = từ đang nói; không dùng lại cùng ảnh trong 30s. Mỗi ảnh hiện ≥1.8s (preflight báo lỗi), cảnh ngắn chỉ 1 ảnh; cảnh MG ≥2.5s, gộp cảnh vụn. Dòng dẫn rơi nhanh 3 frame/từ ngay đầu cảnh/nhóm (được phép chạy trước lời), chữ chính vào ngay sau dòng dẫn và đứng yên tới hết — không bám từng từ để khỏi khựng.
    MG vào/ra bằng tấm trượt ngang đè lên video; các đoạn MG liền nhau nối thẳng (không lộ cảnh giữa).
 2b. Vật nhân vật chỉ tay/giới thiệu: đọc {pdir}/work/pointing.json (t0,t1,box,said), xem ảnh tĩnh để chỉnh box cho trúng vật, rồi thêm
-   VideoFxEvent(type="highlight", params={{"box":[x,y,w,h] (0–1, khung gốc), "label":"THANG MÁY", "tone":"gold", "shape":"rect|ring"}}) — viền sáng + làm tối xung quanh.
-   Số bị ASR nghe nhầm thành chữ (“Chín”→“Chính máy lạnh”) app đã tự sửa qua fix_numbers và đánh dấu cần xác nhận; số liệu phải là chữ chính cả cụm (9 MÁY LẠNH).
+   VideoFxEvent(type="highlight", params={{"box":[x,y,w,h] (0–1, khung gốc), "label":"TÊN VẬT", "tone":"gold", "shape":"rect|ring"}}) — viền sáng + làm tối xung quanh.
+   Số bị ASR nghe nhầm thành chữ (“Chín”→“Chính”, “Ba”→“Bà”) app đã tự sửa qua fix_numbers và đánh dấu cần xác nhận; số liệu phải là chữ chính cả cụm (9 MÁY LẠNH, 3 VIÊN/NGÀY, 200 GRAM).
 3. Viết {pdir}/design.py và {pdir}/design_mg.py từ mẫu .claude/skills/{style}/reference/ (đổi "bta" thành "{pid}", viết lại toàn bộ nội dung theo transcript mới). Chạy: .venv/bin/python {pdir}/design.py
 4. Chạy .venv/bin/python -m thagent.preflight {pid} cho đến 0 lỗi 0 cảnh báo.
 5. Chạy .venv/bin/python -m thagent.stills {pid} rồi Read {pdir}/stills/sheet.jpg để tự duyệt bố cục; sửa đến khi đạt.
 6. Khi xong: ghi {pdir}/plan_ready.json = {{"ready": true, "summary": "<1-2 câu>"}} và báo ngắn gọn cho người dùng, kèm danh sách ngắn các chỗ đã tự sửa/tự quyết (từ confirm.json).
 Khi người dùng góp ý: sửa kế hoạch, chạy lại preflight + stills, ghi lại plan_ready.json (app sẽ xuất lại).
-Trả lời người dùng bằng tiếng Việt, ngắn gọn, báo việc vừa xong. Không bịa ảnh dự án; thiếu tư liệu thì tự chọn hướng hợp lý (ảnh web dự án + minh họa có nhãn) và ghi lại vào confirm.json."""
+Trả lời người dùng bằng tiếng Việt, ngắn gọn, báo việc vừa xong. Không sinh AI/bịa ảnh chủ thể có thật, không lấy ảnh chủ thể khác thay thế; thiếu tư liệu thì tự chọn hướng hợp lý (ảnh web đúng chủ thể + minh họa có nhãn) và ghi lại vào confirm.json."""
 
 
 STATUS_FILE = ROOT / "claude_status.json"   # model đang dùng + giới hạn tài khoản (5 giờ / 7 ngày)
