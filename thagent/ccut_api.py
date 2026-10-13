@@ -149,6 +149,65 @@ def ws_create(body: WsIn):
     return {"current": WS}
 
 
+class RenameIn(BaseModel):
+    name: str
+
+
+@router.put("/workspace/name")
+def ws_rename(body: RenameIn):
+    """đổi tên dự án đang mở = đổi tên thư mục + sửa đường dẫn cũ ghi trong các file json/py của dự án."""
+    from . import agent as A
+    if not WS:
+        raise HTTPException(400, "Chưa mở dự án")
+    if (STATE["job"] and STATE["job"]["state"] == "running") or any(x.busy for x in A.SESSIONS.values()):
+        raise HTTPException(409, "Đang dựng hoặc Claude đang làm — chờ xong rồi đổi tên")
+    name = re.sub(r'[<>:"/\\|?*]', "", body.name).strip().rstrip(".")
+    if not name:
+        raise HTTPException(400, "Tên không hợp lệ")
+    old = Path(WS["dir"])
+    new = old.parent / name
+    if new == old:
+        return {"current": WS}
+    if new.exists() and new.resolve() != old.resolve():     # cho phép chỉ đổi hoa/thường trên ổ không phân biệt
+        raise HTTPException(409, f"Đã có thư mục “{name}” — chọn tên khác")
+    A.reset_all()                                 # Claude giữ đường dẫn cũ → mở lại phiên (lịch sử chat vẫn còn)
+    try:
+        old.rename(new)
+    except OSError as e:
+        raise HTTPException(400, f"Không đổi được tên thư mục (có file đang mở?): {e}")
+    pairs = {json.dumps(str(old), ensure_ascii=a)[1:-1]: json.dumps(str(new), ensure_ascii=a)[1:-1] for a in (False, True)}
+    pairs[str(old)] = str(new)
+    for f in [*new.rglob("*.json"), *new.rglob("*.py")]:
+        try:
+            t = f.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        t2 = t
+        for a, b in pairs.items():
+            t2 = t2.replace(a, b)
+        if t2 != t:
+            f.write_text(t2, encoding="utf-8")
+    pj = new / "project_info.json"
+    if pj.exists():
+        info = json.loads(pj.read_text(encoding="utf-8"))
+        info["name"] = name
+        pj.write_text(json.dumps(info, ensure_ascii=False, indent=1), encoding="utf-8")
+    for q in STATE["queue"]:
+        for k in ("path", "output", "final"):
+            if isinstance(q.get(k), str) and q[k].startswith(str(old)):
+                q[k] = str(new) + q[k][len(str(old)):]
+        if q.get("clips"):
+            q["clips"] = [str(new) + c[len(str(old)):] if c.startswith(str(old)) else c for c in q["clips"]]
+    WS.update(name=name, dir=str(new))
+    os.environ["CCUT_PROJECTS"] = str(new)
+    s = load_settings()
+    s["project_name"] = name
+    SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
+    load_settings()
+    save_queue()
+    return {"current": WS}
+
+
 # ---------------- hộp thoại chọn file/thư mục của hệ điều hành ----------------
 class PickIn(BaseModel):
     kind: str = "folder"     # folder | video | zip

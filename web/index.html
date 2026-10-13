@@ -33,12 +33,13 @@ header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;paddin
 .brand{display:flex;align-items:center;gap:8px}
 .logo{width:28px;height:28px;border-radius:7px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
 .brand b{font-size:16px;font-weight:700}
-.pname{font-weight:500;padding:5px 14px;border-radius:8px;background:var(--panel);cursor:default;max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pcenter{display:flex;align-items:center;gap:14px;min-width:0}
+.pname{font-weight:500;padding:5px 14px;border-radius:8px;background:var(--panel);cursor:text;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pname:hover{box-shadow:inset 0 0 0 0.5px var(--line2)}
+.pcenter{display:flex;justify-content:center;min-width:0;max-width:min(520px,36vw);padding:0 12px}
 .newproj{padding:4px 12px;font-size:13px;color:var(--dim,inherit);white-space:nowrap}
-.pedit{width:360px;text-align:center;font-weight:500;padding:5px 14px;border-color:var(--acc)}
+.pedit{width:min(420px,34vw);text-align:center;font-weight:500;padding:5px 14px;border-color:var(--acc)}
 .right{display:flex;align-items:center;gap:10px;justify-content:flex-end}
-.badge{font-size:13px;padding:4px 10px;border-radius:8px;cursor:pointer}
+.badge{font-size:13px;padding:4px 10px;border-radius:8px;cursor:pointer;white-space:nowrap}
 .badge.ok{background:var(--ok-bg);color:var(--ok)}.badge.warn{background:var(--warn-bg);color:var(--warn)}.badge.error{background:var(--err-bg);color:var(--err)}
 .iconbtn{border:0;padding:6px;border-radius:8px;color:var(--fg2);position:relative;font-size:16px;line-height:1}
 .dot{position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--warn)}
@@ -145,9 +146,9 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div id="updBar" style="display:none;align-items:center;gap:8px;margin-left:12px;padding:3px 10px;border-radius:8px;background:var(--panel2,#2a2a2a);font-size:12px">
     <span id="updTxt"></span><button class="primary" id="updBtn" style="padding:3px 10px;font-size:12px">Cập nhật</button><button class="link" id="updLater" style="font-size:12px">Để sau</button></div>
   <div class="pcenter"><div class="pname" id="pname" title="Dự án đang mở"><span id="ptext">Chưa có dự án</span></div>
-  <input id="pedit" class="pedit" hidden maxlength="80" aria-label="Tên dự án">
-  <button class="newproj" id="newProj" title="Tạo dự án mới">＋ Dự án mới</button></div>
+  <input id="pedit" class="pedit" hidden maxlength="80" aria-label="Tên dự án"></div>
   <div class="right">
+    <button class="newproj" id="newProj" title="Tạo dự án mới">＋ Dự án mới</button>
     <span class="badge warn" id="sys">Đang kiểm tra…</span>
     <button class="iconbtn" id="bell" aria-label="Thông báo">🔔<span class="dot" id="belldot" hidden></span></button>
     <button class="iconbtn" id="gear" aria-label="Cài đặt">⚙</button>
@@ -310,7 +311,7 @@ const fmt=s=>s==null?'':(s>=60?Math.round(s/60)+' phút':Math.round(s)+' giây')
 async function refresh(){
   try{S=await api('/api/ccut/state'+(location.hash.startsWith('#project=')?'?project='+location.hash.slice(9):''));$('#offline').hidden=true;document.body.style.pointerEvents=''}catch(e){$('#offline').hidden=false;return}
   $('#appver').textContent='v'+S.app.version;
-  $('#ptext').textContent=S.workspace?S.workspace.name:'Chưa có dự án';$('#pname').title=S.workspace?'Dự án đang mở · '+S.workspace.dir:'';
+  $('#ptext').textContent=S.workspace?S.workspace.name:'Chưa có dự án';$('#pname').title=S.workspace?S.workspace.name+' — bấm để đổi tên\n'+S.workspace.dir:'';
   if(!S.workspace&&!wsShown)openWs();
   const sy=S.system;$('#sys').className='badge '+sy.level;$('#sys').textContent=sy.label;
   $('#outdir').textContent=S.settings.export_dir;
@@ -500,6 +501,13 @@ $('#cancelBtn').onclick=async()=>{$('#cancelBtn').textContent='Đang dừng…';
 $('#copyCredits').onclick=()=>{const l=S&&S.project&&S.project.credits.lines;if(l){navigator.clipboard.writeText(l.join('\n'));toast('Đã chép nguồn')}};
 /* tên dự án */
 /* đổi tên dự án ngay trên thanh: Enter lưu, Esc hủy */
+$('#pname').onclick=()=>{if(!S.workspace)return;const e=$('#pedit');e.value=S.workspace.name;$('#pname').hidden=true;e.hidden=false;e.focus();e.select()};
+function pdone(){$('#pedit').hidden=true;$('#pname').hidden=false}
+$('#pedit').onkeydown=async ev=>{if(ev.key==='Escape'){ev.preventDefault();pdone();return}
+  if(ev.key!=='Enter')return;ev.preventDefault();const v=$('#pedit').value.trim();
+  if(!v||v===S.workspace.name){pdone();return}
+  try{await api('/api/ccut/workspace/name',{method:'PUT',body:JSON.stringify({name:v})});pdone();toast('Đã đổi tên dự án');refresh()}catch(e){toast(e.message)}};
+$('#pedit').onblur=()=>setTimeout(pdone,150);
 $('#newProj').onclick=()=>{if(S.job&&S.job.state==='running'){toast('Đang dựng — dừng trước khi tạo dự án mới');return}openWs()};
 /* cài đặt */
 function openSettings(tab='project'){
