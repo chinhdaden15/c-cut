@@ -38,6 +38,11 @@ header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;paddin
 .pcenter{display:flex;justify-content:center;min-width:0;max-width:min(520px,36vw);padding:0 12px}
 .newproj{padding:4px 12px;font-size:13px;color:var(--dim,inherit);white-space:nowrap}
 .pedit{width:min(420px,34vw);text-align:center;font-weight:500;padding:5px 14px;border-color:var(--acc)}
+.bgrow{margin-bottom:14px}.bgrow .bghd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.bgimgs{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.bgimgs figure{margin:0;position:relative}.bgimgs img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:6px;display:block;border:2px solid transparent}
+.bgimgs figure.on img{border-color:var(--acc)}.bgimgs figcaption{font-size:11px;text-align:center;color:var(--fg3);margin-top:3px}
+.bgimgs figure.on figcaption{color:var(--acc-fg);font-weight:600}
 .right{display:flex;align-items:center;gap:10px;justify-content:flex-end}
 .badge{font-size:13px;padding:4px 10px;border-radius:8px;cursor:pointer;white-space:nowrap}
 .badge.ok{background:var(--ok-bg);color:var(--ok)}.badge.warn{background:var(--warn-bg);color:var(--warn)}.badge.error{background:var(--err-bg);color:var(--err)}
@@ -229,7 +234,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div class="modal">
     <div class="mhead"><b>Cài đặt</b><button id="closeSettings" aria-label="Đóng">✕</button></div>
     <div class="mgrid">
-      <div class="tabs"><div class="tab on" data-t="project">Dự án</div><div class="tab" data-t="tools">Công cụ</div><div class="tab" data-t="notify">Thông báo</div></div>
+      <div class="tabs"><div class="tab on" data-t="project">Dự án</div><div class="tab" data-t="tools">Công cụ</div><div class="tab" data-t="notify">Thông báo</div><div class="tab" data-t="bgs">Nền kênh</div></div>
       <div>
         <div data-p="project">
           <div class="field"><label>Thư mục chứa dự án (mặc định khi tạo dự án mới)</label><div class="row"><input id="sProj"><button id="pickProj">Chọn</button></div></div>
@@ -240,6 +245,10 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <div data-p="tools" hidden>
           <div id="sysitems" class="small"></div>
           <button id="recheck" style="margin-top:10px">Kiểm tra lại</button> <button id="openSetup" style="margin-top:10px">Thiết lập lần đầu…</button>
+        </div>
+        <div data-p="bgs" hidden>
+          <p class="small dim" style="margin:0 0 10px">Nền Motion Graphics theo kênh của video. Mỗi kênh 5 nền, cứ <b id="bgEvery">15</b> video xuất xong thì đổi sang nền kế tiếp, xoay vòng.</p>
+          <div id="bglist" style="max-height:62vh;overflow:auto;padding-right:6px"></div>
         </div>
         <div data-p="notify" hidden>
           <label class="small"><input type="checkbox" id="nSound" style="width:auto"> Âm báo khi xong / lỗi</label><br>
@@ -516,7 +525,10 @@ function openSettings(tab='project'){
   $('#sysitems').innerHTML=(S.system.items||[]).map(i=>`<div class="sysitem"><span>${esc(i.item)}</span><span class="${i.status==='ok'||i.status==='installed'?'st-done':i.status==='missing'?'st-failed':'st-waiting_claude'}">${esc(i.status)}</span></div>`).join('')||'<div class="empty">Chưa có dữ liệu.</div>';
   selTab(tab);$('#settings').classList.add('show');
 }
-function selTab(t){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.querySelectorAll('[data-p]').forEach(x=>x.hidden=x.dataset.p!==t)}
+async function loadBgs(){try{const d=await api('/api/ccut/channels');$('#bgEvery').textContent=d.every;
+  $('#bglist').innerHTML=d.channels.map(c=>`<div class="bgrow"><div class="bghd"><b>${c.name}</b><span class="small dim">đã xuất ${c.exported} video · nền ${c.current} còn ${c.left} video nữa thì đổi</span></div>
+  <div class="bgimgs">${c.bgs.map(k=>`<figure class="${k===c.current?'on':''}"><img loading="lazy" src="/backgrounds/${c.id}/nen-${k}.png" alt="${c.name} nền ${k}"><figcaption>${k===c.current?'● đang dùng':'Nền '+k}</figcaption></figure>`).join('')}</div></div>`).join('')}catch(e){$('#bglist').textContent=e.message}}
+function selTab(t){if(t==='bgs')loadBgs();document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.querySelectorAll('[data-p]').forEach(x=>x.hidden=x.dataset.p!==t)}
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>selTab(t.dataset.t));
 $('#gear').onclick=()=>openSettings();$('#sys').onclick=()=>openSettings('tools');
 $('#closeSettings').onclick=()=>$('#settings').classList.remove('show');

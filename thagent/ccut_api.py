@@ -825,6 +825,12 @@ def project_summary(pid: str | None) -> dict | None:
     return out
 
 
+@router.get("/channels")
+def channels_get():
+    from . import channels as CH
+    return {"every": CH.EVERY, "channels": CH.summary()}
+
+
 @router.get("/state")
 def state(project: str | None = None):
     s = load_settings()

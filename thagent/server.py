@@ -164,5 +164,7 @@ def ccut_file(p: str):
     return FileResponse(f)
 
 
+(P.ROOT / "assets" / "backgrounds").mkdir(parents=True, exist_ok=True)
+app.mount("/backgrounds", StaticFiles(directory=P.ROOT / "assets" / "backgrounds"), name="backgrounds")
 app.mount("/fonts", StaticFiles(directory=P.ROOT / "assets" / "fonts"), name="fonts")
 app.mount("/", StaticFiles(directory=WEB, html=True), name="web")

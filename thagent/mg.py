@@ -13,6 +13,7 @@ import numpy as np
 
 from . import imgio
 from . import neon
+from .paths import ROOT
 from .typography import _blend, clamp01, ease_in_cubic, ease_out_back, ease_out_cubic, ease_out_quart, hex_rgb
 
 W, H = 1080, 1920
@@ -20,7 +21,25 @@ ACC = {"gold": ("#FFC83A", "#FF9A1F"), "red": ("#FF6A5A", "#E8202F"), "blue": ("
 
 
 @lru_cache(maxsize=4)
-def background(seed: int = 0) -> np.ndarray:
+def _bg_file(path: str) -> np.ndarray:
+    im = imgio.must_read(path)
+    if im.shape[:2] != (H, W):
+        im = cv2.resize(im, (W, H), interpolation=cv2.INTER_AREA)
+    return cv2.cvtColor(im[..., :3], cv2.COLOR_BGR2RGB).astype(np.float32) / 255
+
+
+def background(seed: int = 0, bg: str | None = None) -> np.ndarray:
+    """nền kênh (ảnh assets/backgrounds) nếu có, không thì nền xanh vẽ sẵn."""
+    if bg:
+        from pathlib import Path
+        p = Path(bg) if Path(bg).is_absolute() else ROOT / "assets" / "backgrounds" / bg
+        if p.exists():
+            return _bg_file(str(p))
+    return _blue_bg(seed)
+
+
+@lru_cache(maxsize=4)
+def _blue_bg(seed: int = 0) -> np.ndarray:
     """Nền đơn giản: gradient sáng + vài element nhấn nhá (quầng màu mờ, vòng mảnh, lấp lánh) theo 3 tông."""
     y = np.linspace(0, 1, H)[:, None, None]
     x = np.linspace(0, 1, W)[None, :, None]
@@ -405,7 +424,7 @@ def render_scene_frame(segment: dict, f: int) -> np.ndarray | None:
     if not (segment["start"] <= f < segment["end"]):
         return None
     out = np.zeros((H, W, 4), np.float32)
-    out[..., :3] = background(segment.get("seed", 0)); out[..., 3] = 1
+    out[..., :3] = background(segment.get("seed", 0), segment.get("bg")); out[..., 3] = 1
     scenes = segment["scenes"]
     for i, sc in enumerate(scenes):
         if not (sc["start"] <= f < sc["end"]):
