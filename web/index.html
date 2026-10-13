@@ -54,7 +54,16 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .drop.over{border-color:var(--acc);background:var(--acc-bg);color:var(--acc-fg2)}
 .row{display:flex;gap:8px;align-items:center}
 .q{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 2px}
-.q .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q .n{flex:1;min-width:0}
+.q .n .fn{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q .n .qs{display:block;font-size:12px;color:var(--fg3);margin-top:1px}
+.q.st-claude .qs,.q.st-running .qs{color:var(--acc-fg)}
+.cst{font-size:12px;display:flex;align-items:center;gap:6px;margin:-4px 0 8px}
+.cst i{width:7px;height:7px;border-radius:50%;background:var(--fg3);flex:none}
+.cst.ok i{background:var(--ok)}.cst.busy i{background:var(--acc-fg);animation:pulse 1s infinite}.cst.err i{background:var(--err,#e5484d)}
+.cst.err{color:var(--err,#e5484d)}
+.lim{margin:8px 0 2px}.lim .top{display:flex;justify-content:space-between;align-items:baseline}
+.lim b{font-weight:600}.lim .sub{font-size:12px;color:var(--fg3);margin-top:3px}
 .q .sc{border:0;padding:0 4px;color:var(--fg3);font-size:12px}.q .sc.has{color:var(--accent,#7aa7ff)}
 .fmode{display:flex;gap:8px;margin:8px 0}.fmode label{flex:1;border:0.5px solid var(--line2);border-radius:8px;padding:10px;cursor:pointer;font-size:13px}
 .fmode label.on{border-color:var(--acc);background:var(--acc-bg)}.fmode input{display:none}
@@ -134,7 +143,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div class="brand"><div class="logo">C</div><b>C-Cut</b><span class="dim small" id="appver">v1.0</span></div>
   <div id="updBar" style="display:none;align-items:center;gap:8px;margin-left:12px;padding:3px 10px;border-radius:8px;background:var(--panel2,#2a2a2a);font-size:12px">
     <span id="updTxt"></span><button class="primary" id="updBtn" style="padding:3px 10px;font-size:12px">Cập nhật</button><button class="link" id="updLater" style="font-size:12px">Để sau</button></div>
-  <div class="pname" id="pname" title="Bấm để đổi tên dự án"><span id="ptext">Dự án chưa đặt tên</span> <span class="dim">✎</span></div>
+  <div class="pname" id="pname" title="Dự án đang mở — bấm để tạo dự án mới"><span id="ptext">Chưa có dự án</span> <span class="dim">＋</span></div>
   <input id="pedit" class="pedit" hidden maxlength="80" aria-label="Tên dự án">
   <div class="right">
     <span class="badge warn" id="sys">Đang kiểm tra…</span>
@@ -205,6 +214,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <section class="col r">
     <div class="card chat">
       <h3>Claude</h3>
+      <div class="cst" id="cst"><i></i><span id="cstTxt">Đang kiểm tra Claude…</span></div>
       <div class="msgs" id="msgs"><div class="empty">Thêm video và bấm Bắt đầu dựng — Claude sẽ nhận việc ở bước Kế hoạch.</div></div>
       <div class="activity" id="activity" hidden></div>
       <div class="chatin"><input id="chatin" placeholder="Góp ý cho Claude…"><button id="chatsend">Gửi</button></div>
@@ -219,8 +229,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
       <div class="tabs"><div class="tab on" data-t="project">Dự án</div><div class="tab" data-t="tools">Công cụ</div><div class="tab" data-t="notify">Thông báo</div></div>
       <div>
         <div data-p="project">
-          <div class="field"><label>Tên dự án</label><input id="sName" placeholder="Nhà phố SOHO tháng 10"></div>
-          <div class="field"><label>Nơi lưu dự án</label><div class="row"><input id="sProj"><button id="pickProj">Chọn</button></div></div>
+          <div class="field"><label>Thư mục chứa dự án (mặc định khi tạo dự án mới)</label><div class="row"><input id="sProj"><button id="pickProj">Chọn</button></div></div>
           <div class="field"><label>Nơi xuất mặc định</label><div class="row"><input id="sOut"><button id="pickOut2">Chọn</button></div></div>
           <div class="field"><label>Model Claude khi dựng</label><select id="sModel" style="width:100%;padding:8px 10px;border-radius:8px;border:0.5px solid var(--line2);background:var(--panel2);color:inherit;font:inherit"><option value="sonnet">Sonnet 5.5 — nhanh (khuyên dùng)</option><option value="opus">Opus 5.5 — kỹ hơn, chậm hơn, tốn giới hạn hơn</option></select></div>
           <button class="primary" id="saveSettings" style="padding:8px 16px">Lưu</button>
@@ -243,6 +252,16 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div class="modal">
     <div class="mhead"><b>Thông báo</b><button id="closeNotifs" aria-label="Đóng">✕</button></div>
     <div id="notiflist" class="small"></div>
+  </div>
+</div>
+<div class="overlay" id="wsBox">
+  <div class="modal" style="width:min(520px,92vw)">
+    <div class="mhead"><b>Tạo dự án</b><button id="closeWs" aria-label="Đóng" hidden>✕</button></div>
+    <p class="small dim" style="margin:0 0 10px">Mỗi lần mở app là một dự án mới. Video, kế hoạch và lịch sử chat của dự án được lưu trong thư mục dưới đây — thoát app vẫn còn.</p>
+    <div class="field"><label>Tên dự án</label><input id="wsName"></div>
+    <div class="field"><label>Lưu trong thư mục</label><div class="row"><input id="wsPar"><button id="wsPick">Chọn</button></div></div>
+    <div class="small dim" id="wsPath" style="margin:2px 0 12px;word-break:break-all"></div>
+    <div class="row"><span style="flex:1"></span><button class="primary" id="wsCreate" style="padding:8px 18px">Tạo dự án</button></div>
   </div>
 </div>
 <div class="overlay" id="scriptBox">
@@ -289,7 +308,8 @@ const fmt=s=>s==null?'':(s>=60?Math.round(s/60)+' phút':Math.round(s)+' giây')
 async function refresh(){
   try{S=await api('/api/ccut/state'+(location.hash.startsWith('#project=')?'?project='+location.hash.slice(9):''));$('#offline').hidden=true;document.body.style.pointerEvents=''}catch(e){$('#offline').hidden=false;return}
   $('#appver').textContent='v'+S.app.version;
-  $('#ptext').textContent=S.settings.project_name||'Dự án chưa đặt tên';
+  $('#ptext').textContent=S.workspace?S.workspace.name:'Chưa có dự án';$('#pname').title=S.workspace?S.workspace.dir+' — bấm để tạo dự án mới':'';
+  if(!S.workspace&&!wsShown)openWs();
   const sy=S.system;$('#sys').className='badge '+sy.level;$('#sys').textContent=sy.label;
   $('#outdir').textContent=S.settings.export_dir;
   renderQueue();renderStyles();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
@@ -299,7 +319,7 @@ function renderQueue(){
   $('#queue').innerHTML=q.length?q.map((x,i)=>{
     const ic={wait:'⏱',running:'⟳',done:'✓',failed:'!',cancelled:'–',waiting_claude:'…',claude:'✦'}[x.status]||'';
     const lab={wait:'chờ',running:'đang dựng',done:'xong',failed:'lỗi',cancelled:'đã dừng',waiting_claude:'chờ Claude',claude:'Claude đang lập kế hoạch'}[x.status];
-    return `<div class="q st-${x.status}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n">${esc(x.name)} <span class="dim">· ${esc(x.meta)}</span></span><span class="dim">${lab}</span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}</div>`}).join(''):'';
+    return `<div class="q st-${x.status}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}</div>`}).join(''):'';
   document.querySelectorAll('.q .sc').forEach(b=>b.onclick=()=>openScript(+b.dataset.i));
   document.querySelectorAll('.q .x').forEach(b=>b.onclick=async()=>{await api('/api/ccut/queue/'+b.dataset.i,{method:'DELETE'});refresh()});
 }
@@ -362,17 +382,24 @@ function renderNotifs(){
 function renderConfirms(){}
 function renderUsage(){
   const U=(S.claude&&S.claude.usage)||{},L=U.limits;
-  const mname=m=>!m?'—':m.replace(/^claude-/,'').replace(/-\d{8}$/,'').replace(/-(\d+)-(\d+)$/,' $1.$2').replace(/^./,c=>c.toUpperCase());
-  const hm=ts=>{const d=new Date(ts*1000),now=new Date();const t=d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});return d.toDateString()===now.toDateString()?t:t+' '+d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})};
-  const row=(k,v)=>`<div style="display:flex;justify-content:space-between;gap:8px;margin:3px 0"><span class="dim">${k}</span><span style="text-align:right">${v}</span></div>`;
-  const lim=(lbl,w)=>{if(!w)return'';const left=Math.max(0,Math.round(100-100*(w.utilization||0)));const col=left<15?'var(--err,#e5484d)':left<35?'var(--warn)':'var(--ok)';
-    return `<div style="margin:6px 0 2px;display:flex;justify-content:space-between"><span class="dim">${lbl}</span><span>còn ${left}% · reset ${hm(w.resetsAt)}</span></div><div class="bar"><div style="width:${left}%;background:${col}"></div></div>`};
-  let h=row('Model',esc(mname(U.model)));
+  const MN={sonnet:'Sonnet 5.5',opus:'Opus 5.5'};
+  const left=ts=>{let m=Math.max(0,Math.round((ts*1000-Date.now())/60000));const d=Math.floor(m/1440);m-=d*1440;const h=Math.floor(m/60);m%=60;
+    return d?`${d} ngày ${h} giờ`:h?`${h} giờ ${m} phút`:`${m} phút`};
+  const at=ts=>{const d=new Date(ts*1000),now=new Date();const t=d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});return d.toDateString()===now.toDateString()?'lúc '+t:t+' '+['CN','T2','T3','T4','T5','T6','T7'][d.getDay()]};
+  const lim=(lbl,w)=>{if(!w)return'';const used=Math.min(100,Math.round(100*(w.utilization||0)));const col=used>85?'var(--err,#e5484d)':used>65?'var(--warn)':'var(--ok)';
+    return `<div class="lim"><div class="top"><span class="dim">${lbl}</span><span>Đã dùng <b>${used}%</b></span></div><div class="bar"><div style="width:${used}%;background:${col}"></div></div><div class="sub">${w.resetsAt?`Làm mới sau ${left(w.resetsAt)} (${at(w.resetsAt)})`:''}</div></div>`};
+  let h=`<div style="display:flex;justify-content:space-between;margin:3px 0"><span class="dim">Model dựng</span><span>${MN[S.claude.model]||S.claude.model}</span></div>`;
   const W=L&&L.unifiedWindows;
-  h+=W?lim('Giới hạn 5 giờ',W.five_hour)+lim('Giới hạn 7 ngày',W.seven_day):'<div class="dim" style="margin-top:6px">Không lấy được giới hạn (chưa có lượt nào).</div>';
-  if(L&&L.status&&L.status!=='allowed')h+=`<div style="color:var(--warn);margin-top:4px">Trạng thái: ${esc(L.status)}</div>`;
+  h+=W?lim('Giới hạn 5 giờ',W.five_hour)+lim('Giới hạn 7 ngày',W.seven_day):'<div class="dim" style="margin-top:6px">Chưa lấy được giới hạn.</div>';
+  if(L&&L.status&&L.status!=='allowed')h+=`<div style="color:var(--warn);margin-top:4px">Đã chạm giới hạn — Claude tạm dừng tới khi làm mới.</div>`;
   $('#usage').innerHTML=h;
-  $('#usageAt').textContent=U.limits_at?'cập nhật '+new Date(U.limits_at*1000).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}):'';
+  $('#usageAt').textContent=U.limits_at?'số liệu '+(Date.now()/1000-U.limits_at<90?'vừa xong':Math.round((Date.now()/1000-U.limits_at)/60)+' phút trước'):'';
+  const c=S.claude,el=$('#cst');let cls='',t;
+  if(c.busy){cls='busy';t='Đang làm · '+(MN[c.model]||c.model)}
+  else if(U.error){cls='err';t=U.error}
+  else if(U.checked_at||U.limits_at){cls='ok';t='Claude sẵn sàng · '+(MN[c.model]||c.model)}
+  else t='Đang kiểm tra Claude…';
+  el.className='cst '+cls;$('#cstTxt').textContent=t;
 }
 $('#usageRef').onclick=async()=>{const b=$('#usageRef');b.disabled=true;b.textContent='…';
   try{const st=await api('/api/ccut/usage/refresh',{method:'POST'});if(S.claude){S.claude.usage=st;renderUsage()}}catch(e){toast(e.message)}
@@ -394,7 +421,8 @@ checkUpd(true);setInterval(()=>checkUpd(),30*60*1000);
 let chatN=-1;
 function md(t){return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>').split(/\n{2,}/).map(p=>'<p>'+p.replace(/\n/g,'<br>')+'</p>').join('')}
 async function loadChat(){
-  const pid=S.claude&&S.claude.project;if(!pid)return;
+  const pid=S.claude&&S.claude.project;
+  if(!pid){if(chatN!==0){chatN=0;$('#msgs').innerHTML='<div class="empty">Thêm video và bấm Bắt đầu dựng — Claude sẽ nhận việc ở bước Kế hoạch.</div>';$('#activity').hidden=true}return}
   let c;try{c=await api('/api/ccut/chat?project='+encodeURIComponent(pid))}catch(e){return}
   const a=$('#activity');a.hidden=!c.busy;a.textContent=c.activity||'Claude đang làm việc…';
   if(c.messages.length===chatN)return;chatN=c.messages.length;
@@ -470,15 +498,10 @@ $('#cancelBtn').onclick=async()=>{$('#cancelBtn').textContent='Đang dừng…';
 $('#copyCredits').onclick=()=>{const l=S&&S.project&&S.project.credits.lines;if(l){navigator.clipboard.writeText(l.join('\n'));toast('Đã chép nguồn')}};
 /* tên dự án */
 /* đổi tên dự án ngay trên thanh: Enter lưu, Esc hủy */
-const pe=$('#pedit');
-$('#pname').onclick=()=>{pe.value=S.settings.project_name||'';$('#pname').hidden=true;pe.hidden=false;pe.focus();pe.select()};
-async function endEdit(save){if(pe.hidden)return;pe.hidden=true;$('#pname').hidden=false;
-  if(save&&pe.value.trim()!==(S.settings.project_name||'')){await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({project_name:pe.value.trim()})});toast('Đã đổi tên dự án');refresh()}}
-pe.onkeydown=e=>{if(e.key==='Enter')endEdit(true);if(e.key==='Escape')endEdit(false)};
-pe.onblur=()=>endEdit(true);
+$('#pname').onclick=()=>{if(S.job&&S.job.state==='running'){toast('Đang dựng — dừng trước khi tạo dự án mới');return}openWs()};
 /* cài đặt */
 function openSettings(tab='project'){
-  $('#sName').value=S.settings.project_name;$('#sProj').value=S.settings.project_dir;$('#sOut').value=S.settings.export_dir;$('#sModel').value=S.settings.build_model||'sonnet';
+  $('#sProj').value=S.settings.project_dir;$('#sOut').value=S.settings.export_dir;$('#sModel').value=S.settings.build_model||'sonnet';
   $('#nSound').checked=S.settings.notify_sound;$('#nSys').checked=S.settings.notify_system;
   $('#sysitems').innerHTML=(S.system.items||[]).map(i=>`<div class="sysitem"><span>${esc(i.item)}</span><span class="${i.status==='ok'||i.status==='installed'?'st-done':i.status==='missing'?'st-failed':'st-waiting_claude'}">${esc(i.status)}</span></div>`).join('')||'<div class="empty">Chưa có dữ liệu.</div>';
   selTab(tab);$('#settings').classList.add('show');
@@ -489,7 +512,7 @@ $('#gear').onclick=()=>openSettings();$('#sys').onclick=()=>openSettings('tools'
 $('#closeSettings').onclick=()=>$('#settings').classList.remove('show');
 $('#pickProj').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path)$('#sProj').value=r.path};
 $('#pickOut2').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path)$('#sOut').value=r.path};
-$('#saveSettings').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({project_name:$('#sName').value.trim(),project_dir:$('#sProj').value.trim(),export_dir:$('#sOut').value.trim(),build_model:$('#sModel').value})});toast('Đã lưu cài đặt');$('#settings').classList.remove('show');refresh()};
+$('#saveSettings').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({project_dir:$('#sProj').value.trim(),export_dir:$('#sOut').value.trim(),build_model:$('#sModel').value})});toast('Đã lưu cài đặt');$('#settings').classList.remove('show');refresh()};
 $('#saveNotify').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({notify_sound:$('#nSound').checked,notify_system:$('#nSys').checked})});toast('Đã lưu');refresh()};
 $('#openSetup')&&($('#openSetup').onclick=()=>{$('#settings').classList.remove('show');openSetup()});
 $('#recheck').onclick=async()=>{toast('Đang kiểm tra công cụ…');await post('/api/ccut/syscheck');await refresh();openSettings('tools')};
@@ -519,6 +542,18 @@ function closeSetup(){$('#setupBox').classList.remove('show');clearInterval(suTi
 $('#closeSetup').onclick=closeSetup;$('#setupDone').onclick=closeSetup;
 $('#setupRecheck').onclick=async()=>{await loadSetup();await post('/api/ccut/syscheck');refresh()};
 loadSetup().then(s=>{if(s&&s.frozen&&!s.done)openSetup()});
+/* dự án: mở app → tạo dự án mới */
+let wsShown=false;
+async function wsSuggest(par){const r=await api('/api/ccut/workspace'+(par?'?parent='+encodeURIComponent(par):''));return r}
+function wsUpd(){const p=$('#wsPar').value.trim(),n=$('#wsName').value.trim();$('#wsPath').textContent=p&&n?'→ '+p.replace(/[\\/]$/,'')+(p.includes('\\')?'\\':'/')+n:''}
+async function openWs(){wsShown=true;const r=await wsSuggest();$('#wsName').value=r.suggest;$('#wsPar').value=r.parent;$('#closeWs').hidden=!S.workspace;wsUpd();$('#wsBox').classList.add('show');setTimeout(()=>{$('#wsName').focus();$('#wsName').select()},50)}
+$('#wsName').oninput=wsUpd;$('#wsPar').oninput=wsUpd;
+$('#wsPick').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path){$('#wsPar').value=r.path;const s=await wsSuggest(r.path);if(/^Dự Án Mới( \d+)?$/.test($('#wsName').value.trim()))$('#wsName').value=s.suggest;wsUpd()}};
+$('#closeWs').onclick=()=>$('#wsBox').classList.remove('show');
+$('#wsName').onkeydown=e=>{if(e.key==='Enter')$('#wsCreate').click()};
+$('#wsCreate').onclick=async()=>{const b=$('#wsCreate');b.disabled=true;
+  try{const r=await post('/api/ccut/workspace',{name:$('#wsName').value.trim()||'Dự Án Mới',parent:$('#wsPar').value.trim()});$('#wsBox').classList.remove('show');chatN=-1;toast('Đã tạo dự án '+r.current.name);await refresh()}catch(e){toast(e.message)}
+  b.disabled=false};
 refresh();setInterval(refresh,2000);
 /* kéo ngang đổi độ rộng khung Claude, nhớ lại lần sau */
 (()=>{const m=document.querySelector('main'),h=$('#chatResz');if(!m||!h)return;

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.2.2"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -40,6 +40,7 @@ DEFAULTS = {"project_name": "", "project_dir": str(ROOT / "projects"),
             "notify_sound": True, "notify_system": True}
 
 STATE = {"queue": [], "job": None, "notifications": []}
+WS: dict = {}     # dự án đang mở trong lần chạy app này: {"name", "dir"}; mở app lại = dự án mới
 
 
 def _qfile() -> Path:
@@ -69,7 +70,7 @@ def load_settings() -> dict:
     s = dict(DEFAULTS)
     if SETTINGS.exists():
         s.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
-    P.PROJECTS = Path(s["project_dir"])
+    P.PROJECTS = Path(WS["dir"]) if WS else Path(s["project_dir"])
     return s
 
 
@@ -89,9 +90,63 @@ def put_settings(body: SettingsIn):
     s.update({k: v for k, v in body.model_dump().items() if v is not None})
     for k in ("project_dir", "export_dir"):
         Path(s[k]).expanduser().mkdir(parents=True, exist_ok=True)
+    old = load_settings().get("build_model")
     SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
     load_settings()
+    if body.build_model and body.build_model != old:      # đổi model → phiên đang rảnh khởi động lại với model mới
+        from . import agent as A
+        for x in A.SESSIONS.values():
+            if not x.busy:
+                x.stop()
     return s
+
+
+# ---------------- dự án (mỗi lần mở app) ----------------
+def _ws_name(parent: Path, base="Dự Án Mới") -> str:
+    n, name = 1, base
+    while (parent / name).exists():
+        n += 1; name = f"{base} {n}"
+    return name
+
+
+@router.get("/workspace")
+def ws_get(parent: str | None = None):
+    s = load_settings()
+    par = Path(parent or s["project_dir"]).expanduser()
+    return {"current": WS or None, "parent": str(par), "suggest": _ws_name(par)}
+
+
+class WsIn(BaseModel):
+    name: str
+    parent: str
+
+
+@router.post("/workspace")
+def ws_create(body: WsIn):
+    from . import agent as A
+    if STATE["job"] and STATE["job"]["state"] == "running":
+        raise HTTPException(409, "Đang dựng — dừng trước khi đổi dự án")
+    par = Path(body.parent).expanduser()
+    base = re.sub(r'[<>:"/\\|?*]', "", body.name).strip().rstrip(".") or "Dự Án Mới"
+    try:
+        par.mkdir(parents=True, exist_ok=True)
+        name = base if not (par / base).exists() else _ws_name(par, base)
+        d = par / name
+        d.mkdir()
+    except OSError as e:
+        raise HTTPException(400, f"Không tạo được thư mục: {e}")
+    A.reset_all()
+    WS.update(name=name, dir=str(d))
+    os.environ["CCUT_PROJECTS"] = str(d)          # các lệnh Claude chạy (design, preflight, tools…) tìm đúng dự án
+    STATE.update(queue=[], job=None, notifications=[])
+    s = load_settings()
+    s.update(project_dir=str(par), project_name=name)
+    SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
+    load_settings()
+    (d / "project_info.json").write_text(json.dumps({"name": name, "created": time.strftime("%Y-%m-%d %H:%M"),
+                                                     "app": APP_VERSION}, ensure_ascii=False, indent=1), encoding="utf-8")
+    save_queue()
+    return {"current": WS}
 
 
 # ---------------- hộp thoại chọn file/thư mục của hệ điều hành ----------------
@@ -540,6 +595,10 @@ def _run_queue(settings: dict):
                 src = str(_run_multi(item, pid, job, settings, log))
                 c = P.Ctx(pid, log, cancel=lambda: job["cancel"])
                 job["stage"] = "ingest"
+            try:
+                A.get(pid, settings["style"]).warm()     # mở sẵn Claude trong lúc app chép lời/tách nền
+            except Exception as e:
+                log(f"Không mở được Claude: {e}")
             P.step_ingest(c, src); job["done"].append("ingest")
             job["stage"] = "transcribe"; P.step_transcribe(c); job["done"].append("transcribe")
             job["frames"] = int(c.project.source.duration * 30)
@@ -567,6 +626,14 @@ def _run_queue(settings: dict):
                     if job["cancel"]:
                         sess.stop(); raise RuntimeError("cancelled")
                     job["activity"] = sess.activity
+                    if not sess.busy and not sess.plan_ready():   # Claude đã dừng giữa chừng mà chưa xong → giao lại việc
+                        time.sleep(5)
+                        if not sess.busy and not sess.plan_ready():
+                            if sess.restarts >= 3:
+                                raise RuntimeError("Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
+                            sess.restarts += 1
+                            sess.send("Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json.", show=False)
+                    sess.watchdog()
                     time.sleep(2)
                 item["status"] = "running"
             c = P.Ctx(pid, log, cancel=lambda: job["cancel"])
@@ -614,6 +681,8 @@ def start():
     with LOCK:
         if STATE["job"] and STATE["job"]["state"] == "running":
             raise HTTPException(409, "Đang dựng")
+        if not WS:
+            raise HTTPException(400, "Tạo dự án trước")
         if not any(q["status"] in ("wait", "failed") for q in STATE["queue"]):
             raise HTTPException(400, "Thêm video gốc trước")
         s = load_settings()
@@ -625,10 +694,15 @@ def start():
 
 
 def _kill_children():
+    """dừng ffmpeg/Claude/lệnh phụ — KHÔNG đụng tới tiến trình hiển thị cửa sổ (WebView2) kẻo trắng màn hình."""
     import psutil
+    from . import agent as A
+    A.stop_all()
+    keep = ("webview", "msedge", "webkit", "crashpad", "conhost")
     for ch in psutil.Process().children(recursive=True):
         try:
-            ch.kill()
+            if not any(k in ch.name().lower() for k in keep):
+                ch.kill()
         except Exception:
             pass
 
@@ -674,7 +748,7 @@ def project_summary(pid: str | None) -> dict | None:
                          "graphic": len(pl.mg), "longest_talk_s": round(max(talks) / 30, 1) if talks else 0}
         proj = [v for v in pl.visuals if v.file]
         mg_photos = {el["file"] for m in pl.mg for sc in m["scenes"] for el in sc["elements"] if el["type"] == "photo"}
-        out["credits"] = {"project_photos": len(proj), "illustrations": len([f for f in mg_photos if "assets_mg" in f]),
+        out["credits"] = {"project_photos": len(proj), "illustrations": len([f for f in mg_photos if "assets_mg" in f or "assets_web" in f]),
                           "icons": "Uicons by Flaticon", "sfx": len({s.asset for s in pl.sounds}),
                           "lines": [f"{v.label}: {v.source}" for v in proj] + ["Icons: Uicons by Flaticon"]}
     return out
@@ -684,7 +758,7 @@ def project_summary(pid: str | None) -> dict | None:
 def state(project: str | None = None):
     s = load_settings()
     if not STATE.get("_loaded"):
-        STATE["_loaded"] = True; load_queue(); _ensure_watcher()
+        STATE["_loaded"] = True; _ensure_watcher()      # mở app = phiên mới: không nạp lại hàng chờ/lịch sử cũ
     job = STATE["job"]
     pub_job = None
     if job:
@@ -699,8 +773,10 @@ def state(project: str | None = None):
     if pid:
         if pid in A.SESSIONS or (P.PROJECTS / pid / "chat.json").exists():
             sess = A.get(pid, s["style"]); confirms, activity, busy = sess.confirms(), sess.activity, sess.busy
-    return {"app": {"name": "C-Cut", "version": APP_VERSION}, "settings": s, "claude": {"project": pid,
-            "confirms": confirms, "activity": activity, "busy": busy, "usage": usage}, "system": system_status(),
+    alive = bool(pid and pid in A.SESSIONS and A.SESSIONS[pid].alive())
+    return {"app": {"name": "C-Cut", "version": APP_VERSION}, "workspace": WS or None, "settings": s,
+            "claude": {"project": pid, "confirms": confirms, "activity": activity, "busy": busy, "usage": usage,
+                       "alive": alive, "model": s.get("build_model") or "sonnet"}, "system": system_status(),
             "styles": list_styles(), "queue": STATE["queue"], "job": pub_job, "project": project_summary(pid),
             "notifications": STATE["notifications"][-10:]}
 
@@ -712,7 +788,7 @@ from fastapi import File, UploadFile  # noqa: E402
 @router.post("/upload")
 async def upload(kind: str = "video", file: UploadFile = File(...)):
     s = load_settings()
-    inc = Path(s["project_dir"]).expanduser() / "_incoming"
+    inc = P.PROJECTS / "_video_goc"
     inc.mkdir(parents=True, exist_ok=True)
     rel = Path(*[x for x in Path(file.filename).parts if x not in ("..", "/", "\\")])
     dest = inc / (rel if kind == "folder" else rel.name)

@@ -178,7 +178,7 @@ for hid, a, b, box, lab, shape in [("hl_aircon", 0.0, 0.75, [0.09, 0.18, 0.44, 0
 
 pl.visuals = []   # chưa có ảnh/tư liệu thật của căn này (xem confirm.json c10); MG dùng đồ hoạ vector
 
-exec(open("projects/bta/design_mg.py").read())   # VIDEO MỚI: đổi "bta" thành id project
+exec(open(c.dir / "design_mg.py", encoding="utf-8").read())   # design_mg.py nằm cùng thư mục dự án
 
 # ===== CHÍNH SÁCH SFX (tiết chế, dịu tai, không đè tiếng chữ rơi) =====
 import json, random

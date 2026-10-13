@@ -22,7 +22,7 @@ from .schema import MediaInfo, Plan, Project, Sentence, TranscriptWord
 from .sfx import SFX_DIR, ensure_library
 
 from .paths import ROOT
-PROJECTS = ROOT / "projects"
+PROJECTS = Path(os.environ.get("CCUT_PROJECTS") or ROOT / "projects")   # app đặt CCUT_PROJECTS = thư mục dự án đang mở
 
 
 class Ctx:
@@ -169,7 +169,7 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     (vdir / "plan.json").write_text(plan.model_dump_json(indent=1))
     (vdir / "qa.json").write_text(json.dumps({"issues": [i.model_dump() for i in issues], "sound_report": rep,
                                               "layout_px": layout, **meta}, ensure_ascii=False, indent=1))
-    rec = {"version": n, "label": label, "file": str(out.relative_to(ROOT)), "frames": list(fr),
+    rec = {"version": n, "label": label, "file": str(out.relative_to(ROOT)) if out.is_relative_to(ROOT) else str(out), "frames": list(fr),
            "seconds": round(time.time() - t0, 1), "status": "rendered_preview" if label != "final" else "exported",
            "approved": False, "issues": len([i for i in issues if i.severity != "info"])}
     c.project.renders.append(rec)

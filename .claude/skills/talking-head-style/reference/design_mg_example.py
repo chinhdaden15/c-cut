@@ -34,7 +34,7 @@ def PH(file, at, x=540, y=1160, w=880, h=460, label="", rot=0.0, from_dx=0, from
             "from_dx": from_dx, "from_dy": from_dy}
 
 
-B = "projects/bta/assets_web/"
+B = str(c.dir / "assets_web") + "/"   # c = P.Ctx(pid) trong design.py
 # ảnh: c_* = khung hình cắt từ chính video; w_* = ảnh The Global City trên web (vneconomy, plo, mekongasean)
 # mỗi ảnh có kw = từ đang nói lúc ảnh vào; không lặp cùng ảnh trong 30s
 

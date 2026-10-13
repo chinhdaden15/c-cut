@@ -1,6 +1,6 @@
 """Phiên Claude Code cho mỗi dự án (chạy nền, stream-json). Đăng nhập bằng tài khoản Claude của người dùng.
 
-- Lịch sử chat: projects/<id>/chat.json ; session_id để tiếp tục sau khi tắt/mở app.
+- Lịch sử chat: <dự án>/<video>/chat.json. Mỗi lần mở app là dự án mới → phiên Claude mới.
 - Claude chỉ LẬP KẾ HOẠCH + preflight + ảnh tĩnh; app làm bước xuất (render là bước cuối).
 - Giao tiếp với app qua file: confirm.json (nhật ký các chỗ Claude đã tự quyết, chỉ để người dùng xem), plan_ready.json (kế hoạch xong).
 """
@@ -94,31 +94,48 @@ LIMITS = {"running": False}
 
 
 def refresh_limits() -> bool:
-    """1 lượt Haiku rất ngắn chỉ để đọc giới hạn 5 giờ / 7 ngày (rate_limit_event), ~5s."""
+    """1 lượt Haiku rất ngắn để đọc giới hạn 5 giờ / 7 ngày (rate_limit_event), ~5s. Đồng thời là phép thử Claude chạy được."""
     exe = shutil.which("claude")
-    if not exe or LIMITS["running"]:
+    if not exe:
+        _set_health("Chưa cài Claude Code — xem ⚙ › Công cụ")
+        return False
+    if LIMITS["running"]:
         return False
     LIMITS["running"] = True
+    err = "Không gọi được Claude"
     try:
         r = subprocess.run([exe, "-p", "ok", "--model", "haiku", "--output-format", "stream-json", "--verbose",
                             "--max-turns", "1", "--tools", ""], cwd=ROOT, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=60, stdin=subprocess.DEVNULL)
+                           encoding="utf-8", errors="replace", timeout=60, stdin=subprocess.DEVNULL,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         for line in r.stdout.splitlines():
             if '"rate_limit_event"' in line:
                 _save_status(limits=json.loads(line).get("rate_limit_info"))
+                _set_health(None)
                 return True
-    except Exception:
-        pass
+        err = (r.stderr.strip() or r.stdout.strip())[-200:] or err
+        if "login" in err.lower() or "auth" in err.lower():
+            err = "Claude chưa đăng nhập — mở ⚙ › Công cụ để đăng nhập"
+    except Exception as e:
+        err = f"Không gọi được Claude: {e}"[:200]
     finally:
         LIMITS["running"] = False
+    _set_health(err)
     return False
 
 
-def limits_loop(every=900):
-    """khi mở app làm mới ngay, sau đó mỗi 15 phút."""
+def _set_health(err):
+    st = claude_status()
+    st["error"], st["checked_at"] = err, time.time()
+    STATUS_FILE.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def limits_loop(every=300):
+    """khi mở app làm mới ngay, sau đó mỗi 5 phút — trừ khi Claude đang làm (lúc đó số liệu đến kèm từng lượt trả lời)."""
     def run():
         while True:
-            refresh_limits()
+            if not any(s.busy for s in SESSIONS.values()):
+                refresh_limits()
             time.sleep(every)
     threading.Thread(target=run, daemon=True).start()
 
@@ -135,6 +152,10 @@ class Session:
         self.busy = False
         self.activity = ""
         self.lock = threading.Lock()
+        self.model = ""
+        self.last_evt = time.time()       # lần cuối Claude gửi gì đó (để phát hiện treo)
+        self.err_tail = ""
+        self.restarts = 0
 
     # ---------- lưu ----------
     def _save(self):
@@ -153,19 +174,51 @@ class Session:
             raise RuntimeError("Chưa cài Claude Code — xem Cài đặt › Công cụ")
         cmd = [exe, "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                "--permission-mode", "acceptEdits", "--allowedTools", *ALLOWED,
-               "--append-system-prompt", SYSTEM.format(pid=self.pid, pdir=f"projects/{self.pid}"
-                                                       if self.dir.is_relative_to(ROOT) else str(self.dir), style=self.style)]
+               "--append-system-prompt", SYSTEM.format(pid=self.pid, pdir=str(self.dir), style=self.style)]
         from .ccut_api import load_settings
         self.model = load_settings().get("build_model") or "sonnet"
-        cmd += ["--model", self.model]
+        cmd += ["--model", self.model, "--add-dir", str(self.dir.parent)]   # thư mục dự án có thể nằm ngoài thư mục app
         if self.session_id:
             cmd += ["--resume", self.session_id]
         self.proc = subprocess.Popen(cmd, cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
-        threading.Thread(target=self._reader, daemon=True).start()
+                                     stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", bufsize=1,
+                                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        self.last_evt = time.time()
+        threading.Thread(target=self._reader, args=(self.proc,), daemon=True).start()
+        threading.Thread(target=self._err_reader, args=(self.proc,), daemon=True).start()
 
-    def _reader(self):
-        for line in self.proc.stdout:
+    def _err_reader(self, proc):
+        # đọc stderr liên tục: để nguyên thì bộ đệm đầy → Claude đứng chờ (treo ở bước Kế hoạch trên Windows)
+        for line in proc.stderr:
+            self.err_tail = (self.err_tail + line)[-2000:]
+
+    def alive(self) -> bool:
+        return self.proc is not None and self.proc.poll() is None
+
+    def working_child(self) -> bool:
+        """Claude đang chạy một lệnh (preflight, ảnh tĩnh…) → im lặng là bình thường."""
+        try:
+            import psutil
+            return bool(self.alive() and psutil.Process(self.proc.pid).children(recursive=True))
+        except Exception:
+            return False
+
+    def watchdog(self, limit=180) -> bool:
+        """Im quá `limit` giây mà không chạy lệnh nào → báo + khởi động lại, tiếp tục việc dở. True nếu đã khởi động lại."""
+        if not self.busy or time.time() - self.last_evt < limit or self.working_child():
+            return False
+        self.restarts += 1
+        self._add("claude", f"Claude không phản hồi {limit // 60} phút — app tự khởi động lại Claude (lần {self.restarts})."
+                  + (f" Lỗi: {self.err_tail.strip()[-200:]}" if self.err_tail.strip() else ""), kind="error")
+        self.stop()
+        time.sleep(1)
+        self.send("Phiên trước bị gián đoạn. Tiếp tục đúng việc đang dở theo quy trình (xem file trong thư mục dự án), "
+                  "xong thì ghi plan_ready.json.", show=False)
+        return True
+
+    def _reader(self, proc):
+        for line in proc.stdout:
+            self.last_evt = time.time()
             try:
                 d = json.loads(line)
             except json.JSONDecodeError:
@@ -174,6 +227,7 @@ class Session:
             if t == "system" and d.get("subtype") == "init":
                 self.session_id = d.get("session_id") or self.session_id
                 self._save()
+                self.model = d.get("model") or self.model
                 _save_status(model=d.get("model"))
             elif t == "rate_limit_event":
                 _save_status(limits=d.get("rate_limit_info"))
@@ -189,11 +243,14 @@ class Session:
                 self.activity = ""
                 if d.get("is_error"):
                     self._add("claude", f"Lỗi phiên Claude: {d.get('result') or d.get('subtype')}", kind="error")
-        err = self.proc.stderr.read() if self.proc.stderr else ""
-        self.busy = False
-        if self.proc.returncode not in (0, None) and err.strip():
-            self._add("claude", "Claude dừng: " + err.strip()[-300:], kind="error")
-        self.proc = None
+        proc.wait()
+        if self.proc is proc:
+            self.busy = False
+            self.activity = ""
+            if proc.returncode not in (0, None) and not getattr(proc, "_stopped", False):
+                self._add("claude", "Claude dừng bất thường" + (": " + self.err_tail.strip()[-300:] if self.err_tail.strip() else
+                          f" (mã {proc.returncode})"), kind="error")
+            self.proc = None
 
     def send(self, text: str, show: bool = True):
         with self.lock:
@@ -202,14 +259,31 @@ class Session:
             if show:
                 self._add("user", text)
             self.busy = True
+            self.last_evt = time.time()
             msg = {"type": "user", "message": {"role": "user", "content": text}}
             self.proc.stdin.write(json.dumps(msg, ensure_ascii=False) + "\n")
             self.proc.stdin.flush()
 
     def stop(self):
-        if self.proc and self.proc.poll() is None:
-            self.proc.terminate()
+        p = self.proc
+        if p and p.poll() is None:
+            p._stopped = True
+            try:     # dừng cả cây (claude + lệnh nó đang chạy), không đụng tới cửa sổ app
+                import psutil
+                for ch in psutil.Process(p.pid).children(recursive=True):
+                    ch.kill()
+            except Exception:
+                pass
+            p.kill()
+        self.proc = None
         self.busy = False
+        self.activity = ""
+
+    def warm(self):
+        """mở sẵn tiến trình Claude (chưa giao việc) để vào bước Kế hoạch là chạy ngay."""
+        with self.lock:
+            if not self.alive():
+                self._start()
 
     # ---------- file giao tiếp ----------
     def confirms(self) -> list[dict]:
@@ -254,6 +328,16 @@ def _describe(b: dict) -> str:
 
 
 SESSIONS: dict[str, Session] = {}
+
+
+def stop_all():
+    for s in SESSIONS.values():
+        s.stop()
+
+
+def reset_all():
+    stop_all()
+    SESSIONS.clear()
 
 
 def get(pid: str, style: str) -> Session:
