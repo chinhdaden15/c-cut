@@ -33,8 +33,9 @@ header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;paddin
 .brand{display:flex;align-items:center;gap:8px}
 .logo{width:28px;height:28px;border-radius:7px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
 .brand b{font-size:16px;font-weight:700}
-.pname{font-weight:500;padding:5px 14px;border-radius:8px;background:var(--panel);cursor:pointer;border:0.5px solid transparent;max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pname:hover{border-color:var(--line2)}
+.pname{font-weight:500;padding:5px 14px;border-radius:8px;background:var(--panel);cursor:default;max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcenter{display:flex;align-items:center;gap:14px;min-width:0}
+.newproj{padding:4px 12px;font-size:13px;color:var(--dim,inherit);white-space:nowrap}
 .pedit{width:360px;text-align:center;font-weight:500;padding:5px 14px;border-color:var(--acc)}
 .right{display:flex;align-items:center;gap:10px;justify-content:flex-end}
 .badge{font-size:13px;padding:4px 10px;border-radius:8px;cursor:pointer}
@@ -143,8 +144,9 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div class="brand"><div class="logo">C</div><b>C-Cut</b><span class="dim small" id="appver">v1.0</span></div>
   <div id="updBar" style="display:none;align-items:center;gap:8px;margin-left:12px;padding:3px 10px;border-radius:8px;background:var(--panel2,#2a2a2a);font-size:12px">
     <span id="updTxt"></span><button class="primary" id="updBtn" style="padding:3px 10px;font-size:12px">Cập nhật</button><button class="link" id="updLater" style="font-size:12px">Để sau</button></div>
-  <div class="pname" id="pname" title="Dự án đang mở — bấm để tạo dự án mới"><span id="ptext">Chưa có dự án</span> <span class="dim">＋</span></div>
+  <div class="pcenter"><div class="pname" id="pname" title="Dự án đang mở"><span id="ptext">Chưa có dự án</span></div>
   <input id="pedit" class="pedit" hidden maxlength="80" aria-label="Tên dự án">
+  <button class="newproj" id="newProj" title="Tạo dự án mới">＋ Dự án mới</button></div>
   <div class="right">
     <span class="badge warn" id="sys">Đang kiểm tra…</span>
     <button class="iconbtn" id="bell" aria-label="Thông báo">🔔<span class="dot" id="belldot" hidden></span></button>
@@ -308,7 +310,7 @@ const fmt=s=>s==null?'':(s>=60?Math.round(s/60)+' phút':Math.round(s)+' giây')
 async function refresh(){
   try{S=await api('/api/ccut/state'+(location.hash.startsWith('#project=')?'?project='+location.hash.slice(9):''));$('#offline').hidden=true;document.body.style.pointerEvents=''}catch(e){$('#offline').hidden=false;return}
   $('#appver').textContent='v'+S.app.version;
-  $('#ptext').textContent=S.workspace?S.workspace.name:'Chưa có dự án';$('#pname').title=S.workspace?S.workspace.dir+' — bấm để tạo dự án mới':'';
+  $('#ptext').textContent=S.workspace?S.workspace.name:'Chưa có dự án';$('#pname').title=S.workspace?'Dự án đang mở · '+S.workspace.dir:'';
   if(!S.workspace&&!wsShown)openWs();
   const sy=S.system;$('#sys').className='badge '+sy.level;$('#sys').textContent=sy.label;
   $('#outdir').textContent=S.settings.export_dir;
@@ -498,7 +500,7 @@ $('#cancelBtn').onclick=async()=>{$('#cancelBtn').textContent='Đang dừng…';
 $('#copyCredits').onclick=()=>{const l=S&&S.project&&S.project.credits.lines;if(l){navigator.clipboard.writeText(l.join('\n'));toast('Đã chép nguồn')}};
 /* tên dự án */
 /* đổi tên dự án ngay trên thanh: Enter lưu, Esc hủy */
-$('#pname').onclick=()=>{if(S.job&&S.job.state==='running'){toast('Đang dựng — dừng trước khi tạo dự án mới');return}openWs()};
+$('#newProj').onclick=()=>{if(S.job&&S.job.state==='running'){toast('Đang dựng — dừng trước khi tạo dự án mới');return}openWs()};
 /* cài đặt */
 function openSettings(tab='project'){
   $('#sProj').value=S.settings.project_dir;$('#sOut').value=S.settings.export_dir;$('#sModel').value=S.settings.build_model||'sonnet';
