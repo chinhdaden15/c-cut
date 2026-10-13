@@ -39,6 +39,15 @@ def src_to_tl(plan: Plan, t: float) -> int | None:
     return None
 
 
+def src_to_tl_near(plan: Plan, t: float) -> int:
+    """Như src_to_tl nhưng mốc rơi vào đoạn bị cắt thì dời tới đầu đoạn giữ kế tiếp (hết thì cuối timeline)."""
+    f = src_to_tl(plan, t)
+    if f is not None:
+        return f
+    nxt = [s for s in kept(plan) if s.source_in >= t]
+    return min(nxt, key=lambda s: s.source_in).timeline_in if nxt else plan.duration_frames
+
+
 def src_to_tl_in_role(plan: Plan, t: float, role: str) -> int | None:
     f = sec_to_frame(t, plan.fps)
     for s in kept(plan):

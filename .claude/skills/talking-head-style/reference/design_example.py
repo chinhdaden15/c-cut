@@ -10,13 +10,20 @@ from thagent import neon
 from thagent.schema import EditSegment as E, Plan, SoundEvent, TextGroup as G, TextSpan as S, VideoFxEvent, VisualEvent
 
 c = P.Ctx("bta")
-c.project.style["voice_preprocessed"] = True
 dur = c.project.source.duration
 pl = c.project.plan or Plan()
 c.project.plan = pl
-pl.segments = [E(id="s00", source_in=0.0, source_out=round(dur - 0.02, 3), reason="nguồn đã cắt thô sẵn", order=0)]
+jump_zoom = []
+if c.project.style.get("voice_preprocessed"):   # nguồn đã cắt thô sẵn → giữ nguyên 1 đoạn
+    pl.segments = [E(id="s00", source_in=0.0, source_out=round(dur - 0.02, 3), reason="nguồn đã cắt thô sẵn", order=0)]
+else:                                           # Cắt sạch: lặng/đầu/đuôi/đếm/ừ à/lắp bắp; phóng 108% xen kẽ giấu jump cut
+    from thagent import cleancut as K
+    segs, cuts, jump_zoom = K.clean_cut(c.project.words, dur, c.project.proxy)
+    # người dùng muốn giữ chỗ nào: bỏ cut tương ứng rồi chạy lại (xem K.report)
+    pl.segments = segs + cuts
+    print(K.report(segs, cuts))
 T.build_mapping(pl)
-F = lambda t: int(round(t * 30))
+F = lambda t: T.src_to_tl_near(pl, t)   # mọi mốc giây NGUỒN → frame timeline sau cắt
 W = c.project.words
 norm = lambda x: re.sub(r"[^\w]", "", x.lower())
 
@@ -58,7 +65,7 @@ specs = [
 ]
 
 DECOR_ICON = set(neon.UICONS)
-pl.text_groups, pl.sounds, pl.fx = [], [], []
+pl.text_groups, pl.sounds, pl.fx = [], [], list(jump_zoom)
 warn = []
 for gid, layer, tone, s0, s1, lead, main, pill, decor in specs:
     start = F(s0)

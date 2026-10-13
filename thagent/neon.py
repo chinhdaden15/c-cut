@@ -224,12 +224,25 @@ _UI_DIR = FONT_DIR.parent / "uicons"
 @lru_cache(maxsize=1)
 def _uicons_map() -> dict:
     import re
-    css = (_UI_DIR / "solid.css").read_text()
+    css = (_UI_DIR / "solid.css").read_text(encoding="utf-8")
     return {m.group(1): chr(int(m.group(2), 16)) for m in re.finditer(r"\.fi-sr-([a-z0-9-]+):+before\{content:\"\\([0-9a-f]+)\"", css)}
 
 
+DRAWN = {"bill", "building", "chart", "chevrons", "coins", "dots", "house", "key", "leaf", "pin", "ring", "sparkle",
+         "star", "underline"}
+
+
+def _uicon_cls(name: str) -> str:
+    """tên ngắn trong UICONS, hoặc bất kỳ tên Uicons solid-rounded (heart, syringe, fi-sr-pills…)."""
+    return UICONS.get(name) or name.removeprefix("fi-sr-")
+
+
+def icon_exists(name: str) -> bool:
+    return _uicon_cls(name) in _uicons_map() or name in DRAWN
+
+
 def _uicon_mask(name: str, size: int) -> np.ndarray | None:
-    cls = UICONS.get(name)
+    cls = _uicon_cls(name)
     if not cls:
         return None
     ch = _uicons_map().get(cls)

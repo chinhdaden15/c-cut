@@ -40,6 +40,7 @@ Name: "desktopicon"; Description: "Tạo biểu tượng ngoài màn hình"
 
 [Run]
 Filename: "{app}\C-Cut.exe"; Description: "Mở C-Cut"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\C-Cut.exe"; Flags: nowait skipifnotsilent
 
 [Code]
 { tắt C-Cut và các tiến trình con còn chạy ngầm, để cài đè không bị khóa file }

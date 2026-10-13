@@ -90,7 +90,11 @@ def zoom_at(plan: Plan, f: int) -> tuple[float, float, float]:
         if e.type != "zoom" or not e.enabled or not (e.start <= f < e.end + 10):
             continue
         tgt = e.params.get("scale", 1.06)
-        if e.params.get("mode") == "out":
+        if e.params.get("mode") == "cut":      # phóng tức thì đúng đoạn (giấu jump cut), không chuyển động
+            if f >= e.end:
+                continue
+            k = 1.0
+        elif e.params.get("mode") == "out":
             k = 1 - clamp01((f - e.start) / max(e.end - e.start, 1))
             k = k * k * (3 - 2 * k)
         else:

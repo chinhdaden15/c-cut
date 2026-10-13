@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.1.3"
+APP_VERSION = "1.2.0"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -95,6 +95,13 @@ def put_settings(body: SettingsIn):
 # ---------------- hộp thoại chọn file/thư mục của hệ điều hành ----------------
 class PickIn(BaseModel):
     kind: str = "folder"     # folder | video | zip
+
+
+@router.post("/usage/refresh")
+def usage_refresh():
+    from . import agent as A
+    A.refresh_limits()
+    return A.claude_status()
 
 
 @router.post("/pick")

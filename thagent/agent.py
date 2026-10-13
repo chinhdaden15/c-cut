@@ -67,6 +67,8 @@ STATUS_FILE = ROOT / "claude_status.json"   # model đang dùng + giới hạn t
 def _save_status(**kw):
     st = claude_status()
     st.update({k: v for k, v in kw.items() if v})
+    if kw.get("limits"):
+        st["limits_at"] = time.time()
     STATUS_FILE.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
@@ -75,6 +77,39 @@ def claude_status() -> dict:
         return json.loads(STATUS_FILE.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+LIMITS = {"running": False}
+
+
+def refresh_limits() -> bool:
+    """1 lượt Haiku rất ngắn chỉ để đọc giới hạn 5 giờ / 7 ngày (rate_limit_event), ~5s."""
+    exe = shutil.which("claude")
+    if not exe or LIMITS["running"]:
+        return False
+    LIMITS["running"] = True
+    try:
+        r = subprocess.run([exe, "-p", "ok", "--model", "haiku", "--output-format", "stream-json", "--verbose",
+                            "--max-turns", "1", "--tools", ""], cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=60, stdin=subprocess.DEVNULL)
+        for line in r.stdout.splitlines():
+            if '"rate_limit_event"' in line:
+                _save_status(limits=json.loads(line).get("rate_limit_info"))
+                return True
+    except Exception:
+        pass
+    finally:
+        LIMITS["running"] = False
+    return False
+
+
+def limits_loop(every=900):
+    """khi mở app làm mới ngay, sau đó mỗi 15 phút."""
+    def run():
+        while True:
+            refresh_limits()
+            time.sleep(every)
+    threading.Thread(target=run, daemon=True).start()
 
 
 class Session:

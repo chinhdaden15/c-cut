@@ -162,6 +162,8 @@ def run_app():
     win = webview.create_window(APP_NAME, f"http://127.0.0.1:{port}", width=1440, height=900, min_size=(1100, 700),
                                 text_select=True)
     ccut_api.WINDOW = win
+    from thagent import agent
+    agent.limits_loop()   # làm mới giới hạn Claude khi mở app + mỗi 15 phút
     webview.start()
     srv.should_exit = True
 

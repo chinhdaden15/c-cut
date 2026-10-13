@@ -61,6 +61,8 @@ def fix_numbers(words: list[TranscriptWord]) -> list[str]:
         nxt = re.sub(r"[^\w]", "", words[i + 1].text.lower())
         if raw not in STRICT or nxt not in COUNT_NOUN or (raw in NOT_AFTER and nxt in NOT_AFTER):
             continue
+        if nxt in ("cái", "người", "mặt", "nhà", "điều", "lý") and raw != "chín":   # “chính cái”, “bản thân”… là lời thường
+            continue
         tail = re.sub(r"^[\w]+", "", w.text)
         log.append(f"{w.source_start:.2f}s: “{w.text} {words[i + 1].text}” → “{NUM_HOMO[raw]} {words[i + 1].text}”")
         w.text, w.needs_review = NUM_HOMO[raw] + tail, True

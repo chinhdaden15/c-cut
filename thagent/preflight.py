@@ -98,6 +98,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
             ys, xs = (m > 0.05).nonzero()
             return ys.max() - ys.min(), xs.max() - xs.min()
         for ic in (s for s in g.spans if s.style == "icon"):
+            if not neon.icon_exists(ic.text):
+                add("error", f"{g.id}: icon '{ic.text}' không có — dùng tên Uicons solid-rounded (vd heart, syringe, pills; xem assets/uicons/solid.css)")
             for t in texts:
                 th, tw = ink(t)
                 ih, iw = ink(ic)
@@ -158,7 +160,7 @@ def _pair_rules(where: str, main: str, lead: str | None, add):
 
 
 def text_rules(pl, words, fps: int) -> list[tuple[str, str]]:
-    from . import mg as M
+    from . import mg as M, neon
     out = []
     add = lambda sev, msg: out.append((sev, msg))
     shown = []   # (start, end, text) mọi chữ chính/chữ lớn đang hiện
@@ -178,6 +180,8 @@ def text_rules(pl, words, fps: int) -> list[tuple[str, str]]:
             if not any(e["type"] in ("photo", "photos") for e in els):
                 add("error", f"{where}: chưa có ảnh dự án / ảnh minh họa (icon chỉ là phụ, không đủ)")
             for e in els:
+                if e["type"] == "icon" and not neon.icon_exists(e["name"]):
+                    add("error", f"{where}: icon '{e['name']}' không có — dùng tên Uicons solid-rounded (vd heart, syringe, pills)")
                 for it in (e["items"] if e["type"] == "photos" else [e] if e["type"] == "photo" else []):
                     photos.append((it["t"], it["file"], where))
                     if it.get("kw") and not _said(words, pl, it["kw"], it["t"], fps):
@@ -227,7 +231,7 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
     if not gaze_file.exists():
         return [("warn", "chưa dò hướng nhìn (work/gaze.json) — chạy python -m thagent.gaze <id>")]
     gaze = json.loads(gaze_file.read_text())
-    from . import mg as M
+    from . import mg as M, neon
     M.chain(pl.mg)
     covers = [M.covered_range(m) for m in pl.mg] + [(v.start, v.end) for v in pl.visuals
                                                         if getattr(v, "enabled", True) and getattr(v, "fullscreen", True)]
@@ -271,7 +275,7 @@ def point_rules(pl, point_file, fps: int) -> list[tuple[str, str]]:
     """nhân vật chỉ tay/giơ tay giới thiệu vật mà chưa có highlight (hoặc MG che) → cảnh báo để agent xem ảnh và đặt."""
     if not point_file.exists():
         return [("warn", "chưa dò cử chỉ chỉ tay (work/pointing.json) — chạy python -m thagent.pointing <id>")]
-    from . import mg as M
+    from . import mg as M, neon
     M.chain(pl.mg)
     covers = [M.covered_range(m) for m in pl.mg]
     hls = [(e.start, e.end) for e in pl.fx if e.type == "highlight" and e.enabled]

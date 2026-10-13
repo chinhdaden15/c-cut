@@ -42,7 +42,9 @@ header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;paddin
 .iconbtn{border:0;padding:6px;border-radius:8px;color:var(--fg2);position:relative;font-size:16px;line-height:1}
 .dot{position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--warn)}
 /* 3 cột */
-main{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:12px;padding:12px 16px;min-height:0}
+main{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr) var(--chatw,380px);gap:12px;padding:12px 16px;min-height:0}
+.col.r{position:relative}
+.resz{position:absolute;left:-9px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:5;border-radius:3px}.resz:hover,.resz.on{background:var(--line)}
 .col{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}
 .card{background:var(--panel);border:0.5px solid var(--line);border-radius:var(--r);padding:12px 14px}
 .card h3{margin:0 0 8px;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px}
@@ -129,6 +131,8 @@ main{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:12p
 <div id="offline" class="offline" hidden>Mất kết nối với C-Cut — app đã tắt. Chạy lại <code>run.sh</code> (hoặc <code>run.bat</code>), trang sẽ tự kết nối lại.</div>
 <header>
   <div class="brand"><div class="logo">C</div><b>C-Cut</b><span class="dim small" id="appver">v1.0</span></div>
+  <div id="updBar" style="display:none;align-items:center;gap:8px;margin-left:12px;padding:3px 10px;border-radius:8px;background:var(--panel2,#2a2a2a);font-size:12px">
+    <span id="updTxt"></span><button class="primary" id="updBtn" style="padding:3px 10px;font-size:12px">Cập nhật</button><button class="link" id="updLater" style="font-size:12px">Để sau</button></div>
   <div class="pname" id="pname" title="Bấm để đổi tên dự án"><span id="ptext">Dự án chưa đặt tên</span> <span class="dim">✎</span></div>
   <input id="pedit" class="pedit" hidden maxlength="80" aria-label="Tên dự án">
   <div class="right">
@@ -163,7 +167,7 @@ main{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:12p
     <button class="primary" id="startBtn">Bắt đầu dựng</button>
     <button id="cancelBtn" hidden>Dừng</button>
     <div class="card" id="usageCard" style="margin-top:12px">
-      <h3>Claude</h3>
+      <h3 style="display:flex;justify-content:space-between;align-items:center">Claude<span class="small dim" style="font-weight:400"><span id="usageAt"></span> <button class="link" id="usageRef" title="Làm mới giới hạn" style="font-size:13px">↻</button></span></h3>
       <div id="usage" class="small"><div class="empty">Chưa có dữ liệu.</div></div>
     </div>
   </section>
@@ -196,7 +200,7 @@ main{flex:1;display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:12p
     </div>
   </section>
 
-  <section class="col r">
+  <section class="col r"><div class="resz" id="chatResz" title="Kéo để đổi độ rộng khung Claude · bấm đúp để về mặc định"></div>
     <div class="card chat">
       <h3>Claude</h3>
       <div class="msgs" id="msgs"><div class="empty">Thêm video và bấm Bắt đầu dựng — Claude sẽ nhận việc ở bước Kế hoạch.</div></div>
@@ -365,7 +369,25 @@ function renderUsage(){
   h+=W?lim('Giới hạn 5 giờ',W.five_hour)+lim('Giới hạn 7 ngày',W.seven_day):'<div class="dim" style="margin-top:6px">Không lấy được giới hạn (chưa có lượt nào).</div>';
   if(L&&L.status&&L.status!=='allowed')h+=`<div style="color:var(--warn);margin-top:4px">Trạng thái: ${esc(L.status)}</div>`;
   $('#usage').innerHTML=h;
+  $('#usageAt').textContent=U.limits_at?'cập nhật '+new Date(U.limits_at*1000).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}):'';
 }
+$('#usageRef').onclick=async()=>{const b=$('#usageRef');b.disabled=true;b.textContent='…';
+  try{const st=await api('/api/ccut/usage/refresh',{method:'POST'});if(S.claude){S.claude.usage=st;renderUsage()}}catch(e){toast(e.message)}
+  b.disabled=false;b.textContent='↻'};
+/* tự cập nhật: có bản mới → hỏi; đồng ý → tải, cài im lặng, app tự mở lại */
+let UP=null,updSkip=null,updTimer=null;
+function renderUpd(){const bar=$('#updBar'),show=v=>bar.style.display=v?'flex':'none';if(!UP||(!UP.available&&!UP.running&&!UP.error)||(!UP.running&&updSkip===UP.latest.version)){show(0);return}
+  show(1);
+  if(UP.running){$('#updTxt').textContent=(UP.stage||'Đang cập nhật')+(UP.pct<100?` · ${UP.pct}%`:'');$('#updBtn').hidden=$('#updLater').hidden=true}
+  else if(UP.error&&!UP.available){show(0)}
+  else{$('#updTxt').textContent=`Có bản mới v${UP.latest.version}`+(UP.error?' · '+UP.error:'');$('#updBtn').hidden=$('#updLater').hidden=false}}
+async function checkUpd(force){try{UP=await api('/api/ccut/update'+(force?'?force=true':''))}catch(e){return}renderUpd();
+  if(UP.running&&!updTimer)updTimer=setInterval(()=>checkUpd(),1000)}
+$('#updBtn').onclick=async()=>{const notes=UP.latest.notes?'\n\n'+UP.latest.notes.slice(0,600):'';
+  if(!confirm(`Cập nhật C-Cut lên v${UP.latest.version}? App sẽ tự tắt, cài rồi mở lại. Dự án và cài đặt giữ nguyên.`+notes))return;
+  try{UP=await api('/api/ccut/update',{method:'POST'});renderUpd();if(!updTimer)updTimer=setInterval(()=>checkUpd(),1000)}catch(e){toast(e.message)}};
+$('#updLater').onclick=()=>{updSkip=UP.latest.version;renderUpd()};
+checkUpd(true);setInterval(()=>checkUpd(),30*60*1000);
 let chatN=-1;
 function md(t){return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>').split(/\n{2,}/).map(p=>'<p>'+p.replace(/\n/g,'<br>')+'</p>').join('')}
 async function loadChat(){
@@ -495,6 +517,15 @@ $('#closeSetup').onclick=closeSetup;$('#setupDone').onclick=closeSetup;
 $('#setupRecheck').onclick=async()=>{await loadSetup();await post('/api/ccut/syscheck');refresh()};
 loadSetup().then(s=>{if(s&&s.frozen&&!s.done)openSetup()});
 refresh();setInterval(refresh,2000);
+/* kéo ngang đổi độ rộng khung Claude, nhớ lại lần sau */
+(()=>{const m=document.querySelector('main'),h=$('#chatResz');if(!m||!h)return;
+  const set=w=>{w=Math.max(280,Math.min(w,innerWidth-270-360));m.style.setProperty('--chatw',w+'px');return w};
+  try{const w=+localStorage.getItem('ccut_chatw');if(w)set(w)}catch(e){}
+  h.onpointerdown=e=>{e.preventDefault();h.setPointerCapture(e.pointerId);h.classList.add('on');document.body.style.userSelect='none'};
+  h.onpointermove=e=>{if(!h.hasPointerCapture(e.pointerId))return;const r=m.getBoundingClientRect();set(r.right-16-e.clientX)};
+  h.onpointerup=e=>{h.classList.remove('on');document.body.style.userSelect='';try{localStorage.setItem('ccut_chatw',parseInt(getComputedStyle(m).getPropertyValue('--chatw')))}catch(e){}};
+  h.ondblclick=()=>{m.style.removeProperty('--chatw');try{localStorage.removeItem('ccut_chatw')}catch(e){}};
+})();
 </script>
 </body>
 </html>
