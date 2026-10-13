@@ -81,6 +81,16 @@ def img(pid, url, name, source=""):
     print(d / name)
 
 
-if __name__ == "__main__":
+def main():
+    # bản đóng gói (nuitka) không chạy được `-m` theo kiểu __main__ → app gọi thẳng main()
+    if len(sys.argv) < 2 or sys.argv[1] not in CMDS:
+        print(__doc__)
+        return
     cmd, *a = sys.argv[1:]
-    {"where": where, "words": words, "fix": fix, "frames": frames, "img": img}[cmd](*a)
+    CMDS[cmd](*a)
+
+
+CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img}
+
+if __name__ == "__main__":
+    main()
