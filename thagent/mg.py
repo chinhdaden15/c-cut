@@ -431,6 +431,9 @@ def render_scene_frame(segment: dict, f: int) -> np.ndarray | None:
             continue
         lay = np.zeros((H, W, 4), np.float32)
         for el in layout_scene(sc)["elements"]:
+            if segment.get("swap"):      # kênh nền hồng/cam: thẻ vàng chìm → đổi vàng ↔ xanh
+                t = el.get("tone", "blue" if el["type"] == "circle" else "gold")
+                el = dict(el, tone={"gold": "blue", "blue": "gold"}.get(t, t))
             DRAW[el["type"]](lay, f, el)
         # chuyển cảnh trong đoạn: cảnh cũ trượt lên + nhòe ở 6 frame cuối
         x = clamp01((f - (sc["end"] - 6) + 1) / 6) if i < len(scenes) - 1 else 0

@@ -6,6 +6,7 @@
   python -m thagent.tools frames <pid> t1 t2 ...               ảnh ghép các khung ở giây nguồn → work/frames.jpg (Read để xem)
   python -m thagent.tools img    <pid> <url> <tên_file> [nguồn] tải ảnh vào assets_web/, ghi nguồn vào illus_sources.json
   python -m thagent.tools speed  <pid> 1.1                     tốc độ cả video lúc xuất (0.8–1.5; 1 = gốc), giọng giữ cao độ
+  python -m thagent.tools channel <pid> <kênh>                 gán kênh: bat-dong-san|suc-khoe|giao-duc|chia-se|lam-dep|fnb|none
 """
 from __future__ import annotations
 
@@ -97,6 +98,18 @@ def speed(pid, v):
     print(f"tốc độ xuất ×{c.project.plan.speed:g} — app áp lúc xuất, không cần đổi timing chữ/MG")
 
 
+def channel(pid, ch):
+    from . import channels as CH
+    if ch not in CH.NAMES and ch != "none":
+        raise SystemExit("kênh phải là một trong: " + "|".join(CH.NAMES) + "|none")
+    d = CH.assign(P.PROJECTS / pid, ch, "claude")
+    if d.get("source") == "user":
+        print(f"người dùng đã chọn kênh {CH.NAMES.get(d['channel'], 'không kênh')} — giữ nguyên")
+    else:
+        print(f"kênh: {CH.NAMES.get(d['channel'], 'không kênh (nền xanh mặc định)')}" + (f" · nền {d['bg']}" if d.get("bg") else "")
+              + " — app tự áp nền + màu thẻ MG theo kênh, không cần chỉnh tone trong design_mg")
+
+
 def main():
     # bản đóng gói (nuitka) không chạy được `-m` theo kiểu __main__ → app gọi thẳng main()
     if len(sys.argv) < 2 or sys.argv[1] not in CMDS:
@@ -106,7 +119,7 @@ def main():
     CMDS[cmd](*a)
 
 
-CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img, "speed": speed}
+CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img, "speed": speed, "channel": channel}
 
 if __name__ == "__main__":
     main()

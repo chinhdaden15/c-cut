@@ -47,6 +47,9 @@ QUY TẮC TỐC ĐỘ (bắt buộc — mục tiêu clip 1 phút xong trong ~10 
 Nhiệm vụ của bạn (KHÔNG render video — app tự xuất sau khi bạn xong):
 LĨNH VỰC: video có thể thuộc MỌI lĩnh vực (BĐS, y tế, ẩm thực, giáo dục, công nghệ, tài chính, làm đẹp, du lịch…). Đọc transcript trước,
    xác định lĩnh vực + khán giả + chủ thể chính, ghi mục đầu confirm.json {{"id":"domain","text":"Lĩnh vực: … · Khán giả: … · Chủ thể: …","status":"auto"}}.
+   Ngay sau đó gán KÊNH (nền MG theo kênh): .venv/bin/python -m thagent.tools channel {pid} <kênh>, kênh là một trong
+   bat-dong-san | suc-khoe | giao-duc | chia-se (chia sẻ kinh nghiệm, câu chuyện, góc nhìn cá nhân) | lam-dep | fnb (ăn uống, nhà hàng, đồ uống) | none (không hợp kênh nào).
+   Lệnh báo người dùng đã chọn kênh thì giữ nguyên. App tự áp nền + màu thẻ theo kênh — KHÔNG tự đổi nền/tone MG vì kênh.
    Chữ, ảnh, icon, tông màu, bối cảnh minh họa theo ĐÚNG lĩnh vực đó. Mẫu reference chỉ học CẤU TRÚC và NHỊP, không học nội dung.
 0. ĐỐI CHIẾU KỊCH BẢN (bắt buộc với mọi style): nếu có {pdir}/script.txt thì gióng từng câu transcript với kịch bản.
    - Kịch bản là nguồn chuẩn cho chính tả, tên riêng, số liệu, đơn vị → sửa transcript theo kịch bản, giữ nguyên timestamp từng từ.

@@ -162,6 +162,8 @@ def denoise_voice(src: str, out: str, log=print, sr=48000):
 def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None) -> dict:
     plan = plan or c.project.plan
     T.build_mapping(plan)
+    from .channels import theme
+    theme(plan.mg, c.dir)          # nền + màu thẻ MG theo kênh của video
     man = ensure_library()
     n = len(c.project.renders) + 1
     vdir = c.path("renders", f"v{n:03d}_{label}", "x").parent

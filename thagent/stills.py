@@ -30,6 +30,8 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
     c = P.Ctx(pid)
     pl = c.project.plan
     T.build_mapping(pl)
+    from .channels import theme
+    theme(pl.mg, c.dir)
     anchors = json.loads(c.path("work", "anchors.json").read_text())
     atl = R.timeline_anchors(pl, anchors)
     pos = R.resolve_layout(pl, atl, W, H)

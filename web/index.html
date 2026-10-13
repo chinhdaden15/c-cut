@@ -77,6 +77,8 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .frow{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:0.5px solid var(--line2);font-size:13px}
 .frow .n{flex:1;min-width:0}.frow .src{font-size:12px;color:var(--fg3)}.frow textarea{width:100%;box-sizing:border-box;font:inherit;margin-top:6px}
 .q .x{border:0;padding:0 4px;color:var(--fg3)}
+.q{flex-wrap:wrap;row-gap:4px}
+.q select.ch{flex:1 0 calc(100% - 22px);margin-left:22px;font-size:12px;padding:2px 4px;border-radius:6px}
 .st-running{color:var(--acc-fg)}.st-done{color:var(--ok)}.st-failed{color:var(--err)}.st-waiting_claude,.st-claude{color:var(--warn)}
 /* dropdown style */
 .select{position:relative}
@@ -326,13 +328,23 @@ async function refresh(){
   $('#outdir').textContent=S.settings.export_dir;
   renderQueue();renderStyles();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
 }
+let CHS=null;   // danh sách kênh (nền MG theo kênh)
+api('/api/ccut/channels').then(d=>{CHS=d.channels;renderQueue()}).catch(()=>{});
+function chSel(x,i){
+  if(!CHS)return '';
+  const nm=id=>id?(CHS.find(c=>c.id===id)||{}).name||id:'không kênh';
+  const auto=x.ch_now!=null&&x.ch_now!==undefined&&!x.channel?'Kênh: tự nhận · '+nm(x.ch_now):'Kênh: Claude tự nhận';
+  const o=[['',auto],...CHS.map(c=>[c.id,'Kênh: '+c.name]),['none','Không kênh (nền xanh)']];
+  return `<select class="ch" data-i="${i}" title="Nền Motion Graphics theo kênh"${x.status==='running'?' disabled':''}>${o.map(([v,l])=>`<option value="${v}"${(x.channel||'')===v?' selected':''}>${esc(l)}</option>`).join('')}</select>`}
 function renderQueue(){
+  if(document.activeElement&&document.activeElement.matches('.q select.ch'))return;   // đang mở ô chọn kênh → không vẽ lại kẻo đóng mất
   const q=S.queue;
   $('#queue').innerHTML=q.length?q.map((x,i)=>{
     const ic={wait:'⏱',running:'⟳',done:'✓',failed:'!',cancelled:'–',waiting_claude:'…',claude:'✦'}[x.status]||'';
     const lab={wait:'chờ',running:'đang dựng',done:'xong',failed:'lỗi',cancelled:'đã dừng',waiting_claude:'chờ Claude',claude:'Claude đang lập kế hoạch'}[x.status];
-    return `<div class="q st-${x.status}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}</div>`}).join(''):'';
+    return `<div class="q st-${x.status}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}${chSel(x,i)}</div>`}).join(''):'';
   document.querySelectorAll('.q .sc').forEach(b=>b.onclick=()=>openScript(+b.dataset.i));
+  document.querySelectorAll('.q select.ch').forEach(b=>b.onchange=async()=>{b.blur();await api(`/api/ccut/queue/${b.dataset.i}/channel`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel:b.value})});toast(b.value?'Đã chọn kênh — xuất lần sau dùng nền kênh này':'Claude sẽ tự nhận kênh');refresh()});
   document.querySelectorAll('.q .x').forEach(b=>b.onclick=async()=>{await api('/api/ccut/queue/'+b.dataset.i,{method:'DELETE'});refresh()});
 }
 let scriptIdx=-1;

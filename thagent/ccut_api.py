@@ -529,6 +529,33 @@ def _write_script(pid: str, text: str | None):
         f.unlink()
 
 
+class ChannelIn(BaseModel):
+    channel: str = ""      # "" = Claude tự nhận, "none" = không kênh (nền xanh), còn lại = id kênh
+
+
+@router.put("/queue/{idx}/channel")
+def queue_channel(idx: int, body: ChannelIn):
+    from . import channels as CH
+    if not 0 <= idx < len(STATE["queue"]):
+        raise HTTPException(404, "Không có video này")
+    item = STATE["queue"][idx]
+    item["channel"] = body.channel if body.channel in CH.NAMES or body.channel == "none" else ""
+    if item.get("project"):
+        _apply_channel(item)
+    save_queue()
+    return {"ok": True}
+
+
+def _apply_channel(item: dict):
+    """lựa chọn của người dùng → <dự án>/channel.json (nền khóa lúc gán)."""
+    from . import channels as CH
+    pdir = P.PROJECTS / item["project"]
+    if item.get("channel"):
+        CH.assign(pdir, item["channel"], "user")
+    else:
+        CH.release(pdir)
+
+
 @router.delete("/queue/{idx}")
 def queue_remove(idx: int):
     if 0 <= idx < len(STATE["queue"]) and STATE["queue"][idx]["status"] != "running":
@@ -644,6 +671,7 @@ def _run_queue(settings: dict):
         multi = item.get("kind") == "multi"
         pid = _slug(Path(item["path"]).stem if not multi else Path(item["path"]).name)
         item.update(status="running", project=pid); save_queue()
+        _apply_channel(item)
         job.update(project=pid, video=item["name"], stage="analyze" if multi else "ingest", done=[], t0=time.time(),
                    percent=0, eta_s=None, stages=STAGES_MULTI if multi else STAGES)
         c = P.Ctx(pid, log, cancel=lambda: job["cancel"])
@@ -724,6 +752,8 @@ def _run_queue(settings: dict):
             shutil.copy2(ROOT / rec["file"], final)
             job["done"].append("render"); job["percent"] = 100
             item.update(status="done", output=str(final))
+            from . import channels as CH
+            CH.exported(c.dir)             # lần xuất đầu → +1 video cho kênh (15 video đổi nền)
             pr = c.dir / "plan_ready.json"
             if pr.exists():
                 pr.replace(c.dir / "plan_ready.used.json")
@@ -851,6 +881,9 @@ def state(project: str | None = None):
         if pid in A.SESSIONS or (P.PROJECTS / pid / "chat.json").exists():
             sess = A.get(pid, s["style"]); confirms, activity, busy = sess.confirms(), sess.activity, sess.busy
     alive = bool(pid and pid in A.SESSIONS and A.SESSIONS[pid].alive())
+    from . import channels as CH
+    for q in STATE["queue"]:           # kênh thực tế của video (người dùng chọn hoặc Claude tự nhận)
+        q["ch_now"] = CH.info(P.PROJECTS / q["project"]).get("channel") if q.get("project") else None
     return {"app": {"name": "C-Cut", "version": APP_VERSION}, "workspace": WS or None, "settings": s,
             "claude": {"project": pid, "confirms": confirms, "activity": activity, "busy": busy, "usage": usage,
                        "alive": alive, "model": s.get("build_model") or "sonnet"}, "system": system_status(),
