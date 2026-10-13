@@ -207,6 +207,10 @@ def text_rules(pl, words, fps: int) -> list[tuple[str, str]]:
                 elif e["type"] == "words" and any(len(c) == 0 for c in M.word_chunks(e)):
                     add("error", f"{where}: dòng dẫn không cắt được")
     photos.sort()
+    from . import imgio
+    for fl in sorted({p[1] for p in photos} | {v.file for v in pl.visuals if getattr(v, "file", None)}):
+        if imgio.imread(fl) is None:
+            add("error", f"ảnh {fl.split('/')[-1]} không đọc được (thiếu file / hỏng / không phải ảnh) — tải ảnh khác bằng tools img")
     for i, (t, fl, where) in enumerate(photos):
         prev = next((p for p in reversed(photos[:i]) if p[1] == fl and t - p[0] < 30 * fps), None)
         if prev:

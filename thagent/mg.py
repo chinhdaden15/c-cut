@@ -11,6 +11,7 @@ from functools import lru_cache
 import cv2
 import numpy as np
 
+from . import imgio
 from . import neon
 from .typography import _blend, clamp01, ease_in_cubic, ease_out_back, ease_out_cubic, ease_out_quart, hex_rgb
 
@@ -87,7 +88,7 @@ def tag(text: str, tone: str, size: int = 40) -> np.ndarray:
 
 @lru_cache(maxsize=32)
 def photo_card(path: str, w: int, h: int, label: str = "") -> np.ndarray:
-    img = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB).astype(np.float32) / 255
+    img = cv2.cvtColor(imgio.must_read(path), cv2.COLOR_BGR2RGB).astype(np.float32) / 255
     ih, iw = img.shape[:2]
     s = max(w / iw, h / ih)
     img = cv2.resize(img, (int(iw * s) + 1, int(ih * s) + 1), interpolation=cv2.INTER_AREA)

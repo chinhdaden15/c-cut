@@ -22,6 +22,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from . import imgio
 from . import pipeline as P
 from .render import run
 
@@ -112,7 +113,7 @@ def _sheet(path: str, info, gaze: list[dict], dst: Path):
         cols = 8
         rows = [thumbs[i:i + cols] for i in range(0, len(thumbs), cols)]
         rows[-1] += [np.zeros_like(thumbs[0])] * (cols - len(rows[-1]))
-        cv2.imwrite(str(dst), np.vstack([np.hstack(r) for r in rows]), [cv2.IMWRITE_JPEG_QUALITY, 82])
+        imgio.imwrite(str(dst), np.vstack([np.hstack(r) for r in rows]), [cv2.IMWRITE_JPEG_QUALITY, 82])
 
 
 def _spans(words: list[dict], gaze: list[dict], dur: float) -> tuple[list, list]:

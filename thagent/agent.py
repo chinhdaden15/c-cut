@@ -29,6 +29,7 @@ Dữ liệu đã có: {pdir}/project.json (nguồn, transcript), {pdir}/work/tra
 QUY TẮC TỐC ĐỘ (bắt buộc — mục tiêu clip 1 phút xong trong ~10 phút):
 - KHÔNG đọc/tham khảo dự án khác trong projects/ (mọi mẫu cần dùng nằm ở .claude/skills/{style}/reference/).
 - Gõ lệnh python ĐÚNG dạng `.venv/bin/python ...` (PYTHONPATH app đã cài sẵn): KHÔNG thêm tiền tố biến môi trường, KHÔNG `cd`, KHÔNG nối lệnh bằng && ; | — nếu không lệnh sẽ bị chặn quyền.
+- Tải ảnh CHỈ bằng `.venv/bin/python -m thagent.tools img ...` (không dùng curl/wget/python -c). Lệnh báo LỖI “không phải ảnh” → chọn link ảnh khác.
 - KHÔNG tự viết script phụ (_where.py, frames.py, fix_asr.py, fetch_imgs.py...). Dùng lệnh có sẵn:
     .venv/bin/python -m thagent.tools where {pid}            đường dẫn, thời lượng
     .venv/bin/python -m thagent.tools words {pid} [t0 t1]    transcript kèm giây
@@ -167,7 +168,9 @@ class Session:
         self.last_evt = time.time()       # lần cuối Claude gửi gì đó (để phát hiện treo)
         self.err_tail = ""
         self.restarts = 0
-        self.denied = ""                  # lệnh bị Claude Code chặn quyền (báo ngay, không nhắc lại vô ích)
+        self.denied = ""                  # lệnh bị Claude Code chặn quyền → app nhắc Claude dùng đúng lệnh (tối đa 3 lần)
+        self.last_cmd = ""
+        self.denials = 0
 
     # ---------- lưu ----------
     def _save(self):
@@ -250,6 +253,8 @@ class Session:
                         self._add("claude", b["text"].strip())
                     elif b.get("type") == "tool_use":
                         self.activity = _describe(b)
+                        inp = b.get("input") or {}
+                        self.last_cmd = str(inp.get("command") or inp.get("url") or b.get("name"))[:300]
                         self._add("claude", self.activity, kind="tool")
             elif t == "user":
                 for b in (d.get("message") or {}).get("content") or []:
@@ -257,7 +262,7 @@ class Session:
                         txt = b.get("content")
                         txt = txt if isinstance(txt, str) else json.dumps(txt, ensure_ascii=False)
                         if "requires approval" in txt or "permission" in txt.lower() and "denied" in txt.lower():
-                            self.denied = self.activity or txt[:200]
+                            self.denied = getattr(self, "last_cmd", "") or self.activity or txt[:200]
             elif t == "result":
                 for x in d.get("permission_denials") or []:
                     self.denied = self.denied or str((x.get("tool_input") or {}).get("command") or x.get("tool_name"))[:200]

@@ -17,6 +17,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from . import imgio
 from . import timeline as T
 from .matting import smooth_anchors
 from .schema import Plan, TextGroup
@@ -298,7 +299,7 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         frame = (np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)
         enc.stdin.write(frame.tobytes()); written += 1; last_frame = frame
         if snapshots and f in snapshots and snap_dir:
-            cv2.imwrite(str(snap_dir / f"snap_{f:05d}.jpg"), cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            imgio.imwrite(str(snap_dir / f"snap_{f:05d}.jpg"), cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         if progress and f % 30 == 0:
             progress(f"render frame {f - a0}/{a1 - a0}")
     while last_frame is not None and written < a1 - a0:   # nguồn đọc thiếu frame → giữ frame cuối để khớp độ dài tiếng
@@ -394,7 +395,7 @@ def _card_sprite(v, kb: float) -> np.ndarray:
     from .schema import TextSpan
     key = (v.file, v.width)
     if key not in _CARD_CACHE:
-        img = cv2.cvtColor(cv2.imread(v.file), cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+        img = cv2.cvtColor(imgio.must_read(v.file), cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
         _CARD_CACHE[key] = img
     img = _CARD_CACHE[key]
     h0, w0 = img.shape[:2]
@@ -428,7 +429,7 @@ def card_layout(plan: Plan, v, anchors_tl, W: int, H: int) -> tuple[float, float
     fr = [anchors_tl[f] for f in range(max(v.start, 0), min(v.end, len(anchors_tl)))] or [anchors_tl[0]]
     head_top = float(np.nanmedian([a["head_top"] for a in fr])) * H
     face_cx = float(np.nanmedian([a["face_cx"] for a in fr])) * W
-    img = cv2.imread(v.file)
+    img = imgio.must_read(v.file)
     ch = v.width * img.shape[0] / img.shape[1]
     # đáy thẻ chồng ~22% xuống dưới đỉnh đầu → đầu che thật mép dưới thẻ
     cy = head_top - ch / 2 + ch * 0.22

@@ -12,6 +12,7 @@ import sys
 import cv2
 import numpy as np
 
+from . import imgio
 from . import mg as MG, pipeline as P, render as R, timeline as T
 from .typography import draw_group
 
@@ -68,7 +69,7 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
             o = o + (1 - o) * fl
         img = cv2.cvtColor((np.clip(o, 0, 1) * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
         p = out_dir / f"f_{f:05d}.jpg"
-        cv2.imwrite(str(p), img)
+        imgio.imwrite(str(p), img)
         files.append(str(p))
         t = cv2.resize(img, (270, 480))
         cv2.putText(t, T.tc(f), (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
@@ -77,7 +78,7 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
         cols = 6
         rows = [thumbs[i:i + cols] for i in range(0, len(thumbs), cols)]
         rows[-1] += [np.zeros_like(thumbs[0])] * (cols - len(rows[-1]))
-        cv2.imwrite(str(out_dir / "sheet.jpg"), np.vstack([np.hstack(r) for r in rows]))
+        imgio.imwrite(str(out_dir / "sheet.jpg"), np.vstack([np.hstack(r) for r in rows]))
     return files
 
 

@@ -627,7 +627,17 @@ def _run_queue(settings: dict):
                         sess.stop(); raise RuntimeError("cancelled")
                     job["activity"] = sess.activity
                     if sess.denied and not sess.busy and not sess.plan_ready():
-                        raise RuntimeError(f"Claude bị chặn quyền chạy lệnh: {sess.denied} — báo lỗi này cho nhà phát triển")
+                        # bị chặn 1 lệnh không phải lỗi chết: nhắc Claude dùng đúng dạng lệnh rồi làm tiếp
+                        cmd = sess.denied
+                        log(f"lệnh bị chặn quyền: {cmd}")
+                        if sess.denials >= 3:
+                            raise RuntimeError(f"Claude bị chặn quyền nhiều lần, lệnh cuối: {cmd} — báo lỗi này cho nhà phát triển")
+                        sess.denials += 1
+                        sess.send(f"Lệnh vừa rồi bị chặn quyền: `{cmd}`. Chỉ dùng đúng dạng `.venv/bin/python ...` (tải ảnh: "
+                                  f".venv/bin/python -m thagent.tools img {pid} <url> i_ten.jpg [nguồn]), không cd, không nối lệnh "
+                                  "bằng && ; |, không tiền tố biến môi trường. Làm tiếp việc đang dở cho tới khi ghi plan_ready.json.",
+                                  show=False)
+                        continue
                     if not sess.busy and not sess.plan_ready():   # Claude đã dừng giữa chừng mà chưa xong → giao lại việc
                         time.sleep(5)
                         if not sess.busy and not sess.plan_ready():

@@ -75,6 +75,12 @@ def img(pid, url, name, source=""):
     d.mkdir(parents=True, exist_ok=True)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     (d / name).write_bytes(urllib.request.urlopen(req, timeout=30).read())
+    from . import imgio
+    im = imgio.imread(d / name)
+    if im is None:
+        (d / name).unlink(missing_ok=True)
+        raise SystemExit(f"LỖI: {url} không phải ảnh (trang web/bị chặn) — chọn link ảnh khác (đuôi .jpg/.png)")
+    imgio.imwrite(d / name, im, [1, 92])   # chuẩn hóa về đúng định dạng theo đuôi file (webp/avif → jpg…)
     sj = d / "illus_sources.json"
     src = json.loads(sj.read_text(encoding="utf-8")) if sj.exists() else {}
     src[name] = source or url
