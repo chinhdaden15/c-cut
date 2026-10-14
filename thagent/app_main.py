@@ -138,10 +138,34 @@ def _hide_consoles():
     subprocess.Popen.__init__ = init
 
 
+_LOCK_FH = None
+
+
+def _single_instance(home: Path) -> bool:
+    """chỉ 1 cửa sổ C-Cut: đã có bản đang chạy → False (khóa tự nhả khi app tắt, kể cả bị tắt ngang)."""
+    global _LOCK_FH
+    try:
+        _LOCK_FH = open(home / ".app.lock", "a+")
+        if IS_WIN:
+            import msvcrt
+            _LOCK_FH.seek(0)
+            msvcrt.locking(_LOCK_FH.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(_LOCK_FH.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError:
+        return False
+    except Exception:
+        return True
+
+
 def run_app():
     if IS_WIN:
         _hide_consoles()
     res, home = setup_env()
+    if not _single_instance(home):
+        sys.exit(0)
     seed(res, home)
     os.chdir(home)
     import uvicorn
@@ -168,8 +192,17 @@ def run_app():
     srv.should_exit = True
 
 
+def _mp_child(args: list[str]) -> bool:
+    """thư viện (tqdm…) bật tiến trình phụ của multiprocessing bằng chính file chạy của app
+    (`C-Cut -B -s -c "from multiprocessing.resource_tracker import main…"`) → không được mở cửa sổ app."""
+    return "--multiprocessing-fork" in args or ("-c" in args and any("multiprocessing" in a for a in args))
+
+
 def main():
-    if Path(sys.executable).stem.lower() == "ccut-py" or (len(sys.argv) > 1 and sys.argv[1] == "--py"):
+    import multiprocessing
+    multiprocessing.freeze_support()
+    if (Path(sys.executable).stem.lower() == "ccut-py" or (len(sys.argv) > 1 and sys.argv[1] == "--py")
+            or _mp_child(sys.argv[1:])):
         setup_env()
         args = sys.argv[1:]
         if args and args[0] == "--py":

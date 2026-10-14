@@ -95,6 +95,12 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .preview{display:flex;gap:14px}
 .player{width:170px;aspect-ratio:9/16;border-radius:8px;background:#0B0C0E;border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--fg3);overflow:hidden;flex:none}
 .player video{width:100%;height:100%;object-fit:contain;background:#000}
+.pcol{flex:none;width:170px;display:flex;flex-direction:column;gap:6px}
+.pacts{display:flex;gap:4px}.pacts[hidden]{display:none}
+.pacts button{flex:1;font-size:12px;padding:4px 0;white-space:nowrap}.pacts #pDir{flex:none;width:34px}
+.bigview{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center}
+.bigview video{max-width:96vw;max-height:92vh;height:92vh;aspect-ratio:9/16;background:#000;border-radius:8px}
+.bigview .close{position:absolute;top:14px;right:18px;font-size:20px;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:8px;padding:4px 12px}
 .thumbs{display:flex;gap:6px;flex-wrap:wrap}
 .thumbs img{width:54px;aspect-ratio:9/16;object-fit:cover;border-radius:5px;border:0.5px solid var(--line);cursor:pointer}
 .thumbs img:hover{border-color:var(--acc)}
@@ -196,7 +202,8 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
     <div class="card">
       <h3>Xem trước</h3>
       <div class="preview">
-        <div class="player" id="player">▶</div>
+        <div class="pcol"><div class="player" id="player">▶</div>
+          <div class="pacts" id="pacts" hidden><button id="pBig" title="Phóng to (Esc để thu lại)">⤢ Phóng to</button><button id="pSave" title="Lưu video về máy">⬇ Lưu</button><button id="pDir" title="Mở thư mục chứa video đã xuất">📂</button></div></div>
         <div style="flex:1;min-width:0">
           <div class="thumbs" id="thumbs"></div>
           <div class="empty" id="thumbsEmpty">Ảnh tĩnh ở các điểm nhấn sẽ hiện sau bước Kiểm tra.</div>
@@ -239,7 +246,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
       <div class="tabs"><div class="tab on" data-t="project">Dự án</div><div class="tab" data-t="tools">Công cụ</div><div class="tab" data-t="notify">Thông báo</div><div class="tab" data-t="bgs">Nền kênh</div></div>
       <div>
         <div data-p="project">
-          <div class="field"><label>Thư mục chứa dự án (mặc định khi tạo dự án mới)</label><div class="row"><input id="sProj"><button id="pickProj">Chọn</button></div></div>
+          <div class="field"><label>Nơi lưu dữ liệu làm việc của dự án (mặc định khi tạo dự án mới)</label><div class="row"><input id="sProj"><button id="pickProj">Chọn</button></div></div>
           <div class="field"><label>Nơi xuất mặc định</label><div class="row"><input id="sOut"><button id="pickOut2">Chọn</button></div></div>
           <div class="field"><label>Model Claude khi dựng</label><select id="sModel" style="width:100%;padding:8px 10px;border-radius:8px;border:0.5px solid var(--line2);background:var(--panel2);color:inherit;font:inherit"><option value="sonnet">Sonnet 5.5 — nhanh (khuyên dùng)</option><option value="opus">Opus 5.5 — kỹ hơn, chậm hơn, tốn giới hạn hơn</option></select></div>
           <button class="primary" id="saveSettings" style="padding:8px 16px">Lưu</button>
@@ -271,9 +278,9 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 <div class="overlay" id="wsBox">
   <div class="modal" style="width:min(520px,92vw)">
     <div class="mhead"><b>Tạo dự án</b><button id="closeWs" aria-label="Đóng" hidden>✕</button></div>
-    <p class="small dim" style="margin:0 0 10px">Mỗi lần mở app là một dự án mới. Video, kế hoạch và lịch sử chat của dự án được lưu trong thư mục dưới đây — thoát app vẫn còn.</p>
+    <p class="small dim" style="margin:0 0 10px">Mỗi lần mở app là một dự án mới. Thư mục dưới đây chỉ chứa <b>dữ liệu làm việc</b> (file tạm, ảnh, kế hoạch, lịch sử chat) — thoát app vẫn còn. Video thành phẩm được xuất riêng ra <b>Nơi xuất</b>, đặt theo tên dự án.</p>
     <div class="field"><label>Tên dự án</label><input id="wsName"></div>
-    <div class="field"><label>Lưu trong thư mục</label><div class="row"><input id="wsPar"><button id="wsPick">Chọn</button></div></div>
+    <div class="field"><label>Nơi lưu dữ liệu làm việc</label><div class="row"><input id="wsPar"><button id="wsPick">Chọn</button></div></div>
     <div class="small dim" id="wsPath" style="margin:2px 0 12px;word-break:break-all"></div>
     <div class="row"><span style="flex:1"></span><button class="primary" id="wsCreate" style="padding:8px 18px">Tạo dự án</button></div>
   </div>
@@ -378,10 +385,20 @@ function renderJob(){
 }
 let curPid=null;
 function resetProject(){
-  $('#player').innerHTML='▶';$('#thumbs').innerHTML='';$('#thumbsEmpty').hidden=false;
+  $('#player').innerHTML='▶';$('#pacts').hidden=true;curOut=null;$('#thumbs').innerHTML='';$('#thumbsEmpty').hidden=false;
   $('#tl').innerHTML='<div class="talk" style="flex:1"></div>';$('#stats').innerHTML='<span>Nói</span><span style="color:var(--acc-fg)">Graphic</span>';
   $('#credits').textContent='Chưa có dữ liệu.';
 }
+let curOut=null;
+function bigView(){const v=$('#player video');if(!v)return;const t=v.currentTime;v.pause();
+  const d=document.createElement('div');d.className='bigview';d.innerHTML=`<video controls autoplay src="${v.src}"></video><button class="close" aria-label="Thu lại">✕</button>`;
+  const bv=d.querySelector('video');bv.currentTime=t;
+  const close=()=>{v.currentTime=bv.currentTime;d.remove();removeEventListener('keydown',esc_)};
+  const esc_=e=>{if(e.key==='Escape')close()};
+  d.querySelector('.close').onclick=close;d.onclick=e=>{if(e.target===d)close()};addEventListener('keydown',esc_);document.body.appendChild(d)}
+$('#pBig').onclick=bigView;
+$('#pSave').onclick=async()=>{if(!curOut)return;try{const r=await post('/api/ccut/output/save',{path:curOut});if(r.saved)toast('Đã lưu: '+r.saved)}catch(e){toast(e.message)}};
+$('#pDir').onclick=async()=>{if(curOut)try{await post('/api/ccut/output/reveal',{path:curOut})}catch(e){toast(e.message)}};
 function renderProject(){
   const p=S.project;
   const pid=p?p.id:null;
@@ -390,6 +407,7 @@ function renderProject(){
   const th=$('#thumbs');th.innerHTML=p.stills.map(s=>`<img src="${file(s)}" alt="">`).join('');$('#thumbsEmpty').hidden=p.stills.length>0;
   th.querySelectorAll('img').forEach(i=>i.onclick=()=>{$('#player').innerHTML=`<img src="${i.src}" style="width:100%;height:100%;object-fit:contain">`});
   if(p.output&&!$('#player video')){$('#player').innerHTML=`<video controls src="${file(p.output)}"></video>`}
+  $('#pacts').hidden=!p.output;curOut=p.final||p.output;
   if(p.timeline.length){const tot=p.timeline.reduce((a,b)=>a+b.len,0);$('#tl').innerHTML=p.timeline.map(x=>`<div class="${x.kind}" style="flex:${x.len/tot}"></div>`).join('')}
   const c=p.counts;if(c.text!=null)$('#stats').innerHTML=`<span>Nói</span><span style="color:var(--acc-fg)">Graphic ${c.graphic}</span><span>Chữ ${c.text}</span><span>${c.sfx} loại SFX</span><span>Nói dài nhất ${c.longest_talk_s}s</span>`;
   const cr=p.credits;if(cr.lines)$('#credits').textContent=`${cr.project_photos} ảnh dự án · ${cr.illustrations} ảnh minh họa · ${cr.icons} · ${cr.sfx} SFX`;
@@ -579,7 +597,8 @@ loadSetup().then(s=>{if(s&&s.frozen&&!s.done)openSetup()});
 /* dự án: mở app → tạo dự án mới */
 let wsShown=false;
 async function wsSuggest(par){const r=await api('/api/ccut/workspace'+(par?'?parent='+encodeURIComponent(par):''));return r}
-function wsUpd(){const p=$('#wsPar').value.trim(),n=$('#wsName').value.trim();$('#wsPath').textContent=p&&n?'→ '+p.replace(/[\\/]$/,'')+(p.includes('\\')?'\\':'/')+n:''}
+function wsUpd(){const p=$('#wsPar').value.trim(),n=$('#wsName').value.trim(),norm=x=>(x||'').replace(/[\\/]+$/,'');
+  $('#wsPath').textContent=(p&&n?'→ '+norm(p)+(p.includes('\\')?'\\':'/')+n:'')+(S&&S.settings&&norm(p)===norm(S.settings.export_dir)?'  ⚠ Trùng thư mục xuất video — nên chọn thư mục khác để thư mục xuất chỉ có video thành phẩm.':'')}
 async function openWs(){wsShown=true;const r=await wsSuggest();$('#wsName').value=r.suggest;$('#wsPar').value=r.parent;$('#closeWs').hidden=!S.workspace;wsUpd();$('#wsBox').classList.add('show');setTimeout(()=>{$('#wsName').focus();$('#wsName').select()},50)}
 $('#wsName').oninput=wsUpd;$('#wsPar').oninput=wsUpd;
 $('#wsPick').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path){$('#wsPar').value=r.path;const s=await wsSuggest(r.path);if(/^Dự Án Mới( \d+)?$/.test($('#wsName').value.trim()))$('#wsName').value=s.suggest;wsUpd()}};

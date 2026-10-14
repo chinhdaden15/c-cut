@@ -176,9 +176,18 @@ def flash_at(plan: Plan, f: int) -> float:
     return o
 
 
+MOVED_DOWN: set[str] = set()   # nhóm “sau đầu” không đủ chỗ trên đầu → app đưa xuống trước ngực (lớp trước người)
+
+
+def layer_of(g) -> str:
+    return "front_of_subject" if g.id in MOVED_DOWN else g.layer
+
+
 def resolve_layout(plan: Plan, anchors_tl: list[dict], W: int, H: int) -> dict[str, tuple[float, float]]:
     """Điểm neo (px) cố định cho mỗi nhóm, tính từ median neo trong thời gian nhóm hiển thị."""
     pos = {}
+    MOVED_DOWN.clear()
+    down = {}      # id → (vị trí mong muốn, y0, y1)
     for g in plan.text_groups:
         if not g.enabled:
             continue
@@ -211,6 +220,11 @@ def resolve_layout(plan: Plan, anchors_tl: list[dict], W: int, H: int) -> dict[s
                 x0, y0, x1, y1 = group_extent(g)
                 ay = head_top - y1 - 22
             ay = max(ay, SAFE["top"] - y0)
+            # đầu sát mép trên (quay cận) → chữ bị đầu che quá nửa → đưa cả cụm xuống trước ngực, không để mất chữ
+            if g.layer == "behind_subject" and (ay + y1 - head_top) / max(gh, 1) > 0.5:
+                MOVED_DOWN.add(g.id)
+                down[g.id] = (max(zy(med("chest_y")), zy(med("face_bottom")) - y0 + 24), y0, y1)
+                ay = down[g.id][0]
         elif g.zone == "chest":
             chest = zy(med("chest_y"))
             face_bottom = zy(med("face_bottom"))
@@ -221,6 +235,19 @@ def resolve_layout(plan: Plan, anchors_tl: list[dict], W: int, H: int) -> dict[s
         ax = g.anchor_x * W
         ax = min(max(ax, SAFE["side"] - x0), W - SAFE["side"] - x1)
         pos[g.id] = (ax, ay)
+    # nhóm vừa đưa xuống: né các nhóm lớp trước đang hiện cùng lúc (xuống dưới; hết chỗ thì lên trên chúng)
+    for gid, (want, y0, y1) in down.items():
+        g = next(x for x in plan.text_groups if x.id == gid)
+        occ = sorted((pos[o.id][1] + group_extent(o)[1], pos[o.id][1] + group_extent(o)[3])
+                     for o in plan.text_groups if o.enabled and o.id != gid and o.id in pos
+                     and layer_of(o) == "front_of_subject" and o.start < g.end and g.start < o.end)
+        ay = want
+        for a, b in occ:
+            if ay + y0 < b + 20 and ay + y1 > a - 20:
+                ay = b + 20 - y0
+        if ay > H - SAFE["bottom"] - y1:
+            ay = min([a for a, _ in occ] + [H - SAFE["bottom"]]) - 20 - y1
+        pos[gid] = (pos[gid][0], ay)
     return pos
 
 
@@ -285,7 +312,7 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
                 draw_card(behind if v.zone == "above_head" else front, v, f, *cpos[v.id])
         for g in active:
             ax, ay = pos[g.id]
-            draw_group(behind if g.layer == "behind_subject" else front, g, f, ax, ay)
+            draw_group(behind if layer_of(g) == "behind_subject" else front, g, f, ax, ay)
         out = base * (1 - behind[..., 3:4]) + behind[..., :3]
         if behind[..., 3].any():
             am = alpha[..., None]

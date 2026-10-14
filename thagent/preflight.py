@@ -106,10 +106,13 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
                 if abs(ic.dx - t.dx) < (tw + iw) / 2 and abs(ic.dy - t.dy) < (th + ih) / 2:
                     add("warn", f"{g.id}: element '{ic.text}' có thể đè chữ '{t.text}'")
     for layer in ("front_of_subject", "behind_subject"):
-        gs = sorted([g for g in pl.text_groups if g.enabled and g.layer == layer], key=lambda g: g.start)
+        gs = sorted([g for g in pl.text_groups if g.enabled and g.layer == layer and g.id not in R.MOVED_DOWN],
+                    key=lambda g: g.start)
         for a, b in zip(gs, gs[1:]):
             if a.end > b.start:
                 add("error", f"{a.id} chồng {b.id} cùng lớp {(a.end - b.start)} frame")
+    for gid in sorted(R.MOVED_DOWN):
+        add("info", f"{gid}: đầu sát mép trên, không đủ chỗ cho chữ sau đầu → app tự đưa xuống trước ngực (xem stills)")
     # 5) quy tắc nội dung chữ + Motion Graphics
     out.extend(text_rules(pl, c.project.words, fps))
     out.extend(gaze_rules(pl, c.project.words, c.path("work", "gaze.json"), fps))

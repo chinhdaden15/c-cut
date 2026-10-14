@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.3.3"
+APP_VERSION = "1.4.0"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -252,6 +252,57 @@ def pick(body: PickIn):
         raise HTTPException(501, "Hệ điều hành chưa hỗ trợ hộp thoại")
     path = r.stdout.strip()
     return {"path": path or None}
+
+
+# ---------------- video đã xuất: lưu về / mở thư mục (giống nhau trên Mac và Windows) ----------------
+class OutIn(BaseModel):
+    path: str
+
+
+def _video_path(raw: str) -> Path:
+    p = Path(raw).expanduser()
+    if not p.is_file() or p.suffix.lower() not in VIDEO_EXT:
+        raise HTTPException(404, "Không thấy file video")
+    return p
+
+
+@router.post("/output/save")
+def output_save(body: OutIn):
+    src = _video_path(body.path)
+    dest = None
+    if WINDOW is not None:
+        import webview
+        r = WINDOW.create_file_dialog(webview.FileDialog.SAVE, save_filename=src.name,
+                                      directory=str(Path(load_settings()["export_dir"]).expanduser()))
+        dest = (r[0] if isinstance(r, (list, tuple)) else r) if r else None
+    elif sys.platform == "darwin":
+        r = subprocess.run(["osascript", "-e", f'POSIX path of (choose file name with prompt "Lưu video" default name "{src.name}")'],
+                           capture_output=True, text=True)
+        dest = r.stdout.strip() or None
+    elif os.name == "nt":
+        ps = ("Add-Type -AssemblyName System.Windows.Forms;$d=New-Object System.Windows.Forms.SaveFileDialog;"
+              f"$d.FileName='{src.name}';$d.Filter='Video|*.mp4';if($d.ShowDialog() -eq 'OK'){{$d.FileName}}")
+        dest = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps], capture_output=True, text=True).stdout.strip() or None
+    if not dest:
+        return {"saved": None}
+    dest = Path(dest)
+    if dest.suffix.lower() != src.suffix.lower():
+        dest = dest.with_name(dest.name + src.suffix)
+    if dest.resolve() != src.resolve():
+        shutil.copy2(src, dest)
+    return {"saved": str(dest)}
+
+
+@router.post("/output/reveal")
+def output_reveal(body: OutIn):
+    p = _video_path(body.path)
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", "-R", str(p)])
+    elif os.name == "nt":
+        subprocess.Popen(["explorer", "/select,", str(p)])
+    else:
+        subprocess.Popen(["xdg-open", str(p.parent)])
+    return {"ok": True}
 
 
 # ---------------- trạng thái công cụ ----------------
@@ -655,6 +706,23 @@ def _run_multi(item: dict, pid: str, job: dict, settings: dict, log) -> Path:
     return asm
 
 
+def _final_path(item: dict, out_dir: Path, multi: bool) -> Path:
+    """thư mục xuất chỉ nhận video thành phẩm, đặt theo tên dự án (nhiều video → thêm tên video).
+    Xuất lại cùng video → ghi đè bản cũ; trùng tên file khác → thêm (2), (3)…"""
+    old = Path(item["output"]) if item.get("output") else None
+    if old and old.parent == out_dir:
+        return old
+    stem = Path(item["path"]).name if multi else Path(item["path"]).stem
+    base = WS.get("name") or stem
+    if len(STATE["queue"]) > 1:
+        base = f"{base} - {stem}"
+    base = re.sub(r'[<>:"/\\|?*]', "", base).strip().rstrip(".") or "video"
+    f, n = out_dir / f"{base}.mp4", 2
+    while f.exists():
+        f, n = out_dir / f"{base} ({n}).mp4", n + 1
+    return f
+
+
 def _run_queue(settings: dict):
     job = STATE["job"]
 
@@ -748,7 +816,7 @@ def _run_queue(settings: dict):
             job["stage"] = "render"
             rec = P.step_render(c, None, "ccut")
             out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
-            final = out_dir / f"{Path(item['path']).name if multi else Path(item['path']).stem}_C-Cut.mp4"
+            final = _final_path(item, out_dir, multi)
             shutil.copy2(ROOT / rec["file"], final)
             job["done"].append("render"); job["percent"] = 100
             item.update(status="done", output=str(final))
@@ -834,6 +902,9 @@ def project_summary(pid: str | None) -> dict | None:
                 out["stills"] = [str(p) for p in snaps][:14]
                 break
         out["output"] = str(ROOT / last["file"]) if not Path(last["file"]).is_absolute() else last["file"]
+    # bản đã chép ra thư mục xuất (lưu về / mở thư mục dùng bản này)
+    out["final"] = next((q["output"] for q in reversed(STATE["queue"]) if q.get("project") == pid and q.get("output")
+                         and Path(q["output"]).exists()), None)
     if pl and pl.duration_frames:
         segs = sorted((m["start"], m["end"]) for m in pl.mg)
         prev, tl = 0, []

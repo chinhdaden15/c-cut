@@ -59,7 +59,7 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
             R.draw_card(bh if v.zone == "above_head" else fr, v, f, *cpos[v.id])
         for g in pl.text_groups:
             if g.enabled and g.start <= f < g.end:
-                draw_group(bh if g.layer == "behind_subject" else fr, g, f, *pos[g.id])
+                draw_group(bh if R.layer_of(g) == "behind_subject" else fr, g, f, *pos[g.id])
         o = base * (1 - bh[..., 3:4]) + bh[..., :3]
         o = o * (1 - a) + base * a
         o = R.draw_highlights(o, pl, f, z, zcx, zcy)
