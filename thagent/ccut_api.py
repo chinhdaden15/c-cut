@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -811,7 +811,15 @@ def _run_queue(settings: dict):
             errs = [m for s, m in res if s == "error"]
             job["preflight"] = res
             if errs:
-                raise RuntimeError("Kiểm tra trước khi xuất có lỗi: " + "; ".join(errs[:3]))
+                # bỏ plan_ready → không tự xuất lại liên tục; giao lỗi cho Claude sửa (tối đa 3 lần), Claude ghi lại plan_ready thì mới xuất lại
+                (c.dir / "plan_ready.json").replace(c.dir / "plan_ready.rejected.json")
+                item["pf_tries"] = item.get("pf_tries", 0) + 1
+                if item["pf_tries"] <= 3:
+                    sess.send("Preflight còn lỗi, app chưa xuất. Sửa kế hoạch cho hết lỗi, chạy lại preflight rồi ghi lại plan_ready.json:\n- "
+                              + "\n- ".join(errs[:8]), show=False)
+                    raise RuntimeError(f"Kiểm tra trước khi xuất có lỗi — đã gửi Claude sửa (lần {item['pf_tries']}/3): " + "; ".join(errs[:2]))
+                raise RuntimeError("Kiểm tra trước khi xuất vẫn lỗi sau 3 lần Claude sửa — xem khung chat: " + "; ".join(errs[:3]))
+            item["pf_tries"] = 0
             job["done"].append("preflight")
             job["stage"] = "render"
             rec = P.step_render(c, None, "ccut")

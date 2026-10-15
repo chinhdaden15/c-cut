@@ -485,5 +485,6 @@ def covered_range(segment: dict) -> tuple[int, int]:
 
 def chain(segments: list[dict]):
     for s in segments:
-        s["chain_in"] = any(o is not s and abs(o["end"] - s["start"]) <= 1 for o in segments)
+        # MG mở đầu video (frame 0) phủ kín ngay, không trượt vào — trước nó không có gì để lộ
+        s["chain_in"] = s["start"] <= 0 or any(o is not s and abs(o["end"] - s["start"]) <= 1 for o in segments)
         s["chain_out"] = any(o is not s and abs(o["start"] - s["end"]) <= 1 for o in segments)
