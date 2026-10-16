@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.4.3"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -791,6 +791,9 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
     job["done"].append("plan"); job["stage"] = "render"
     out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
     fmts = [f for f in ("9x16", "16x9") if (pdir / f"timeline_{f}.json").exists()]
+    want = (sess.plan_ready() or {}).get("formats")       # người dùng dặn “chỉ dọc”/“chỉ ngang” → Claude ghi vào plan_ready.json
+    if want:
+        fmts = [f for f in fmts if f in want]
     if not fmts:
         raise RuntimeError("Claude chưa ghi timeline_9x16.json / timeline_16x9.json")
     dur = json.loads((pdir / fmts[0].join(("timeline_", ".json"))).read_text(encoding="utf-8")).get("duration") or 60

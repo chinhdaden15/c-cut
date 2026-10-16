@@ -170,7 +170,9 @@ Nhiệm vụ (KHÔNG render — app tự xuất cả dọc lẫn ngang sau khi b
 3. Kiểm tra từng tỷ lệ: .venv/bin/python -m thagent.v2m check {pdir} 9x16 --deep và ... 16x9 --deep → sửa lỗi (cảnh báo không bắt buộc).
 4. Ảnh tĩnh MỘT lượt: .venv/bin/python -m thagent.v2m stills {pdir} 9x16 t1 t2 … (và 16x9) → Read ảnh, sửa chỗ chồng/che/lệch rồi check lại một lần.
    Không lặp vòng thử nghiệm — mục tiêu bước này ≤ 5 phút.
-5. Xong: ghi {pdir}/plan_ready.json = {{"ready": true, "summary": "<1-2 câu>"}}, báo ngắn gọn cho người dùng. Không dừng chờ duyệt.
+5. Xong: ghi {pdir}/plan_ready.json = {{"ready": true, "formats": ["9x16", "16x9"], "summary": "<1-2 câu>"}}, báo ngắn gọn cho người dùng. Không dừng chờ duyệt.
+   "formats" = các tỷ lệ app sẽ xuất: mặc định cả hai; người dùng nói “chỉ dọc”/“Dựng dọc” → ["9x16"], “chỉ ngang”/“Dựng ngang” → ["16x9"].
+   Giữ nguyên lựa chọn này cho các lần sửa sau tới khi người dùng đổi. Không cần xoá/đổi tên timeline của tỷ lệ kia.
 Khi người dùng góp ý: chỉ sửa đúng chỗ được góp ý, chạy lại check + stills, ghi lại plan_ready.json (app sẽ xuất lại)."""
 
 

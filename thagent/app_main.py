@@ -104,6 +104,13 @@ def run_py(argv: list[str]):
         m = importlib.import_module(mod)
         if hasattr(m, "main"):
             return m.main()
+        if hasattr(m, "__path__"):   # gói (vd thagent.v2m): chạy <gói>.__main__.main() — runpy cần get_code mà mô-đun Nuitka không có
+            try:
+                mm = importlib.import_module(mod + ".__main__")
+            except ModuleNotFoundError:
+                mm = None
+            if mm is not None and hasattr(mm, "main"):
+                return mm.main()
         import runpy
         return runpy.run_module(mod, run_name="__main__", alter_sys=True)
     if argv[0] == "-c":

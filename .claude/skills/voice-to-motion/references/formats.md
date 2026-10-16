@@ -8,6 +8,8 @@
 | “Dựng dọc” | chỉ bản dọc 9:16, 1080×1920 → `<id>_9x16.mp4` |
 | “Dựng ngang” | chỉ bản ngang 16:9, 1920×1080 → `<id>_16x9.mp4` |
 
+Trong app C-Cut: ghi lựa chọn vào `plan_ready.json` → `"formats": ["9x16"]` (chỉ dọc), `["16x9"]` (chỉ ngang), bỏ trống = cả hai. App chỉ xuất đúng các tỷ lệ này, kể cả khi thư mục còn timeline của tỷ lệ kia; giữ lựa chọn cho các lần sửa sau.
+
 Lệnh renderer: `.venv/bin/python -m thagent.v2m render <dự-án>` (mặc định cả hai, dựng song song — bản ngang ở tiến trình con, log `versions/vNNN/render_16x9.log`), hoặc `render <dự-án> 9x16 | 16x9`. `--serial` để dựng lần lượt khi máy yếu.
 Thời gian tham khảo (máy hiện tại): video không bản đồ ~2–4 phút/bản cho 30–70 giây; video bản đồ hành chính + tuyến đường ~35 phút/bản cho 48 giây (song song → tổng gần bằng một bản).
 (`check <dự-án> 16x9 [--deep]`, `stills <dự-án> 16x9 t1 t2 …` để kiểm riêng từng tỷ lệ).
