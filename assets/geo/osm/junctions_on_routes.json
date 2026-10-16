@@ -1,0 +1,210 @@
+{
+ "mt_ct": [
+  {
+   "name": "Chà Và",
+   "lon": 105.83364,
+   "lat": 10.07393,
+   "dist_m": 0,
+   "index": 0
+  },
+  {
+   "name": "Đường tỉnh 908",
+   "lon": 105.8573,
+   "lat": 10.1444,
+   "dist_m": 0,
+   "index": 22
+  }
+ ],
+ "mt2": [
+  {
+   "name": "Quốc lộ 80",
+   "lon": 105.90916,
+   "lat": 10.26672,
+   "dist_m": 85,
+   "index": 0
+  }
+ ],
+ "tl_mt": [
+  {
+   "name": "An Thái Trung",
+   "lon": 105.88343,
+   "lat": 10.3129,
+   "dist_m": 0,
+   "index": 20
+  },
+  {
+   "name": "An Hữu",
+   "lon": 105.88967,
+   "lat": 10.32955,
+   "dist_m": 0,
+   "index": 36
+  },
+  {
+   "name": "Cái Bè",
+   "lon": 106.02755,
+   "lat": 10.41249,
+   "dist_m": 0,
+   "index": 88
+  },
+  {
+   "name": "Cai Lậy",
+   "lon": 106.15891,
+   "lat": 10.42246,
+   "dist_m": 0,
+   "index": 141
+  },
+  {
+   "name": "Thân Cửu Nghĩa",
+   "lon": 106.30426,
+   "lat": 10.4365,
+   "dist_m": 129,
+   "index": 202
+  }
+ ],
+ "hcm_tl": [
+  {
+   "name": "Thân Cửu Nghĩa",
+   "lon": 106.31322,
+   "lat": 10.44303,
+   "dist_m": 19,
+   "index": 1
+  },
+  {
+   "name": "Tân An",
+   "lon": 106.36743,
+   "lat": 10.5454,
+   "dist_m": 0,
+   "index": 43
+  },
+  {
+   "name": "SA",
+   "lon": 106.41682,
+   "lat": 10.60067,
+   "dist_m": 0,
+   "index": 73
+  },
+  {
+   "name": "Bến Lức",
+   "lon": 106.47238,
+   "lat": 10.64987,
+   "dist_m": 0,
+   "index": 96
+  },
+  {
+   "name": "Mỹ Yên",
+   "lon": 106.53546,
+   "lat": 10.67236,
+   "dist_m": 0,
+   "index": 129
+  }
+ ],
+ "bl_lt": [
+  {
+   "name": "Mỹ Yên",
+   "lon": 106.54814,
+   "lat": 10.67119,
+   "dist_m": 37,
+   "index": 1
+  },
+  {
+   "name": "Bình Chánh",
+   "lon": 106.55635,
+   "lat": 10.66378,
+   "dist_m": 0,
+   "index": 13
+  },
+  {
+   "name": "Quốc lộ 50",
+   "lon": 106.65328,
+   "lat": 10.65746,
+   "dist_m": 0,
+   "index": 67
+  },
+  {
+   "name": "Nguyễn Văn Tạo",
+   "lon": 106.71801,
+   "lat": 10.66664,
+   "dist_m": 0,
+   "index": 106
+  },
+  {
+   "name": "Rừng Sác",
+   "lon": 106.78141,
+   "lat": 10.65087,
+   "dist_m": 0,
+   "index": 139
+  },
+  {
+   "name": "Vĩnh Thanh",
+   "lon": 106.85807,
+   "lat": 10.67332,
+   "dist_m": 0,
+   "index": 190
+  },
+  {
+   "name": "Phước An",
+   "lon": 106.96477,
+   "lat": 10.65963,
+   "dist_m": 0,
+   "index": 239
+  }
+ ],
+ "hcm_lt_dg": [
+  {
+   "name": "Đỗ Xuân Hợp",
+   "lon": 106.77649,
+   "lat": 10.79616,
+   "dist_m": 0,
+   "index": 5
+  },
+  {
+   "name": "Vành đai 2",
+   "lon": 106.78637,
+   "lat": 10.7964,
+   "dist_m": 0,
+   "index": 11
+  },
+  {
+   "name": "Long Trường",
+   "lon": 106.82869,
+   "lat": 10.78961,
+   "dist_m": 0,
+   "index": 43
+  },
+  {
+   "name": "Nhơn Trạch",
+   "lon": 106.92071,
+   "lat": 10.77683,
+   "dist_m": 0,
+   "index": 112
+  },
+  {
+   "name": "Quốc lộ 51",
+   "lon": 106.95276,
+   "lat": 10.76597,
+   "dist_m": 0,
+   "index": 130
+  },
+  {
+   "name": "Long Thành",
+   "lon": 106.96778,
+   "lat": 10.76597,
+   "dist_m": 0,
+   "index": 142
+  },
+  {
+   "name": "SA",
+   "lon": 107.0939,
+   "lat": 10.84194,
+   "dist_m": 0,
+   "index": 187
+  },
+  {
+   "name": "Cẩm Mỹ",
+   "lon": 107.10693,
+   "lat": 10.85258,
+   "dist_m": 0,
+   "index": 195
+  }
+ ]
+}

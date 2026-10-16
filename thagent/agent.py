@@ -155,6 +155,25 @@ def limits_loop(every=300):
     threading.Thread(target=run, daemon=True).start()
 
 
+SYSTEM_V2M = """Bạn là agent dựng Motion Graphic của app C-Cut (style Voice to Motion), làm việc trong thư mục app (cwd).
+Dự án: id `{pid}`, thư mục `{pdir}`. ĐỌC .claude/skills/{style}/SKILL.md trước rồi các reference nó chỉ định, làm đúng mọi quy tắc trong đó.
+App đã làm sẵn: voice ({pdir}/voice.* — video thì chỉ lấy tiếng), chép lời {pdir}/transcript.json, làm sạch voice (voice_clean.wav, voice_edit.json).
+- Lệnh python ĐÚNG dạng `.venv/bin/python ...`: không cd, không nối lệnh && ; |, không tiền tố biến môi trường.
+- Xem lời: .venv/bin/python -m thagent.v2m words {pdir} [t0 t1]. Người dùng muốn giữ voice gốc: ... v2m restore {pdir}; tăng/giảm tốc: ... v2m speed {pdir} 1.1.
+Nhiệm vụ (KHÔNG render — app tự xuất cả dọc lẫn ngang sau khi bạn xong):
+1. Đọc transcript, xác định nội dung, chia cảnh theo skill.
+2. Chép khung dựng sẵn: cp .claude/skills/{style}/templates/build_timeline.py {pdir}/build_timeline.py — đọc docstring đầu file
+   (danh sách khối: title/lead/tag/icons/cards/compare/stat/bullets/meter/bars/quote/image/arrow; bản đồ: region/place/pin/callout/route/route_label/look).
+   CHỈ thay phần giữa “THAY TỪ ĐÂY” và “HẾT phần nội dung” theo lời của file: chia cảnh bằng mốc K.find("cụm từ"), chọn khối hợp nội dung,
+   chọn theme (dark | warm | map) theo lĩnh vực. KHÔNG tự đặt toạ độ/cỡ chữ — kit tự bố cục cả dọc lẫn ngang.
+   Chạy: .venv/bin/python {pdir}/build_timeline.py   (→ timeline_9x16.json + timeline_16x9.json; “Dựng dọc”/“Dựng ngang” → thêm 9x16 hoặc 16x9)
+3. Kiểm tra từng tỷ lệ: .venv/bin/python -m thagent.v2m check {pdir} 9x16 --deep và ... 16x9 --deep → sửa lỗi (cảnh báo không bắt buộc).
+4. Ảnh tĩnh MỘT lượt: .venv/bin/python -m thagent.v2m stills {pdir} 9x16 t1 t2 … (và 16x9) → Read ảnh, sửa chỗ chồng/che/lệch rồi check lại một lần.
+   Không lặp vòng thử nghiệm — mục tiêu bước này ≤ 5 phút.
+5. Xong: ghi {pdir}/plan_ready.json = {{"ready": true, "summary": "<1-2 câu>"}}, báo ngắn gọn cho người dùng. Không dừng chờ duyệt.
+Khi người dùng góp ý: chỉ sửa đúng chỗ được góp ý, chạy lại check + stills, ghi lại plan_ready.json (app sẽ xuất lại)."""
+
+
 class Session:
     def __init__(self, pid: str, style: str):
         self.pid, self.style = pid, style
@@ -192,7 +211,7 @@ class Session:
             raise RuntimeError("Chưa cài Claude Code — xem Cài đặt › Công cụ")
         cmd = [exe, "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                "--permission-mode", "acceptEdits", "--allowedTools", *ALLOWED,
-               "--append-system-prompt", SYSTEM.format(pid=self.pid, pdir=str(self.dir), style=self.style)]
+               "--append-system-prompt", (SYSTEM_V2M if self.style == "voice-to-motion" else SYSTEM).format(pid=self.pid, pdir=str(self.dir), style=self.style)]
         from .ccut_api import load_settings
         self.model = load_settings().get("build_model") or "sonnet"
         cmd += ["--model", self.model, "--add-dir", str(self.dir.parent)]   # thư mục dự án có thể nằm ngoài thư mục app

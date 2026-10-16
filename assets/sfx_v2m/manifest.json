@@ -1,0 +1,335 @@
+{
+ "whoosh": {
+  "desc": "camera đi xa, chuyển vùng",
+  "gain_db": -17,
+  "items": [
+   {
+    "file": "whoosh_00.wav",
+    "source": "Chính Dùng/SFX/Woosh/Short, Deep, Dry.mp3",
+    "peak_ms": 248.4,
+    "dur_s": 1.0
+   },
+   {
+    "file": "whoosh_01.wav",
+    "source": "Chính Dùng/SFX/Woosh/Short, Low, Dry 02.mp3",
+    "peak_ms": 320.0,
+    "dur_s": 1.0
+   },
+   {
+    "file": "whoosh_02.wav",
+    "source": "Chính Dùng/SFX/Woosh/Short, Stove, Dry 01.mp3",
+    "peak_ms": 257.3,
+    "dur_s": 1.0
+   },
+   {
+    "file": "whoosh_03.wav",
+    "source": "Chính Dùng/SFX/Swish/Short, Bandpass, Dry.mp3",
+    "peak_ms": 293.9,
+    "dur_s": 1.0
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "swish": {
+  "desc": "vật trượt vào, tuyến bắt đầu vẽ",
+  "gain_db": -19,
+  "items": [
+   {
+    "file": "swish_00.wav",
+    "source": "Chính Dùng/SFX/Swish/Short, Wind Gusts, Dry.mp3",
+    "peak_ms": 212.9,
+    "dur_s": 0.7
+   },
+   {
+    "file": "swish_01.wav",
+    "source": "Chính Dùng/SFX/Swish/Organic, Cloth.mp3",
+    "peak_ms": 273.1,
+    "dur_s": 0.7
+   },
+   {
+    "file": "swish_02.wav",
+    "source": "Chính Dùng/SFX/Swish/Sword Swing 02.mp3",
+    "peak_ms": 39.1,
+    "dur_s": 0.7
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "click": {
+  "desc": "pin, callout, điểm đến",
+  "gain_db": -15,
+  "items": [
+   {
+    "file": "click_00.wav",
+    "source": "Chính Dùng/SFX/Click/Neutral, Select Tone 03.mp3",
+    "peak_ms": 46.0,
+    "dur_s": 0.067
+   },
+   {
+    "file": "click_01.wav",
+    "source": "Chính Dùng/SFX/Best/Neutral, Select Tone 01.mp3",
+    "peak_ms": 9.4,
+    "dur_s": 0.039
+   },
+   {
+    "file": "click_02.wav",
+    "source": "Chính Dùng/SFX/Click/Digital, Video Game, Select, Positive, Notification 03.mp3",
+    "peak_ms": 8.1,
+    "dur_s": 0.45
+   },
+   {
+    "file": "click_03.wav",
+    "source": "Chính Dùng/SFX/User Interface/Button Press Click, Tap, Video Game, Main Menu, Select, Positive 04.mp3",
+    "peak_ms": 5.0,
+    "dur_s": 0.45
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "pop": {
+  "desc": "thẻ, nút, shape xuất hiện",
+  "gain_db": -16,
+  "items": [
+   {
+    "file": "pop_00.wav",
+    "source": "Chính Dùng/SFX/User Interface/Notification, Message, Text.mp3",
+    "peak_ms": 13.9,
+    "dur_s": 0.6
+   },
+   {
+    "file": "pop_01.wav",
+    "source": "Chính Dùng/SFX/User Interface/Notification, Attention, Positive, Funny, Short 01.mp3",
+    "peak_ms": 156.1,
+    "dur_s": 0.6
+   },
+   {
+    "file": "pop_02.wav",
+    "source": "Chính Dùng/SFX/Click/Sci Fi Games, UI Menu, Very Short, Open 09.mp3",
+    "peak_ms": 61.5,
+    "dur_s": 0.6
+   },
+   {
+    "file": "pop_03.wav",
+    "source": "Chính Dùng/SFX/User Interface/Sci Fi Games, UI Menu, Very Short, Open 11.mp3",
+    "peak_ms": 108.5,
+    "dur_s": 0.6
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "tick": {
+  "desc": "liệt kê, từng mục, từng chữ nhấn",
+  "gain_db": -14,
+  "items": [
+   {
+    "file": "tick_00.wav",
+    "source": "Chính Dùng/SFX/Best/Neutral, Select Tone 01.mp3",
+    "peak_ms": 9.4,
+    "dur_s": 0.039
+   },
+   {
+    "file": "tick_01.wav",
+    "source": "Chính Dùng/SFX/Click/Neutral, Select Tone 03.mp3",
+    "peak_ms": 46.0,
+    "dur_s": 0.067
+   },
+   {
+    "file": "tick_02.wav",
+    "source": "Chính Dùng/SFX/Gõ phím/Keyboard, Small, Bluetooth, Type, Key Press, Spacebar 01.mp3",
+    "peak_ms": 11.6,
+    "dur_s": 0.15
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "impact": {
+  "desc": "thông điệp chính, câu kết",
+  "gain_db": -13,
+  "items": [
+   {
+    "file": "impact_00.wav",
+    "source": "Chính Dùng/SFX/Impact/Impact, Final Hit.mp3",
+    "peak_ms": 61.4,
+    "dur_s": 1.6
+   },
+   {
+    "file": "impact_01.wav",
+    "source": "Chính Dùng/SFX/Impact/Impact, Dark, Cinematic, Snappy Hit.mp3",
+    "peak_ms": 76.9,
+    "dur_s": 1.6
+   },
+   {
+    "file": "impact_02.wav",
+    "source": "Chính Dùng/SFX/Impact/Impact, Dark, Cinematic, Hard Hit 01.mp3",
+    "peak_ms": 111.5,
+    "dur_s": 1.6
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "flash": {
+  "desc": "tiêu đề lớn, đảo nền",
+  "gain_db": -14,
+  "items": [
+   {
+    "file": "flash_00.wav",
+    "source": "Chính Dùng/SFX/Best/Flash, Modern, Design 03.mp3",
+    "peak_ms": 191.4,
+    "dur_s": 1.2
+   },
+   {
+    "file": "flash_01.wav",
+    "source": "Chính Dùng/SFX/Chụp ảnh/Flash, Modern, Design 01.mp3",
+    "peak_ms": 93.9,
+    "dur_s": 1.2
+   },
+   {
+    "file": "flash_02.wav",
+    "source": "Chính Dùng/SFX/Chụp ảnh/Flash, Modern, Design 02.mp3",
+    "peak_ms": 150.6,
+    "dur_s": 1.2
+   },
+   {
+    "file": "flash_03.wav",
+    "source": "Chính Dùng/SFX/Chụp ảnh/Flash, Modern, Design 04.mp3",
+    "peak_ms": 202.4,
+    "dur_s": 1.2
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "transition": {
+  "desc": "đổi chương, chuyển cảnh phủ",
+  "gain_db": -16,
+  "items": [
+   {
+    "file": "transition_00.wav",
+    "source": "Chính Dùng/SFX/User Interface/Glitch Transition 02.mp3",
+    "peak_ms": 396.2,
+    "dur_s": 1.1
+   },
+   {
+    "file": "transition_01.wav",
+    "source": "Chính Dùng/SFX/Impact/Sweep, Transition, Hard Hitting, Dark 02.mp3",
+    "peak_ms": 359.3,
+    "dur_s": 1.1
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "success": {
+  "desc": "hoàn tất, dấu ✓",
+  "gain_db": -16,
+  "items": [
+   {
+    "file": "success_00.wav",
+    "source": "Chính Dùng/SFX/User Interface/Notification, Checkpoint, Bling, Positive, Happy 06.mp3",
+    "peak_ms": 162.2,
+    "dur_s": 1.1
+   },
+   {
+    "file": "success_01.wav",
+    "source": "Chính Dùng/SFX/User Interface/Success, Reward, Bright, Happy Twinkle 01.mp3",
+    "peak_ms": 309.7,
+    "dur_s": 1.1
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "money": {
+  "desc": "tiền, giá, chi phí",
+  "gain_db": -15,
+  "items": [
+   {
+    "file": "money_00.wav",
+    "source": "Chính Dùng/SFX/Tiền rơi, giấy, viết/Money, Coins, Stack, Fast.mp3",
+    "peak_ms": 92.0,
+    "dur_s": 0.636
+   },
+   {
+    "file": "money_01.wav",
+    "source": "Chính Dùng/SFX/Tiền rơi, giấy, viết/Coins, Box, Cardboard, Coins Dropping 01.mp3",
+    "peak_ms": 55.1,
+    "dur_s": 1.0
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "paper": {
+  "desc": "trích dẫn, tài liệu, lật trang",
+  "gain_db": -15,
+  "items": [
+   {
+    "file": "paper_00.wav",
+    "source": "Chính Dùng/SFX/Tiền rơi, giấy, viết/Page Turn, Large Binder 03.mp3",
+    "peak_ms": 138.3,
+    "dur_s": 0.375
+   },
+   {
+    "file": "paper_01.wav",
+    "source": "Chính Dùng/SFX/Tiền rơi, giấy, viết/Directory, Telephone Book, Page Turn 04.mp3",
+    "peak_ms": 364.5,
+    "dur_s": 0.8
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "write": {
+  "desc": "gạch chân, marker, vẽ nét tay",
+  "gain_db": -17,
+  "items": [
+   {
+    "file": "write_00.wav",
+    "source": "Chính Dùng/SFX/Tiền rơi, giấy, viết/Marker Writing Sound, Drag.mp3",
+    "peak_ms": 688.8,
+    "dur_s": 1.0
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "camera": {
+  "desc": "ảnh xuất hiện, chụp",
+  "gain_db": -15,
+  "items": [
+   {
+    "file": "camera_00.wav",
+    "source": "Chính Dùng/SFX/Chụp ảnh/Digital SLR, Sony Alpha, Take Photo, Shutter Click Only.mp3",
+    "peak_ms": 227.4,
+    "dur_s": 0.368
+   },
+   {
+    "file": "camera_01.wav",
+    "source": "Chính Dùng/SFX/Chụp ảnh/Olympus OM D E M10 Digital Camera, Focus.mp3",
+    "peak_ms": 62.6,
+    "dur_s": 0.391
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "typing": {
+  "desc": "chữ gõ ra",
+  "gain_db": -18,
+  "items": [
+   {
+    "file": "typing_00.wav",
+    "source": "Chính Dùng/SFX/Gõ phím/Smartphone, Type, Sentence, Words, Clicks, Phone Filter.mp3",
+    "peak_ms": 840.1,
+    "dur_s": 1.4
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ },
+ "data": {
+  "desc": "bản đồ, biểu đồ, dữ liệu hiện ra",
+  "gain_db": -18,
+  "items": [
+   {
+    "file": "data_00.wav",
+    "source": "Chính Dùng/SFX/User Interface/Digital Transmission, Loading, Moving, Panning.mp3",
+    "peak_ms": 609.1,
+    "dur_s": 1.2
+   }
+  ],
+  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+ }
+}

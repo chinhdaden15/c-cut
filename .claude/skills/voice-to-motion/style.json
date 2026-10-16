@@ -1,0 +1,8 @@
+{
+  "name": "Voice to Motion",
+  "version": "1.2.2",
+  "kind": "voice",
+  "summary": "Motion graphic 100% từ voice (file âm thanh, hoặc lấy tiếng từ video): bản đồ, sơ đồ, typography; xuất cả dọc 9:16 lẫn ngang 16:9",
+  "output": {"formats": ["9x16", "16x9"], "fps": 30},
+  "input": {"audio": ["mp3", "wav", "m4a", "aac", "flac", "ogg"], "video_audio_only": true}
+}

@@ -19,16 +19,21 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.4.2"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
+AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}   # style Voice to Motion nhận cả file âm thanh
+V2M = "voice-to-motion"
 router = APIRouter(prefix="/api/ccut")
 WINDOW = None   # cửa sổ webview của bản cài đặt (app_main gán) → dùng hộp thoại gốc của nó
 
 # trọng số % cho 6 bước hiển thị
 STAGES = [("ingest", "Nhập", 8), ("transcribe", "Chép lời", 22), ("matting", "Tách nền", 25),
           ("plan", "Kế hoạch", 10), ("preflight", "Kiểm tra", 5), ("render", "Xuất", 30)]
+# Voice to Motion: voice (âm thanh, hoặc tiếng tách từ video) → motion graphic, xuất cả dọc lẫn ngang
+STAGES_V2M = [("ingest", "Nhập", 3), ("transcribe", "Chép lời", 20), ("clean", "Làm sạch voice", 5),
+              ("plan", "Kế hoạch", 25), ("render", "Xuất dọc + ngang", 47)]
 # TH2 (nhiều đoạn → 1 video): thêm 2 bước đầu
 STAGES_MULTI = [("analyze", "Phân tích đoạn", 15), ("edl", "Ghép", 10), ("ingest", "Nhập", 5),
                 ("transcribe", "Chép lời", 2), ("matting", "Tách nền", 20), ("plan", "Kế hoạch", 10),
@@ -228,14 +233,16 @@ def pick(body: PickIn):
             r = WINDOW.create_file_dialog(webview.FileDialog.FOLDER)
         else:
             types = {"zip": ("Zip (*.zip)",), "script": ("Kịch bản (*.txt;*.srt;*.docx;*.md)",)}.get(
-                body.kind, ("Video (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4)",))
+                body.kind, ("Video / âm thanh (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg)",)
+                if load_settings().get("style") == V2M else ("Video (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4)",))
             r = WINDOW.create_file_dialog(webview.FileDialog.OPEN, file_types=types)
         return {"path": (r[0] if isinstance(r, (list, tuple)) else r) if r else None}
     if sys.platform == "darwin":
         if body.kind == "folder":
             script = 'POSIX path of (choose folder with prompt "Chọn thư mục")'
         else:
-            types = {"zip": '{"zip"}', "script": '{"txt","srt","docx","md"}'}.get(body.kind, '{"public.movie"}')
+            types = {"zip": '{"zip"}', "script": '{"txt","srt","docx","md"}'}.get(
+                body.kind, '{"public.movie","public.audio"}' if load_settings().get("style") == V2M else '{"public.movie"}')
             script = f'POSIX path of (choose file with prompt "Chọn file" of type {types})'
         r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
     elif os.name == "nt":
@@ -244,7 +251,8 @@ def pick(body: PickIn):
                   "if($d.ShowDialog() -eq 'OK'){$d.SelectedPath}")
         else:
             flt = {"zip": "Zip (*.zip)|*.zip", "script": "Kịch bản|*.txt;*.srt;*.docx;*.md"}.get(
-                body.kind, "Video|*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts")
+                body.kind, "Video/âm thanh|*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg"
+                if load_settings().get("style") == V2M else "Video|*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts")
             ps = (f"Add-Type -AssemblyName System.Windows.Forms;$d=New-Object System.Windows.Forms.OpenFileDialog;"
                   f"$d.Filter='{flt}';if($d.ShowDialog() -eq 'OK'){{$d.FileName}}")
         r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps], capture_output=True, text=True)
@@ -392,12 +400,22 @@ class PathsIn(BaseModel):
     paths: list[str]
 
 
+def _media_ext() -> set:
+    return VIDEO_EXT | (AUDIO_EXT if load_settings().get("style") == V2M else set())
+
+
 def _add_video(f: Path, script: str | None = None) -> bool:
-    if f.suffix.lower() not in VIDEO_EXT or not f.exists() or str(f) in [q["path"] for q in STATE["queue"]]:
+    if f.suffix.lower() not in _media_ext() or not f.exists() or str(f) in [q["path"] for q in STATE["queue"]]:
         return False
     try:
-        info = P.probe_source(str(f))
-        meta = f"{int(info.duration // 60)}:{int(info.duration % 60):02d} · {min(info.width, info.height)}p"
+        if f.suffix.lower() in AUDIO_EXT:
+            d = float(json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(f)],
+                                                capture_output=True, text=True).stdout)["format"]["duration"])
+            meta = f"{int(d // 60)}:{int(d % 60):02d} · âm thanh"
+        else:
+            info = P.probe_source(str(f))
+            meta = f"{int(info.duration // 60)}:{int(info.duration % 60):02d} · {min(info.width, info.height)}p" + \
+                (" · chỉ lấy tiếng" if load_settings().get("style") == V2M else "")
     except Exception:
         meta = "không đọc được"
     STATE["queue"].append({"path": str(f), "name": f.name, "meta": meta, "status": "wait", "project": None,
@@ -423,7 +441,7 @@ CAMERA_NAME = re.compile(r"^(img|dsc|dscf|mvi|vid|pxl|gx|gopr|c)[_-]?\d+$", re.I
 
 
 def _videos(d: Path) -> list[Path]:
-    return sorted((x for x in d.iterdir() if x.suffix.lower() in VIDEO_EXT and not x.name.startswith(".")),
+    return sorted((x for x in d.iterdir() if x.suffix.lower() in _media_ext() and not x.name.startswith(".")),
                   key=lambda x: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", x.name)])
 
 
@@ -723,6 +741,85 @@ def _final_path(item: dict, out_dir: Path, multi: bool) -> Path:
     return f
 
 
+def _wait_plan(sess, item, job):
+    item["status"] = "claude"
+    while not sess.plan_ready():
+        if job["cancel"]:
+            sess.stop(); raise RuntimeError("cancelled")
+        job["activity"] = sess.activity
+        if not sess.busy and not sess.plan_ready():
+            time.sleep(5)
+            if not sess.busy and not sess.plan_ready():
+                if sess.restarts >= 3:
+                    raise RuntimeError("Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
+                sess.restarts += 1
+                sess.send("Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json.", show=False)
+        sess.watchdog()
+        time.sleep(2)
+    item["status"] = "running"
+
+
+def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
+    """Voice to Motion: voice (âm thanh / tiếng của video) → chép lời → làm sạch → Claude viết timeline dọc+ngang → xuất cả hai."""
+    from . import agent as A
+    from .v2m import __main__ as V
+    pdir = P.PROJECTS / pid
+    sess = A.get(pid, V2M)
+    try:
+        sess.warm()
+    except Exception as e:
+        log(f"Không mở được Claude: {e}")
+    if not (pdir / "transcript.json").exists():
+        log("Nhập voice" + (" (chỉ lấy tiếng của video)" if Path(item["path"]).suffix.lower() in VIDEO_EXT else ""))
+        job["done"].append("ingest"); job["stage"] = "transcribe"
+        V.init(item["path"], pdir, progress=log)   # "ASR x s / y s" → thanh % bước Chép lời chạy
+    else:
+        job["done"].append("ingest")
+    job["done"].append("transcribe"); job["stage"] = "clean"
+    if not (pdir / "voice_edit.json").exists():
+        from .v2m import voiceprep as VP
+        r = VP.clean(pdir, log=log)
+        log(f"Làm sạch voice: {r['source_s']:.1f}s → {r['clean_s']:.1f}s")
+    job["done"].append("clean"); job["stage"] = "plan"
+    _write_script(pid, item.get("script"))
+    if not sess.plan_ready():
+        if not sess.messages:
+            sess._add("claude", f"Đã nhận {item['name']}. Mình dựng Motion Graphic từ voice, xuất cả dọc lẫn ngang.", kind="text")
+        sess.send(f"Dựng Motion Graphic cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill voice-to-motion. "
+                  "Voice đã chép lời và làm sạch. Làm theo quy trình rồi ghi plan_ready.json.", show=False)
+        _wait_plan(sess, item, job)
+    job["done"].append("plan"); job["stage"] = "render"
+    out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
+    fmts = [f for f in ("9x16", "16x9") if (pdir / f"timeline_{f}.json").exists()]
+    if not fmts:
+        raise RuntimeError("Claude chưa ghi timeline_9x16.json / timeline_16x9.json")
+    dur = json.loads((pdir / fmts[0].join(("timeline_", ".json"))).read_text(encoding="utf-8")).get("duration") or 60
+    job["frames"] = int(float(dur) * 30)
+    try:
+        res = V.render(pdir, *fmts, progress=lambda m: log(str(m).replace("v2m frame", "render frame")))
+    except SystemExit as e:              # lỗi timeline/QA → giao Claude sửa (tối đa 3 lần), không xuất lại liên tục
+        (pdir / "plan_ready.json").replace(pdir / "plan_ready.rejected.json")
+        item["pf_tries"] = item.get("pf_tries", 0) + 1
+        if item["pf_tries"] <= 3:
+            sess.send(f"App chưa xuất được, sửa rồi chạy lại check và ghi lại plan_ready.json:\n{e}", show=False)
+        raise RuntimeError(f"Kiểm tra trước khi xuất có lỗi (lần {item['pf_tries']}/3): {str(e)[:200]}")
+    item["pf_tries"] = 0
+    base = _final_path(item, out_dir, False)
+    outs = []
+    for (video, qa), fmt in zip(res, fmts):
+        f = base.with_name(f"{base.stem}_{fmt}.mp4")
+        shutil.copy2(video, f); outs.append(f)
+        if not qa.get("ok"):
+            log(f"QA {fmt}: " + "; ".join(qa.get("errors", [])[:3]))
+    job["done"].append("render"); job["percent"] = 100
+    item.update(status="done", output=str(outs[0]), outputs=[str(o) for o in outs])
+    pr = pdir / "plan_ready.json"
+    if pr.exists():
+        pr.replace(pdir / "plan_ready.used.json")
+    notify("ok", f"Xong {item['name']} → " + ", ".join(o.name for o in outs))
+    save_queue()
+
+
 def _run_queue(settings: dict):
     job = STATE["job"]
 
@@ -742,6 +839,19 @@ def _run_queue(settings: dict):
         _apply_channel(item)
         job.update(project=pid, video=item["name"], stage="analyze" if multi else "ingest", done=[], t0=time.time(),
                    percent=0, eta_s=None, stages=STAGES_MULTI if multi else STAGES)
+        if settings.get("style") == V2M and not multi:
+            job["stages"] = STAGES_V2M
+            try:
+                _run_v2m(item, pid, job, settings, log)
+            except Exception as e:
+                cancelled = str(e) == "cancelled" or job["cancel"]
+                item["status"] = "cancelled" if cancelled else "failed"
+                item["error"] = None if cancelled else str(e)[:300]
+                job["log"].append(traceback.format_exc()[-1200:])
+                notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
+                if cancelled:
+                    break
+            continue
         c = P.Ctx(pid, log, cancel=lambda: job["cancel"])
         try:
             from . import agent as A

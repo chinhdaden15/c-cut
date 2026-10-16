@@ -1,0 +1,339 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-15T14:24:42Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 31096566,
+  "bounds": {
+    "minlat": 10.2709008,
+    "minlon": 105.9076384,
+    "maxlat": 10.2840094,
+    "maxlon": 105.9125612
+  },
+  "geometry": [
+    { "lat": 10.2709008, "lon": 105.9125612 },
+    { "lat": 10.2840094, "lon": 105.9076384 }
+  ],
+  "tags": {
+    "access:conditional": "no @ (May 30-Jun 30 05:00-13:30)",
+    "bridge": "yes",
+    "bridge:name": "Cầu Mỹ Thuận",
+    "highway": "trunk",
+    "lanes": "2",
+    "layer": "2",
+    "name": "Cầu Mỹ Thuận",
+    "name:en": "My Thuan Bridge",
+    "note:vi": "Quốc lộ 1 là tên chính thức của con đường này, theo Quyết định số 1454/QĐ-TTg ngày 1 tháng 9 năm 2021 của Thủ tướng Chính phủ Việt Nam. Đề nghị không sửa tên thành \"Quốc lộ 1A\".",
+    "oneway": "yes",
+    "ref": "QL.1",
+    "source": "mapbox",
+    "start_date": "2000-05-21",
+    "surface": "asphalt",
+    "wikidata": "Q3032279",
+    "wikipedia": "vi:Cầu Mỹ Thuận"
+  }
+},
+{
+  "type": "way",
+  "id": 486124075,
+  "bounds": {
+    "minlat": 10.2708571,
+    "minlon": 105.9075171,
+    "maxlat": 10.2839655,
+    "maxlon": 105.9124433
+  },
+  "geometry": [
+    { "lat": 10.2839655, "lon": 105.9075171 },
+    { "lat": 10.2708571, "lon": 105.9124433 }
+  ],
+  "tags": {
+    "access:conditional": "no @ (May 30-Jun 30 05:00-13:30)",
+    "bridge": "yes",
+    "bridge:name": "Cầu Mỹ Thuận",
+    "highway": "trunk",
+    "lanes": "2",
+    "layer": "2",
+    "name": "Cầu Mỹ Thuận",
+    "name:en": "My Thuan Bridge",
+    "note:vi": "Quốc lộ 1 là tên chính thức của con đường này, theo Quyết định số 1454/QĐ-TTg ngày 1 tháng 9 năm 2021 của Thủ tướng Chính phủ Việt Nam. Đề nghị không sửa tên thành \"Quốc lộ 1A\".",
+    "oneway": "yes",
+    "ref": "QL.1",
+    "source": "mapbox",
+    "start_date": "2000-05-21",
+    "surface": "asphalt",
+    "wikidata": "Q3032279",
+    "wikipedia": "vi:Cầu Mỹ Thuận"
+  }
+},
+{
+  "type": "way",
+  "id": 876513210,
+  "bounds": {
+    "minlat": 10.2674494,
+    "minlon": 105.9039410,
+    "maxlat": 10.2835547,
+    "maxlon": 105.9093260
+  },
+  "geometry": [
+    { "lat": 10.2835547, "lon": 105.9039410 },
+    { "lat": 10.2829491, "lon": 105.9043038 },
+    { "lat": 10.2823096, "lon": 105.9046463 },
+    { "lat": 10.2814666, "lon": 105.9050315 },
+    { "lat": 10.2806369, "lon": 105.9053819 },
+    { "lat": 10.2731112, "lon": 105.9082143 },
+    { "lat": 10.2718972, "lon": 105.9086652 },
+    { "lat": 10.2709885, "lon": 105.9089671 },
+    { "lat": 10.2699477, "lon": 105.9092052 },
+    { "lat": 10.2690174, "lon": 105.9093102 },
+    { "lat": 10.2681579, "lon": 105.9093260 },
+    { "lat": 10.2674494, "lon": 105.9092680 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "bridge:name": "Cầu Mỹ Thuận 2",
+    "bridge:name:en": "My Thuan 2 Bridge",
+    "highway": "motorway",
+    "lanes": "3",
+    "layer": "2",
+    "maxspeed": "80",
+    "minspeed": "60",
+    "name": "Cầu Mỹ Thuận 2",
+    "name:en": "My Thuan 2 Bridge",
+    "oneway": "yes",
+    "opening_date": "2023-12-24",
+    "population": "no",
+    "ref": "CT.01;CT.36",
+    "surface": "asphalt",
+    "toll": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 876513213,
+  "bounds": {
+    "minlat": 10.2674386,
+    "minlon": 105.9040649,
+    "maxlat": 10.2836448,
+    "maxlon": 105.9094911
+  },
+  "geometry": [
+    { "lat": 10.2674386, "lon": 105.9094380 },
+    { "lat": 10.2681386, "lon": 105.9094911 },
+    { "lat": 10.2690313, "lon": 105.9094767 },
+    { "lat": 10.2699771, "lon": 105.9093507 },
+    { "lat": 10.2710445, "lon": 105.9091131 },
+    { "lat": 10.2719472, "lon": 105.9087974 },
+    { "lat": 10.2731493, "lon": 105.9083507 },
+    { "lat": 10.2806818, "lon": 105.9055234 },
+    { "lat": 10.2815256, "lon": 105.9051811 },
+    { "lat": 10.2823588, "lon": 105.9047958 },
+    { "lat": 10.2830047, "lon": 105.9044555 },
+    { "lat": 10.2836448, "lon": 105.9040649 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "bridge:name": "Cầu Mỹ Thuận 2",
+    "bridge:name:en": "My Thuan 2 Bridge",
+    "highway": "motorway",
+    "lanes": "3",
+    "layer": "2",
+    "maxspeed": "80",
+    "minspeed": "60",
+    "name": "Cầu Mỹ Thuận 2",
+    "name:en": "My Thuan 2 Bridge",
+    "oneway": "yes",
+    "opening_date": "2023-12-24",
+    "ref": "CT.01;CT.36",
+    "surface": "asphalt",
+    "toll": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1157293425,
+  "bounds": {
+    "minlat": 10.2568609,
+    "minlon": 105.9064434,
+    "maxlat": 10.2572590,
+    "maxlon": 105.9065651
+  },
+  "geometry": [
+    { "lat": 10.2568609, "lon": 105.9064434 },
+    { "lat": 10.2572590, "lon": 105.9065651 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "highway": "motorway",
+    "lanes": "2",
+    "layer": "2",
+    "maxspeed": "90",
+    "minspeed": "60",
+    "motorcycle": "no",
+    "name": "Đường cao tốc Mỹ Thuận - Cần Thơ",
+    "name:en": "My Thuan - Can Tho Expressway",
+    "oneway": "yes",
+    "ref": "CT.01;CT.36",
+    "surface": "asphalt",
+    "toll": "yes",
+    "wikipedia": "vi:Đường cao tốc Mỹ Thuận – Cần Thơ"
+  }
+},
+{
+  "type": "way",
+  "id": 1157293426,
+  "bounds": {
+    "minlat": 10.2568745,
+    "minlon": 105.9063647,
+    "maxlat": 10.2572783,
+    "maxlon": 105.9064808
+  },
+  "geometry": [
+    { "lat": 10.2572783, "lon": 105.9064808 },
+    { "lat": 10.2568745, "lon": 105.9063647 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "highway": "motorway",
+    "lanes": "2",
+    "layer": "2",
+    "maxspeed": "90",
+    "minspeed": "60",
+    "motorcycle": "no",
+    "name": "Đường cao tốc Mỹ Thuận - Cần Thơ",
+    "name:en": "My Thuan - Can Tho Expressway",
+    "oneway": "yes",
+    "ref": "CT.01;CT.36",
+    "surface": "asphalt",
+    "toll": "yes",
+    "wikipedia": "vi:Đường cao tốc Mỹ Thuận – Cần Thơ"
+  }
+},
+{
+  "type": "way",
+  "id": 1157293428,
+  "bounds": {
+    "minlat": 10.2469843,
+    "minlon": 105.9036188,
+    "maxlat": 10.2474144,
+    "maxlon": 105.9037485
+  },
+  "geometry": [
+    { "lat": 10.2469843, "lon": 105.9036188 },
+    { "lat": 10.2474144, "lon": 105.9037485 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "highway": "motorway",
+    "lanes": "2",
+    "layer": "2",
+    "maxspeed": "90",
+    "minspeed": "60",
+    "motorcycle": "no",
+    "name": "Đường cao tốc Mỹ Thuận - Cần Thơ",
+    "name:en": "My Thuan - Can Tho Expressway",
+    "oneway": "yes",
+    "ref": "CT.01;CT.36",
+    "surface": "asphalt",
+    "toll": "yes",
+    "wikipedia": "vi:Đường cao tốc Mỹ Thuận – Cần Thơ"
+  }
+},
+{
+  "type": "way",
+  "id": 1157293430,
+  "bounds": {
+    "minlat": 10.2470129,
+    "minlon": 105.9035308,
+    "maxlat": 10.2474429,
+    "maxlon": 105.9036605
+  },
+  "geometry": [
+    { "lat": 10.2474429, "lon": 105.9036605 },
+    { "lat": 10.2470129, "lon": 105.9035308 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "highway": "motorway",
+    "lanes": "2",
+    "layer": "2",
+    "maxspeed": "90",
+    "minspeed": "60",
+    "motorcycle": "no",
+    "name": "Đường cao tốc Mỹ Thuận - Cần Thơ",
+    "name:en": "My Thuan - Can Tho Expressway",
+    "oneway": "yes",
+    "ref": "CT.01;CT.36",
+    "surface": "asphalt",
+    "toll": "yes",
+    "wikipedia": "vi:Đường cao tốc Mỹ Thuận – Cần Thơ"
+  }
+},
+{
+  "type": "way",
+  "id": 1157293433,
+  "bounds": {
+    "minlat": 10.2345104,
+    "minlon": 105.8978210,
+    "maxlat": 10.2350193,
+    "maxlon": 105.8981044
+  },
+  "geometry": [
+    { "lat": 10.2345104, "lon": 105.8978210 },
+    { "lat": 10.2350193, "lon": 105.8981044 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "highway": "motorway",
+    "lanes": "2",
+    "layer": "2",
+    "maxspeed": "90",
+    "minspeed": "60",
+    "motorcycle": "no",
+    "name": "Đường cao tốc Mỹ Thuận - Cần Thơ",
+    "name:en": "My Thuan - Can Tho Expressway",
+    "oneway": "yes",
+    "ref": "CT.01",
+    "surface": "asphalt",
+    "toll": "yes",
+    "wikipedia": "vi:Đường cao tốc Mỹ Thuận – Cần Thơ"
+  }
+},
+{
+  "type": "way",
+  "id": 1157293434,
+  "bounds": {
+    "minlat": 10.2345647,
+    "minlon": 105.8977570,
+    "maxlat": 10.2350460,
+    "maxlon": 105.8980355
+  },
+  "geometry": [
+    { "lat": 10.2350460, "lon": 105.8980355 },
+    { "lat": 10.2345647, "lon": 105.8977570 }
+  ],
+  "tags": {
+    "bridge": "yes",
+    "highway": "motorway",
+    "lanes": "2",
+    "layer": "2",
+    "maxspeed": "90",
+    "minspeed": "60",
+    "motorcycle": "no",
+    "name": "Đường cao tốc Mỹ Thuận - Cần Thơ",
+    "name:en": "My Thuan - Can Tho Expressway",
+    "oneway": "yes",
+    "ref": "CT.01",
+    "surface": "asphalt",
+    "toll": "yes",
+    "wikipedia": "vi:Đường cao tốc Mỹ Thuận – Cần Thơ"
+  }
+}
+
+  ]
+}

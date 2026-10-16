@@ -1,0 +1,14 @@
+interface:
+  display_name: Voice to Motion
+  short_description: Dựng motion graphic tự động từ voice tiếng Việt
+  default_prompt: Dùng $voice-to-motion dựng video motion graphic hoàn chỉnh từ file
+    voice đính kèm, tự chạy đến final, không dừng duyệt storyboard.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
