@@ -1,5 +1,12 @@
 # Changelog — voice-to-motion
 
+## 1.2.3
+- Nhịp theo lời: check chặn “hình đứng im > 3s” và “khung trống”; `K.beats()` gợi ý mốc từ khóa.
+- Phụ đề chạy theo lời tự thêm (ngắt cụm theo dấu câu/chữ hoa đầu câu/chỗ ngừng), không chồng cụm.
+- Khối sống sau khi hiện (`theme.idle`): trôi/giãn/lắc nhẹ, lệch pha.
+- Khối mới: `spotlight`, `keyword`, `checklist`, `steps`, `street` (sơ đồ mặt đường cho BĐS); thẻ/icon/so sánh to hơn.
+- SFX tự động đa dạng hơn: dấu tích → success, số liệu → data, nhãn/từ khóa → click; phụ đề không gắn SFX.
+
 ## 1.2.2
 - Camera có diễn tiến: `s.story` (Establish → Focus → Resolve); kit tự thêm nhịp Explain (đẩy vào +6%, xoay ±2°) cho cảnh bản đồ đứng yên lâu; tự nối key không chồng nhau.
 - Renderer giữ chữ/icon/callout luôn thẳng khi camera xoay.

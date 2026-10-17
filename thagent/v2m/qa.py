@@ -57,7 +57,7 @@ def static(tl: R.Timeline, transcript: dict | None = None) -> list[tuple[str, st
         ev = [e for e in tl.events.get(oid, []) if e["action"] == "reveal"]
         t_done = max([e.get("end_s", e["start_s"]) for e in ev] + [max(o.get("word_times") or [v0]) + 0.3])
         need = max(0.9, len(o["text"]) / READ_CPS)
-        if v1 < tl.duration and (v1 - t_done) < need - 0.05 and not o.get("fixed"):
+        if v1 < tl.duration and (v1 - t_done) < need - 0.05 and not o.get("fixed") and o.get("role") != "caption":
             out.append(("warn", f"{oid} “{o['text'][:28]}” chỉ đọc được {v1 - t_done:.2f}s (cần ≈ {need:.1f}s)"))
     # 5) SFX: vai trò rõ, không lặp một âm cho mọi hành động, không dày đặc
     ev = [(float(e["t"]), e.get("role") or e.get("sfx", "?")) for sc in tl.scenes for e in sc.get("audio_events", [])]
@@ -79,12 +79,61 @@ def static(tl: R.Timeline, transcript: dict | None = None) -> list[tuple[str, st
             out.append(("warn", f"mật độ SFX {dens:.2f}/giây — quá dày"))
     # 6) camera: vận tốc không đổi đột ngột ngoài chủ đích
     out += camera_jerk(tl)
+    # 8) nhịp hình theo lời: không đứng im quá 3s, không khung trống
+    out += rhythm(tl)
     # 7) nhãn bản đồ cỡ cố định nên có mức chi tiết (lod) để không tụ lại khi zoom xa
     has_map = any(o["type"] in ("map", "geo", "region") for o in tl.objs.values())
     if has_map:
         nolod = [oid for oid, o in _texts(tl) if o.get("fixed") and not o.get("lod") and not o.get("parent")]
         if nolod:
             out.append(("warn", f"{len(nolod)} nhãn bản đồ không có lod (vd {', '.join(nolod[:4])}) — sẽ hiện ở mọi mức zoom"))
+    return out
+
+
+HOLD_MAX = 3.0     # tối đa giây không có thay đổi hình (trừ đoạn giữ câu kết)
+END_HOLD = 4.0
+
+
+def _bg_obj(o) -> bool:
+    """lớp nền/phụ không tính là “thay đổi hình”: bản đồ nền, phủ nền, nguồn, phụ đề chạy chữ."""
+    return o["type"] in ("map", "geo") or o.get("role") in ("caption", "backdrop", "source") or o.get("id") == "src"
+
+
+def rhythm(tl) -> list[tuple[str, str]]:
+    """lỗi chặn: (a) khoảng > HOLD_MAX giây không có hành động hình nào (hiện/ẩn/biến đổi/vẽ/đếm/camera/chuyển cảnh)
+    — phụ đề chạy chữ không tính; (b) khung trống (không có khối nội dung nào) > 0,8s."""
+    out = []
+    ts = [0.0] + [float(sc["start_s"]) for sc in tl.scenes]
+    for oid, evs in tl.events.items():
+        o = tl.objs.get(oid)
+        if o is None or _bg_obj(o):
+            continue
+        ts += [float(e["start_s"]) for e in evs]
+    for k in tl.camera:
+        ts += [float(k["t"]) - float(k.get("dur", 0.6)), float(k["t"])]
+    ts = sorted(t for t in ts if 0 <= t <= tl.duration)
+    end = tl.duration - END_HOLD
+    for a, b in zip(ts, ts[1:] + [tl.duration]):
+        b = min(b, max(end, a))
+        if b - a > HOLD_MAX + 1e-3:
+            out.append(("error", f"hình đứng im {b - a:.1f}s ({a:.1f}–{b:.1f}s) — thêm nhịp theo lời: khối mới, đổi trạng thái, camera (≤ {HOLD_MAX:.0f}s)"))
+    def _shown(oid, o):   # đường chỉ có “draw” (chưa reveal) thì chỉ thấy từ lúc bắt đầu vẽ
+        evs = tl.events.get(oid, [])
+        if not any(e["action"] == "reveal" for e in evs):
+            d = [float(e["start_s"]) for e in evs if e["action"] == "draw"]
+            if d:
+                return max(o["_vis"][0], min(d)), o["_vis"][1]
+        return o["_vis"]
+    vis = sorted(_shown(k, o) for k, o in tl.objs.items() if not _bg_obj(o))
+    t, cover = 0.0, []
+    for a, b in vis:
+        if a > t + 0.8 and a < tl.duration:
+            cover.append((t, a))
+        t = max(t, b)
+    if t < tl.duration - 0.8:
+        cover.append((t, tl.duration))
+    for a, b in cover:
+        out.append(("error", f"khung trống {a:.1f}–{b:.1f}s — không có khối nội dung nào trên hình"))
     return out
 
 

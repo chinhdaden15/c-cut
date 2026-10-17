@@ -164,6 +164,11 @@ Nhiệm vụ (KHÔNG render — app tự xuất cả dọc lẫn ngang sau khi b
 1. Đọc transcript, xác định nội dung, chia cảnh theo skill.
 2. Chép khung dựng sẵn: cp .claude/skills/{style}/templates/build_timeline.py {pdir}/build_timeline.py — đọc docstring đầu file
    (danh sách khối: title/lead/tag/icons/cards/compare/stat/bullets/meter/bars/quote/image/arrow; bản đồ: region/place/pin/callout/route/route_label/look).
+   NHỊP THEO LỜI (bắt buộc): cảnh 4–8s; cứ ≤ 3s phải có một thay đổi hình gắn với từ khóa đang nói (khối mới, spotlight, tích,
+   pulse, đổi trạng thái, camera) — xem gợi ý mốc: .venv/bin/python -c "from thagent.v2m.kit import Kit; K=Kit('{pdir}','9x16'); print(K.beats())".
+   Mỗi ý có hình bổ nghĩa (icon/thẻ/sơ đồ/số liệu), không chỉ chữ. Phụ đề chạy theo lời do kit tự thêm. Khối dùng được thêm:
+   s.checklist · s.steps · s.spotlight · s.keyword · s.street (BĐS: mặt đường, tiện ích quanh nhà) · s.pulse.
+   check báo “hình đứng im” / “khung trống” là LỖI — phải thêm nhịp cho hết.
    CHỈ thay phần giữa “THAY TỪ ĐÂY” và “HẾT phần nội dung” theo lời của file: chia cảnh bằng mốc K.find("cụm từ"), chọn khối hợp nội dung,
    chọn theme (dark | warm | map) theo lĩnh vực. KHÔNG tự đặt toạ độ/cỡ chữ — kit tự bố cục cả dọc lẫn ngang.
    Chạy: .venv/bin/python {pdir}/build_timeline.py   (→ timeline_9x16.json + timeline_16x9.json; “Dựng dọc”/“Dựng ngang” → thêm 9x16 hoặc 16x9)

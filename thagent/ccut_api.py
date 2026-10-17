@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.4.3"
+APP_VERSION = "1.5.0"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -233,7 +233,7 @@ def pick(body: PickIn):
             r = WINDOW.create_file_dialog(webview.FileDialog.FOLDER)
         else:
             types = {"zip": ("Zip (*.zip)",), "script": ("Kịch bản (*.txt;*.srt;*.docx;*.md)",)}.get(
-                body.kind, ("Video / âm thanh (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg)",)
+                body.kind, ("Video và âm thanh (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg)",)
                 if load_settings().get("style") == V2M else ("Video (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4)",))
             r = WINDOW.create_file_dialog(webview.FileDialog.OPEN, file_types=types)
         return {"path": (r[0] if isinstance(r, (list, tuple)) else r) if r else None}
@@ -1008,7 +1008,26 @@ def cancel():
 
 
 # ---------------- tóm tắt dự án ----------------
+def _v2m_summary(pid: str) -> dict:
+    """dự án Voice to Motion (không có project.json): bản đã xuất dọc/ngang + ảnh tổng hợp cảnh của lần xuất gần nhất."""
+    pdir = P.PROJECTS / pid
+    q = next((q for q in reversed(STATE["queue"]) if q.get("project") == pid and q.get("outputs")), None)
+    outs = [Path(o) for o in (q or {}).get("outputs", []) if Path(o).exists()]
+    if not outs:
+        outs = [f for f in (pdir / f"{pid}_{fmt}.mp4" for fmt in ("9x16", "16x9")) if f.exists()]
+    vs = sorted((d for d in (pdir / "versions").glob("v[0-9][0-9][0-9]") if d.is_dir()), key=lambda d: d.name)
+    stills = next((sorted(d.glob("sheet*.jpg")) for d in reversed(vs) if any(d.glob("sheet*.jpg"))), [])
+    if not stills:
+        stills = sorted(pdir.glob("stills*.jpg"))
+    lab = lambda f: "Ngang" if "16x9" in f.name else "Dọc"
+    return {"id": pid, "stills": [str(f) for f in stills], "timeline": [], "counts": {}, "credits": {},
+            "output": str(outs[0]) if outs else None, "final": str(outs[0]) if outs else None,
+            "outputs": [{"label": lab(f), "path": str(f)} for f in outs]}
+
+
 def project_summary(pid: str | None) -> dict | None:
+    if pid and not (P.PROJECTS / pid / "project.json").exists() and any((P.PROJECTS / pid).glob("timeline*.json")):
+        return _v2m_summary(pid)
     if not pid or not (P.PROJECTS / pid / "project.json").exists():
         return None
     c = P.Ctx(pid)

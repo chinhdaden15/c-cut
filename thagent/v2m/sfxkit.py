@@ -137,6 +137,15 @@ def auto_events(tl) -> list[dict]:
             continue
         t = float(rev[0]["start_s"]) + 0.06
         typ = o["type"]
+        if o.get("role") in ("caption", "backdrop"):   # phụ đề chạy chữ / phủ nền: không gắn SFX
+            continue
+        kids = [c for c in tl.objs.values() if c.get("parent") == oid]
+        if typ == "icon" and "check" in str(o.get("name", "")):
+            ev.append({"t": t, "role": "success", "why": f"dấu tích {oid}"}); continue
+        if typ == "counter":
+            ev.append({"t": t, "role": "data", "why": f"số liệu {oid}"}); continue
+        if typ == "rect" and any(c["type"] == "text" for c in kids) and float(o.get("h", 0)) <= 140:
+            ev.append({"t": t, "role": "click", "why": f"nhãn/từ khóa {oid}"}); continue
         if typ in ("callout", "routelabel"):
             ev.append({"t": t + 0.15, "role": "click", "why": f"callout {oid}"})
         elif typ == "text" and float(o.get("size", 0)) >= 80 and o.get("space") == "screen":

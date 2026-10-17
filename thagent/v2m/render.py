@@ -154,6 +154,17 @@ class Timeline:
             if draws and t < draws[0]["start_s"]:
                 p["progress"] = 0.0
             p.setdefault("progress", 1.0)
+        idle = o.get("idle", self.theme.get("idle", False))
+        if idle and o["type"] in ("icon", "rect", "image", "circle", "quote", "counter") and not o.get("parent") \
+                and o.get("space") == "screen" and enter is not None:
+            # sống sau khi hiện: trôi dọc ±5px + giãn ±1,5%, lệch pha theo id (không rung, không đồng loạt)
+            ph = (sum(map(ord, oid)) % 97) / 97.0 * 2 * math.pi
+            k_in = clamp01((t - enter[0].get("end_s", enter[0]["start_s"])) / 0.6)
+            amp = float(idle) if not isinstance(idle, bool) else 1.0
+            p["y"] = p.get("y", 0) + 5 * amp * k_in * math.sin(2 * math.pi * t / 3.4 + ph)
+            p["scale"] = p["scale"] * (1 + 0.015 * amp * k_in * math.sin(2 * math.pi * t / 4.6 + ph * 1.7))
+            if o["type"] == "icon":
+                p["rot"] = p.get("rot", 0) + 2.0 * amp * k_in * math.sin(2 * math.pi * t / 5.2 + ph)
         p["_enter"], p["_leave"] = enter, leave
         return p
 

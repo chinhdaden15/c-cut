@@ -53,3 +53,14 @@ Mỗi cảnh: **Establish** (khu vực, vị trí cần hiểu) → **Focus** (p
   - hình “giật”: kiểm tra QA camera_jerk, timestamp frame, frame lặp bất thường (render_video đo chuỗi frame giống nhau), điểm nối key camera;
   - chữ “nhảy”: kiểm tra word_times đủ mốc và bố cục đã chốt (vtext);
   - “đơ”: khoảng không có sự kiện nào gắn với lời đọc → sửa storyboard (thêm hành động đúng ý), không thêm rung lắc.
+
+## 6. Nhịp theo lời (v1.2.3 — bắt buộc, check chặn)
+
+- Cảnh 4–8 giây. Cứ ≤ 3 giây phải có một **thay đổi hình** gắn với từ khóa đang nói: khối mới, spotlight (mục đang nói to lên, mục cũ lùi),
+  dấu tích, pulse, đổi trạng thái, camera. Phụ đề chạy chữ KHÔNG tính là thay đổi hình.
+- Mỗi ý có **hình bổ nghĩa** (icon, thẻ, sơ đồ, số liệu, sơ đồ mặt đường…), không để chỉ có chữ rồi đứng im.
+- Không có **khung trống** (> 0,8s không có khối nội dung).
+- Khối sau khi hiện **sống nhẹ** (trôi ±5px, giãn ±1,5%, icon lắc ±2°) — renderer tự làm khi `theme.idle` (kit bật mặc định).
+- **Phụ đề chạy theo lời** ở vùng dưới (từng từ hiện đúng lúc nói, ngắt theo cụm/dấu câu/chữ hoa đầu câu) — kit tự thêm cho cảnh không có câu dẫn.
+- Khối to, lấp vùng hình của từng tỷ lệ; không để vài icon nhỏ giữa nền trống.
+- `check` báo LỖI: “hình đứng im > 3s”, “khung trống” — sửa hết mới được xuất. Gợi ý mốc: `K.beats()`.
