@@ -1,5 +1,7 @@
 """Lệnh Voice to Motion.
 
+  python -m thagent.v2m broll  <dự-án> <url> v_ten.mp4 [nguồn]  tải video b-roll (ưu tiên Pinterest, không được thì Pexels)
+  python -m thagent.v2m icons  <từ khóa…>                    tra tên icon trong kho của app (tiếng Anh/Việt)
   python -m thagent.v2m init   <voice|video> <thư-mục-dự-án>   kiểm tra file, chép voice, chép lời → transcript.json
   python -m thagent.v2m clean  <dự-án> [--no-denoise]           cắt vấp/lắp bắp/từ đệm/khoảng lặng (như Talking Head) → voice_clean.wav
   python -m thagent.v2m restore <dự-án>                          bỏ cắt, dùng voice gốc
@@ -139,7 +141,10 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
             if not o.get("source") and not o.get("label_only_concept"):
                 out.append(("warn", f"{o['id']}: ảnh chưa ghi nguồn"))
         if o["type"] == "icon" and not D.icon_exists(o["name"]):
-            out.append(("error", f"{o['id']}: icon “{o['name']}” không có trong Uicons"))
+            from .icons import suggest
+            sg = suggest(o["name"])
+            out.append(("error", f"{o['id']}: icon “{o['name']}” không có trong kho"
+                        + (f" — dùng: {', '.join(sg)}" if sg else "") + " (tra: python -m thagent.v2m icons <từ khóa>)"))
         if o["type"] in ("line",):
             for ref in ([o.get("from"), o.get("to")] + list(o.get("points") or [])):
                 if isinstance(ref, str) and ref not in tl.objs:
@@ -405,7 +410,20 @@ def speed(pdir, v):
     print(f"tốc độ xuất ×{sp:g} ({n} timeline) — áp lúc xuất, không cần đổi timing chữ/hình")
 
 
-CMDS = {"_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise}
+def icons(*q):
+    """icons <từ khóa…> — tra tên icon trong kho của app (tiếng Anh hoặc tiếng Việt)."""
+    from .icons import search
+    r = search(*q)
+    print("\n".join(r) if r else "không thấy — thử từ khóa tiếng Anh khác (vd: house, money, heart, user)")
+
+
+def broll(pdir, url, name, source=""):
+    """broll <dự-án> <url> v_ten.mp4 ["nguồn"] — tải video b-roll (ưu tiên Pinterest, không được thì Pexels)."""
+    from .broll import fetch
+    fetch(pdir, url, name, source)
+
+
+CMDS = {"broll": broll, "icons": icons, "_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise}
 
 
 def main():

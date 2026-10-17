@@ -206,22 +206,31 @@ def _image(path: str) -> np.ndarray:
 
 @lru_cache(maxsize=96)
 def image_sprite(path: str, w: int, h: int, r: float, fit: str, shadow: float, stroke: str | None,
-                 stroke_w: int, gray: bool) -> tuple[np.ndarray, int]:
+                 stroke_w: int, gray: bool, kb: tuple = (1.0, 0.0, 0.0), dim: float = 0.0) -> tuple[np.ndarray, int]:
+    """kb = (zoom ≥ 1, lệch x, lệch y theo −1..1 phần dư) — zoom/trượt chậm bên trong khung (Ken Burns); dim = làm tối ảnh nền."""
     src = _image(path)
     ih, iw = src.shape[:2]
     w, h = max(int(w), 2), max(int(h), 2)
-    s = max(w / iw, h / ih) if fit == "cover" else min(w / iw, h / ih)
-    im = cv2.resize(src, (max(int(iw * s), 1), max(int(ih * s), 1)), interpolation=cv2.INTER_AREA)
+    z, kx, ky = kb
+    s = (max(w / iw, h / ih) * max(z, 1.0)) if fit == "cover" else min(w / iw, h / ih)
     canvas = np.zeros((h, w, 4), np.float32)
-    y0, x0 = (im.shape[0] - h) // 2, (im.shape[1] - w) // 2
     if fit == "cover":
-        canvas[:] = im[max(y0, 0):max(y0, 0) + h, max(x0, 0):max(x0, 0) + w]
-    else:
-        oy, ox = -y0, -x0
+        # cắt vùng nguồn trước rồi mới resize (nhanh, nét)
+        cw, ch = w / s, h / s
+        cx = iw / 2 + kx * (iw - cw) / 2
+        cy = ih / 2 + ky * (ih - ch) / 2
+        M = np.array([[s, 0, w / 2 - s * cx], [0, s, h / 2 - s * cy]], np.float32)
+        canvas[:] = cv2.warpAffine(src, M, (w, h), flags=cv2.INTER_AREA if s < 1 else cv2.INTER_LINEAR,
+                                   borderMode=cv2.BORDER_REPLICATE)
+    else:   # contain: cả ảnh nằm gọn trong khung
+        im = cv2.resize(src, (max(int(iw * s), 1), max(int(ih * s), 1)), interpolation=cv2.INTER_AREA)
+        oy, ox = (h - im.shape[0]) // 2, (w - im.shape[1]) // 2
         canvas[oy:oy + im.shape[0], ox:ox + im.shape[1]] = im
     if gray:
         g = canvas[..., :3] @ np.array([0.299, 0.587, 0.114], np.float32)
         canvas[..., :3] = g[..., None]
+    if dim:
+        canvas[..., :3] *= 1 - dim
     m = _rrect_mask(w, h, r)
     canvas *= m[..., None]
     pad = int(max(w, h) * 0.06 + 24) if shadow else stroke_w + 2

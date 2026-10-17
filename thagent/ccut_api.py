@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.5.1"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -428,8 +428,11 @@ def queue_add(body: PathsIn):
     added = []
     for raw in body.paths:
         p = Path(raw).expanduser()
+        mats = _materials(p) if p.is_dir() and load_settings().get("style") == V2M else []
         for f in (_videos(p) if p.is_dir() else [p]):
             if _add_video(f):
+                if mats:
+                    STATE["queue"][-1]["materials"] = mats
                 added.append(f.name)
     save_queue()
     return {"added": added, "queue": STATE["queue"]}
@@ -450,7 +453,21 @@ def _norm(t: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", "".join(c for c in t if unicodedata.category(c) != "Mn"))
 
 
+IMG_EXT = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _materials(d: Path) -> list[str]:
+    """tư liệu dùng chung cho Voice to Motion: ảnh ở thư mục gốc + mọi ảnh/video trong thư mục con (b-roll, ảnh trám)."""
+    out = [x for x in d.iterdir() if x.is_file() and x.suffix.lower() in IMG_EXT and not x.name.startswith(".")]
+    for sub in (x for x in d.iterdir() if x.is_dir() and not x.name.startswith(".")):
+        out += [x for x in sub.rglob("*") if x.is_file() and not x.name.startswith(".")
+                and x.suffix.lower() in IMG_EXT | VIDEO_EXT]
+    return [str(x) for x in sorted(out)]
+
+
 def _guess_mode(vids: list[Path]) -> tuple[str, str]:
+    if load_settings().get("style") == V2M:
+        return "separate", "Voice to Motion: mỗi file âm thanh/video là một video riêng"
     if len(vids) < 2:
         return "separate", "chỉ có 1 video"
     stems = [v.stem for v in vids]
@@ -522,6 +539,7 @@ def folder_inspect(body: FolderIn):
         if not parts and len(left) == 1:
             assign[left[0].name] = {"text": full, "source": f"theo file {shared[0].name}"}
     return {"folder": str(d), "mode": mode, "reason": reason, "scripts": [x.name for x in scripts],
+            "materials": len(_materials(d)) if load_settings().get("style") == V2M else 0,
             "whole_script": read_script(str(scripts[0])) if len(scripts) == 1 else None,
             "videos": [{"name": v.name, "path": str(v), "script": assign.get(v.name, {}).get("text"),
                         "source": assign.get(v.name, {}).get("source")} for v in vids]}
@@ -536,6 +554,15 @@ class FolderAddIn(BaseModel):
 @router.post("/folder/add")
 def folder_add(body: FolderAddIn):
     d = Path(body.path).expanduser()
+    if load_settings().get("style") == V2M:      # không có trường hợp nhiều file = 1 nội dung
+        mats = _materials(d)
+        added = []
+        for f in _videos(d):
+            if _add_video(f, body.scripts.get(f.name)):
+                STATE["queue"][-1]["materials"] = mats
+                added.append(f.name)
+        save_queue()
+        return {"added": added}
     if body.mode == "one":
         vids = _videos(d)
         if not vids or str(d) in [q["path"] for q in STATE["queue"]]:
@@ -782,11 +809,25 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
         log(f"Làm sạch voice: {r['source_s']:.1f}s → {r['clean_s']:.1f}s")
     job["done"].append("clean"); job["stage"] = "plan"
     _write_script(pid, item.get("script"))
+    mats = [Path(m) for m in item.get("materials") or [] if Path(m).exists()]
+    if mats:   # tư liệu người dùng gửi kèm (b-roll, ảnh trám) → tu_lieu/ + ảnh xem trước cho Claude chọn đúng nội dung
+        tl_dir = pdir / "tu_lieu"
+        (tl_dir / "_xem").mkdir(parents=True, exist_ok=True)
+        for m in mats:
+            dst = tl_dir / m.name
+            if not dst.exists():
+                shutil.copy2(m, dst)
+            if m.suffix.lower() in VIDEO_EXT and not (tl_dir / "_xem" / f"{m.stem}.jpg").exists():
+                subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(dst), "-vf", "fps=1/2,scale=320:-1,tile=4x1",
+                                "-frames:v", "1", str(tl_dir / "_xem" / f"{m.stem}.jpg")], capture_output=True)
     if not sess.plan_ready():
         if not sess.messages:
             sess._add("claude", f"Đã nhận {item['name']}. Mình dựng Motion Graphic từ voice, xuất cả dọc lẫn ngang.", kind="text")
         sess.send(f"Dựng Motion Graphic cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill voice-to-motion. "
-                  "Voice đã chép lời và làm sạch. Làm theo quy trình rồi ghi plan_ready.json.", show=False)
+                  "Voice đã chép lời và làm sạch. "
+                  + (f"Người dùng gửi kèm {len(mats)} tư liệu (b-roll, ảnh trám) ở {pdir}/tu_lieu/ — xem trước ở tu_lieu/_xem/*.jpg "
+                     "(video: 4 khung cách 2s), ưu tiên dùng khi ĐÚNG nội dung đang nói. " if mats else "")
+                  + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
         _wait_plan(sess, item, job)
     job["done"].append("plan"); job["stage"] = "render"
     out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)

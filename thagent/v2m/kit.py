@@ -59,6 +59,10 @@ def fit_size(text: str, role: str, size: float, max_w: float, floor: float = 0.4
     return int(s)
 
 
+def _is_video(src: str) -> bool:
+    return str(src).lower().endswith((".mp4", ".mov", ".m4v", ".webm", ".mkv"))
+
+
 def _norm(s: str) -> str:
     s = unicodedata.normalize("NFC", s.lower())
     return re.sub(r"[^\w\s]", "", s).strip()
@@ -512,6 +516,113 @@ class Scene:
         lid = self.add(o)
         self.draw(lid, t, d)
         return lid
+
+    # ---------- ảnh (tải bằng: .venv/bin/python -m thagent.tools img <dự-án> <url> i_ten.jpg [nguồn]) ----------
+    def _img_meta(self, src, label, source, real):
+        """ảnh minh họa → nhãn “Hình ảnh minh họa”; ảnh đúng chủ thể (real=True) → nhãn = tên chủ thể. Nguồn lấy từ illus_sources.json."""
+        import json as _j
+        src = src if "/" in src else f"assets_web/{src}"
+        if source is None:
+            sj = self.K.pdir / "assets_web" / "illus_sources.json"
+            try:
+                source = _j.loads(sj.read_text(encoding="utf-8")).get(Path(src).name)
+            except Exception:
+                source = None
+        if source and "://" in str(source):
+            source = re.sub(r"^https?://(www\.)?", "", str(source)).split("/")[0]   # chỉ tên miền cho gọn
+        # trên video chỉ ghi loại ảnh; nguồn KHÔNG hiện (người dùng tự ghi khi đăng bài) — vẫn lưu ở assets_web/illus_sources.json
+        return src, ("Hình ảnh thực tế" if real else "Hình ảnh minh họa"), None
+
+    def photo(self, src, t, label=None, source=None, real=False, region="main", w=None, h=None, kb=True, style="scale",
+              ry=0.5, **k) -> str:
+        """ảnh lớn bo góc, zoom/trượt chậm (Ken Burns) suốt lúc hiện, nhãn + nguồn dưới ảnh. style: scale | mask_left (quét mở) | up."""
+        K = self.K
+        src, label, source = self._img_meta(src, label, source, real)
+        x, y = K.at_zone(region, 0.5, ry)
+        w = w or K.F.width(region) * (0.86 if K.V else 0.84)
+        h = h or w * (0.72 if K.V else 0.6)
+        o = {"type": "image", "src": src, "w": w, "h": h, "r": 26, "label": label, "source": source, "x": x, "y": y - 40,
+             "space": "screen", "shadow": 0.35, **k}
+        if _is_video(src):            # b-roll: khung video bo góc như ảnh, không phủ kín khung
+            o.update(type="video", **{"in": k.get("in", 0.0), "rate": k.get("rate", 1.0)})
+            kb = False
+        if kb:
+            o["kb"] = kb if isinstance(kb, dict) else {"z": [1.03, 1.14], "pan": [-0.3, 0.1, 0.3, -0.1]}
+        return self.add(o, t, style, 0.5 if style == "scale" else 0.7)
+
+    def photos(self, items, region="main", real=False) -> list[str]:
+        """2–3 ảnh lần lượt theo lời: items [(src, nhãn, t)] — ảnh mới trượt lên chồng, ảnh trước lùi nhẹ/nghiêng."""
+        K = self.K
+        x, y = K.F.center(region)
+        w = K.F.width(region) * (0.8 if K.V else 0.7)
+        h = w * (0.66 if K.V else 0.58)
+        ids = []
+        for i, (src, label, t) in enumerate(items):
+            s_, lab, srcn = self._img_meta(src, label, None, real)
+            rot = (-4, 3, -2)[i % 3]
+            o = {"type": "image", "src": s_, "w": w, "h": h, "r": 22, "label": lab, "source": srcn, "space": "screen",
+                 "x": x + (i - (len(items) - 1) / 2) * 26, "y": y - 40 + i * 14, "rot": rot, "shadow": 0.45,
+                 "kb": {"z": [1.02, 1.1], "pan": [0.2 * (-1) ** i, 0, -0.2 * (-1) ** i, 0]}, "layer": i}
+            if _is_video(s_):
+                o.update(type="video", **{"in": 0.0, "rate": 1.0}); o.pop("kb")
+            oid = self.add(o, t, "up", 0.5)
+            for prev in ids:
+                self.animate(prev, t, 0.45, {"scale": 0.92, "opacity": 0.55})
+            ids.append(oid)
+        return ids
+
+    def before_after(self, src_a, src_b, t_a, t_b, labels=("TRƯỚC", "SAU"), region="main") -> list[str]:
+        """trước / sau: ảnh sau quét mở đè lên ảnh trước đúng lúc nói; nhãn góc + dòng nguồn đổi theo ảnh đang thấy."""
+        K = self.K
+        x, y = K.F.center(region)
+        w = K.F.width(region) * 0.86
+        h = w * (0.72 if K.V else 0.6)
+        ids = []
+        for i, (src, t, lab, style) in enumerate(((src_a, t_a, labels[0], "scale"), (src_b, t_b, labels[1], "mask_left"))):
+            s_, cap, srcn = self._img_meta(src, None, None, False)
+            oid = self.add({"type": "image", "src": s_, "w": w, "h": h, "r": 26, "space": "screen", "x": x, "y": y - 30,
+                            "shadow": 0.35, "kb": {"z": [1.02, 1.08]}, "layer": i}, t, style, 0.6 if style == "scale" else 0.9)
+            t_lab = t + (0.0 if i == 0 else 0.85)          # nhãn ảnh sau hiện khi ảnh đã phủ kín
+            tg = self.add({"type": "rect", "w": len(lab) * 26 + 60, "h": 64, "r": 32, "fill": K.th["accent"], "space": "screen",
+                           "x": x - w / 2 + len(lab) * 13 + 60, "y": y - 30 - h / 2 + 52, "layer": 5 + i}, t_lab, "pop", 0.3)
+            self.add({"type": "text", "text": lab, "font": "black", "size": 34, "color": K.th["ink_on_accent"], "parent": tg, "x": 0, "y": 0,
+                      "shadow": 0})
+            ct = self.add({"type": "text", "text": cap, "font": "semi", "size": 26,
+                           "color": K.th["muted"], "space": "screen", "x": x, "y": y - 30 + h / 2 + 52, "line_h": 1.25, "shadow": 0,
+                           "role": "source"}, t_lab, "fade", 0.25)
+            if i == 0:
+                self.hide(tg, t_b + 0.55, "fade", 0.2)
+                self.hide(ct, t_b + 0.55, "fade", 0.2)
+            ids.append(oid)
+        self.hide(ids[0], t_b + 0.95, "fade", 0.1)     # ảnh sau đã phủ kín → bỏ ảnh trước
+        return ids
+
+    def photo_bg(self, src, t=None, dim=0.55, source=None) -> str:
+        """ảnh làm nền cả khung (tối đi để chữ lớn đè lên đọc rõ) — cho câu mở đầu / câu kết / chuyển chương."""
+        K = self.K
+        s_, _, srcn = self._img_meta(src, None, source, False)
+        oid = self.add({"type": "image", "src": s_, "w": K.W, "h": K.H, "r": 0, "space": "screen", "x": K.W / 2, "y": K.H / 2,
+                        "dim": dim, "shadow": 0, "layer": -40, "role": "backdrop", "kb": {"z": [1.04, 1.16], "pan": [0, 0.2, 0, -0.2]}},
+                       self.t0 if t is None else t, "fade", 0.6)
+        if True:
+            self.add({"type": "text", "text": "Hình ảnh minh họa", "font": "medium", "size": 22, "color": "#FFFFFF",
+                      "space": "screen", "x": K.W / 2, "y": K.F.center("source")[1], "shadow": 0.6, "role": "source", "layer": 30},
+                     self.t0 if t is None else t, "fade", 0.4)
+        return oid
+
+    def photo_pin(self, photo_id, rx, ry, text, t, color=None) -> str:
+        """chấm chú thích một chi tiết trong ảnh (rx, ry: 0..1 theo khung ảnh) + nhãn nhỏ."""
+        K = self.K
+        o = next(x for x in self.objs if x["id"] == photo_id)
+        px, py = (rx - 0.5) * o["w"], (ry - 0.5) * o["h"]
+        col = color or K.th["accent"]
+        dot = self.add({"type": "circle", "r": 14, "fill": col, "stroke": "#FFFFFF", "stroke_w": 4, "parent": photo_id, "x": px, "y": py},
+                       t, "pop", 0.3)
+        tag_w = len(text) * 20 + 50
+        tg = self.add({"type": "rect", "w": tag_w, "h": 58, "r": 29, "fill": "#111111", "opacity": 0.85, "parent": photo_id,
+                       "x": px + (tag_w / 2 + 26) * (1 if rx < 0.6 else -1), "y": py}, t + 0.15, "fade", 0.3)
+        self.add({"type": "text", "text": text, "font": "bold", "size": 30, "color": "#FFFFFF", "parent": tg, "x": 0, "y": 0, "shadow": 0})
+        return dot
 
     # ---------- khối có nhịp / đổi trạng thái ----------
     def spotlight(self, ids, times, d=0.35):

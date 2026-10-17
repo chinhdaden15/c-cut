@@ -852,9 +852,18 @@ class Renderer:
     def d_image(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):
         qs = _q(scale, 0.05)
         w, h = float(p.get("w", 600)), float(p.get("h", 400))
+        kb = (1.0, 0.0, 0.0)
+        if p.get("kb"):   # Ken Burns: zoom/trượt chậm trong khung suốt thời gian ảnh hiện
+            k = p["kb"]
+            v0, v1 = self.tl.objs[p["id"]]["_vis"] if p.get("id") in self.tl.objs else (t, t + 1)
+            u = clamp01((t - v0) / max(v1 - v0, 0.5))
+            u = 0.5 - 0.5 * math.cos(math.pi * u)
+            z0, z1 = k.get("z", [1.04, 1.16])
+            px = k.get("pan", [0.0, 0.0, 0.0, 0.0])
+            kb = (round(z0 + (z1 - z0) * u, 3), round(px[0] + (px[2] - px[0]) * u, 3), round(px[1] + (px[3] - px[1]) * u, 3))
         spr, pad = D.image_sprite(self.tl.path(p["src"]), int(w * qs), int(h * qs), float(p.get("r", 24)) * qs,
                                   p.get("fit", "cover"), float(p.get("shadow", 0.35)), p.get("stroke"),
-                                  int(p.get("stroke_w", 0) * qs), bool(p.get("gray", False)))
+                                  int(p.get("stroke_w", 0) * qs), bool(p.get("gray", False)), kb, float(p.get("dim", 0)))
         res = scale / qs
         M = D.affine(sx, sy, res, rot, pad + w * qs / 2, pad + h * qs / 2)
         D.place(dst, _clip(spr, clip), M, op, bv)

@@ -14,13 +14,17 @@ Khối có sẵn (s = K.scene(...)):
            s.place(lonlat, "MỸ", t, inside={"iso": "USA"}) tên trắng viền tối · s.pin · s.callout(…) ← CHỈ vật nhỏ: đường, dự án, cầu, nút giao
            s.route(src, feature, t, d) · s.route_label(…) · s.look(box, t, dur) · s.story(khung_rộng, khung_chủ_thể, t_est, t_focus[, resolve, t_res])
   camera   Establish → Focus → Explain (kit tự trôi/xoay nhẹ ±2° khi cảnh bản đồ đứng yên > 2,2s) → Resolve. Không rung, không xoay vòng.
+  ảnh      s.photo(src, t, nhãn, real=False) · s.photos([(src, nhãn, t)…]) · s.before_after(a, b, t_a, t_b) · s.photo_bg(src)
+           s.photo_pin(photo_id, rx, ry, "chi tiết", t) — src .jpg/.png = ảnh (zoom chậm); .mp4/.mov = b-roll bo góc, thu nhỏ
+           ẢNH PHẢI ĐÚNG CHÍNH XÁC nội dung (references/images-and-broll.md) — tải: python -m thagent.tools img <dự-án> <url> i_ten.jpg "<nguồn>"
   nhịp     s.spotlight([id…], [t…]) mục đang nói to lên, mục khác lùi · s.keyword("VỊ TRÍ", t) từ khóa bật lên · s.pulse(id, t)
            s.checklist([(chữ, t)…]) dòng hiện + dấu tích · s.steps([(icon, nhãn, t)…]) các bước nối tiếp
            s.street(("house-chimney", "Căn nhà"), [(icon, nhãn, t)…], t0) sơ đồ mặt đường + tiện ích quanh nhà (BĐS)
            K.beats(t0, t1) gợi ý mốc từ khóa ≈ 2,5s/lần · phụ đề chạy theo lời: kit tự thêm (tắt cảnh: s.captions = False)
   QUY TẮC NHỊP: cảnh 4–8s, ≤ 3s phải có thay đổi hình theo lời, mỗi ý có hình bổ nghĩa; check chặn “hình đứng im”, “khung trống”.
   âm thanh SFX tự sinh theo chuyển động; muốn nhấn riêng: s.sound(t, "impact"|"money"|…)
-Icon: tên Uicons solid-rounded (dollar, bank, chart-line-up, house, users, heart, leaf, clock, percentage, globe, …).
+Icon: kho ≈3.500 icon Uicons solid-rounded của app. KHÔNG đoán tên — tra: .venv/bin/python -m thagent.v2m icons <từ khóa> (tiếng Anh/Việt,
+      vd “icons yoga” → meditation, sun-salutation-yoga…). check báo icon sai kèm tên gợi ý.
 Mốc: K.find("cụm từ") = giây bắt đầu nói; K.find("cụm", after=t) tìm sau t; K.find("cụm", end=True) = giây nói xong.
 """
 import sys

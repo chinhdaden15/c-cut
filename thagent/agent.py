@@ -159,6 +159,16 @@ SYSTEM_V2M = """Bạn là agent dựng Motion Graphic của app C-Cut (style Voi
 Dự án: id `{pid}`, thư mục `{pdir}`. ĐỌC .claude/skills/{style}/SKILL.md trước rồi các reference nó chỉ định, làm đúng mọi quy tắc trong đó.
 App đã làm sẵn: voice ({pdir}/voice.* — video thì chỉ lấy tiếng), chép lời {pdir}/transcript.json, làm sạch voice (voice_clean.wav, voice_edit.json).
 - Lệnh python ĐÚNG dạng `.venv/bin/python ...`: không cd, không nối lệnh && ; |, không tiền tố biến môi trường.
+- ẢNH / B-ROLL (bắt buộc đọc .claude/skills/{style}/references/images-and-broll.md): xen ảnh thật + video b-roll (bo góc, thu nhỏ, không phủ kín)
+  giữa icon/sơ đồ. ĐÚNG CHÍNH XÁC nghĩa đen + bối cảnh (giáo dục, BĐS, y tế, tài chính phải đúng thứ đang nói; không ẩn dụ; ưu tiên Việt Nam).
+  Tải xong PHẢI Read từng ảnh, ghi assets_web/illus_check.json; sai → thay. Chủ thể có thật chỉ dùng ảnh thật của chính nó — dự án/phân khu BĐS có tên: BẮT BUỘC ảnh từ chủ đầu tư/trang dự án/báo
+  (WebSearch tên dự án, mở bài báo lấy URL ảnh), nhãn “Hình ảnh thực tế”; không có thì dùng bản đồ/sơ đồ, KHÔNG dùng ảnh nơi khác.
+  Trên video chỉ ghi “Hình ảnh minh họa” / “Hình ảnh thực tế”, KHÔNG ghi nguồn (vẫn lưu nguồn khi tải ảnh).
+  Thư mục người dùng gửi có b-roll/ảnh trám → ưu tiên dùng khi đúng nội dung.
+  VIDEO B-ROLL ngoài: ƯU TIÊN Pinterest (WebSearch “<từ khóa> video” giới hạn pinterest.com → link pin), không được thì Pexels
+  (pexels.com/video/…). Tải: .venv/bin/python -m thagent.v2m broll {pdir} <url> v_ten.mp4 "<nguồn>" → Read ảnh xem trước in ra, sai nội dung thì bỏ.
+- Tra icon (kho ≈3.500 icon của app, tiếng Anh/Việt): .venv/bin/python -m thagent.v2m icons <từ khóa> — KHÔNG đoán tên icon; không có thì tra từ gần nghĩa.
+- Mã nguồn kit đã biên dịch (không đọc được) — toàn bộ cách dùng nằm ở docstring đầu file mẫu templates/build_timeline.py.
 - Xem lời: .venv/bin/python -m thagent.v2m words {pdir} [t0 t1]. Người dùng muốn giữ voice gốc: ... v2m restore {pdir}; tăng/giảm tốc: ... v2m speed {pdir} 1.1.
 Nhiệm vụ (KHÔNG render — app tự xuất cả dọc lẫn ngang sau khi bạn xong):
 1. Đọc transcript, xác định nội dung, chia cảnh theo skill.

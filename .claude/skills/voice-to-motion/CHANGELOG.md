@@ -1,6 +1,15 @@
 # Changelog — voice-to-motion
 
+## 1.3.0
+- Video b-roll ngoài: lệnh `broll` tải từ Pinterest (ưu tiên) hoặc Pexels, chuẩn hoá + ảnh xem trước để kiểm nội dung.
+- Thư mục: mỗi file âm thanh/video = một video riêng, xuất dọc + ngang cho từng file; ảnh gốc + thư mục con = tư liệu dùng chung (`tu_lieu/`).
+- Trên video chỉ ghi “Hình ảnh minh họa” / “Hình ảnh thực tế”, không ghi nguồn (nguồn vẫn lưu trong dự án).
+- Ảnh minh họa + video b-roll: khối `photo`, `photos`, `before_after`, `photo_bg`, `photo_pin`; ảnh zoom/trượt chậm (Ken Burns); file .mp4/.mov tự thành khung video bo góc, thu nhỏ.
+- Quy tắc ảnh ĐÚNG CHÍNH XÁC theo lĩnh vực, tự kiểm từng ảnh (`illus_check.json`), ảnh minh họa luôn ghi “Hình ảnh minh họa”, chủ thể có thật chỉ dùng ảnh thật.
+- Thứ tự nguồn: thư mục người dùng → ảnh thật chủ thể → kho ảnh có giấy phép (Openverse/Unsplash/Pexels/Wikimedia).
+
 ## 1.2.3
+- Tra icon: `python -m thagent.v2m icons <từ khóa>` (tiếng Anh/Việt) trong kho ≈3.500 icon của app; check báo icon sai kèm tên gợi ý.
 - Nhịp theo lời: check chặn “hình đứng im > 3s” và “khung trống”; `K.beats()` gợi ý mốc từ khóa.
 - Phụ đề chạy theo lời tự thêm (ngắt cụm theo dấu câu/chữ hoa đầu câu/chỗ ngừng), không chồng cụm.
 - Khối sống sau khi hiện (`theme.idle`): trôi/giãn/lắc nhẹ, lệch pha.

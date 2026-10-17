@@ -1,6 +1,6 @@
 ---
 name: voice-to-motion
-version: 1.2.3
+version: 1.3.0
 description: Dựng hoặc chỉnh sửa video motion graphic minh họa từ voice thu sẵn, ưu tiên tiếng Việt và bất động sản. Dùng khi người dùng yêu cầu biến file voice/audio thành video giải thích, infographic động, bản đồ/sơ đồ có diễn hoạt hoặc sửa một đoạn của video đã dựng. Tự phân tích, lập storyboard nội bộ, dựng, kiểm tra và xuất final mà không dừng duyệt. Không tự kích hoạt để tạo voice từ kịch bản, phân tích mẫu đơn thuần hoặc xây app khi chưa được yêu cầu.
 ---
 
@@ -12,13 +12,17 @@ Biến voice có sẵn thành video motion graphic diễn giải đúng nội du
 
 Đây là hướng dẫn vận hành cho AI có công cụ dựng/render; không phải ứng dụng hoặc renderer đã được triển khai. Không tuyên bố cài đặt app, dựng xong video hoặc nghe được âm thanh nếu chưa thực hiện và kiểm chứng. Không giả lập thành công khi môi trường thiếu công cụ.
 
-**Phiên bản 1.2.3** — xem `CHANGELOG.md`.
+**Phiên bản 1.3.0** — xem `CHANGELOG.md`.
+
+**Ảnh & b-roll (v1.3.0, bắt buộc)**: xen ảnh thật và video b-roll (bo góc, thu nhỏ) giữa icon/sơ đồ; ảnh phải ĐÚNG CHÍNH XÁC nghĩa đen và bối cảnh (nhất là giáo dục, BĐS, y tế, tài chính), tự kiểm từng ảnh; chủ thể có thật chỉ dùng ảnh thật — `references/images-and-broll.md`.
 
 **Nhịp theo lời (v1.2.3, bắt buộc)**: cảnh 4–8s, ≤ 3s một thay đổi hình theo từ khóa, mỗi ý có hình bổ nghĩa, không khung trống, khối sống nhẹ, phụ đề chạy theo lời — `references/motion-system.md` §6; check chặn lỗi.
 
 **Bản đồ & camera (v1.2.2, bắt buộc)**: camera có diễn tiến Establish → Focus → Explain → Resolve; lãnh thổ tô dần theo ranh giới thật; mỗi nước một màu, tên trắng viền tối; dẫn mắt bằng tô/halo + giảm nhấn; ý không gắn vị trí → cảnh đồ họa riêng; không bao giờ lặp quốc gia trong khung — chi tiết `references/maps.md` §5, `references/motion-system.md` §3a.
 
 **Bộ khung dựng sẵn** (`templates/build_timeline.py` + `thagent/v2m/kit.py`): LUÔN bắt đầu bằng cách chép khung này vào dự án, chỉ thay phần nội dung (cảnh, khối, mốc lời). Bố cục dọc/ngang, cỡ chữ, callout, camera bản đồ do kit tính — không tự đặt toạ độ.
+
+**Thư mục**: mỗi file âm thanh/video ở cấp ngoài cùng = MỘT video riêng (không có trường hợp nhiều file thành một nội dung); mỗi file xuất dọc + ngang (hoặc theo tỷ lệ người dùng dặn). Ảnh ở thư mục gốc và mọi file trong thư mục con (b-roll, ảnh trám) = tư liệu dùng chung, app chép vào `tu_lieu/` của từng dự án kèm ảnh xem trước `tu_lieu/_xem/`.
 
 **Đầu vào**: file âm thanh (mp3, wav, m4a, aac, flac, ogg) dựng bình thường; **file video** (mp4, mov, mkv…) → chỉ lấy tiếng (`init` tách audio, bỏ hình) khi người dùng chọn Voice to Motion.
 

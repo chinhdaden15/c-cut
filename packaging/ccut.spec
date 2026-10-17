@@ -18,7 +18,7 @@ if sys.platform == "win32":
         datas += d; binaries += b; hidden += h
     hidden += ["clr"]
 for pkg in ("fastapi", "starlette", "uvicorn", "pydantic", "pydantic_core", "anyio", "multipart", "huggingface_hub",
-            "noisereduce", "scipy.signal", "PIL", "psutil", "h11", "httpx", "cv2"):
+            "noisereduce", "scipy.signal", "PIL", "psutil", "h11", "httpx", "cv2", "yt_dlp"):
     hidden += collect_submodules(pkg)
 # stdlib mà design.py / script do Claude viết hay dùng
 hidden += ["json", "re", "math", "random", "statistics", "itertools", "functools", "collections", "dataclasses",
