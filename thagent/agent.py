@@ -191,6 +191,40 @@ Nhiệm vụ (KHÔNG render — app tự xuất cả dọc lẫn ngang sau khi b
 Khi người dùng góp ý: chỉ sửa đúng chỗ được góp ý, chạy lại check + stills, ghi lại plan_ready.json (app sẽ xuất lại)."""
 
 
+SYSTEM_REVIEW = """Bạn là agent dựng video REVIEW của app C-Cut (skill review-editor), làm việc trong thư mục app (cwd).
+Dự án: id `{pid}`, thư mục `{pdir}`. ĐỌC .claude/skills/{style}/SKILL.md rồi references/workflow.md, styles.md, edit-rules.md, text-graphics.md,
+formats.md, audio.md, qa.md — làm đúng mọi quy tắc.
+- Lệnh python ĐÚNG dạng `.venv/bin/python ...`: không cd, không nối lệnh && ; |, không tiền tố biến môi trường.
+- App đã kiểm kê + phân tích tư liệu ({pdir}/review/inventory.json, review/media/<ID>.json, ảnh tổng hợp review/sheets/<ID>.jpg).
+  Tuỳ chọn người dùng: {pdir}/review/options.json (lĩnh vực, phong cách, mức thể hiện, tỷ lệ, thời lượng, phụ đề, ghi chú, nội dung BẮT BUỘC giữ / cần loại).
+- Video tham khảo (references trong inventory.json) CHỈ để học cách dựng — KHÔNG chèn vào video, không lấy câu nhận xét/số liệu/logo của họ.
+- Lệnh: .venv/bin/python -m thagent.review media|words|takes|frames|motion|hands|track|joins|fixjoins|clean|keyinfo|check|stills {pdir} …  (xem workflow.md). KHÔNG render — app tự dựng.
+Nhiệm vụ:
+1. Xem ảnh tổng hợp từng file (Read review/sheets/*.jpg), media + takes: nhận diện người dẫn, sản phẩm/phiên bản, không gian (tầng/phòng), thao tác, cỡ cảnh.
+   Không phân biệt được footage thuộc sản phẩm/căn nhà nào (thiết yếu) → hỏi người dùng 1 câu ngắn rồi dừng chờ; còn lại tự quyết.
+2. Chọn take (không mặc định take cuối/ngắn nhất), xây mạch theo phong cách, ghép lời với B-roll ĐÚNG đối tượng (xem bằng frames), viết {pdir}/review/edit.json
+   (schema: docstring thagent/review/edit.py — ghi say/why/missing cho từng đoạn).
+   Soát “CẦN SOÁT” của từng file: chữ chép sai (tên app/sản phẩm/thương hiệu, số) → sửa phụ đề bằng "replace"/"fixes" trong edit.json.
+   HƯỚNG SỰ CHÚ Ý (bắt buộc khi người dẫn cầm/chỉ sản phẩm — workflow.md §5b): motion (cắt gọn khung nhòe/thao tác chuẩn bị) → hands
+   (lúc chỉ tay) → frames có lưới → track bám sản phẩm → reframe "face+<track>" khi đưa sản phẩm lên, "base" khi về nhận xét → nhãn
+   role "label" sát vật + MỘT vòng nhấn role "focus" đúng lúc chỉ tay. Chữ nhấn (emph) cho vài ý chính; phụ đề là lớp riêng. Kết sau khi lời + động tác xong.
+   NHỊP NÓI: sau khi viết edit.json chạy `joins` + `fixjoins` (nới đệm theo năng lượng tiếng), Read review/joins.jpg; nghỉ giữa ý 200–400ms,
+   chuyển ý lớn 400–650ms; không cắt sát mốc từ. Spotlight (role "spotlight") đúng lúc lời + chỉ tay nói về sản phẩm (ghi "product_terms");
+   ý giải thích quy trình → sơ đồ (role "diagram") thay vì một chữ nhấn; bớt chữ nhấn khi hình đã nói rõ ý; "keep_terms" cho thuật ngữ.
+   DÙNG LẠI phần hay của skill trước (workflow.md §5c): sau fixjoins chạy `clean` (Cắt sạch Talking Head: lặng thừa, từ đệm, nói vấp, câu nói lại
+   BÊN TRONG đoạn; xem review/cleanup.json, không cắt làm đổi nghĩa) → `keyinfo`: mỗi số liệu/thông tin then chốt → khối role "stat"
+   (value/unit/label) đúng lúc nói, không để số then chốt chỉ nằm trong phụ đề → "auto_zoom": true (zoom in–out theo điểm nhấn, không zoom đều).
+   QUY TẮC RIÊNG LĨNH VỰC (references/niches.md — đọc kỹ theo lĩnh vực trong options.json; video nhiều ngành: ghi "category" từng đoạn):
+   công nghệ → thông số = stat, so sánh A/B có trong lời = role "compare"; mỹ phẩm → khoá màu, KHÔNG đưa câu hứa hẹn công dụng lên hình,
+   không before/after tự tạo; ẩm thực → giữ tiếng hiện trường cảnh món (app tự trộn −18 dB), ấm màu nhẹ, cận món + khoảnh khắc ăn thử giữ lâu.
+   SFX tự gắn theo bộ âm nhẹ đã duyệt của Talking Head ("sfx": false để tắt). `clean` tự bắt nói hỏng rồi nói lại (kể cả máy chép lời bỏ sót).
+3. .venv/bin/python -m thagent.review check {pdir} → sửa hết lỗi. stills cho từng tỷ lệ cần xuất → Read, sửa chữ che mặt/tay/sản phẩm, crop mất chủ thể.
+4. Ghi {pdir}/plan_ready.json = {{"ready": true, "formats": [...], "summary": "<1-2 câu>"}}. Không xin duyệt storyboard.
+Khi người dùng góp ý (“thay cảnh này”, “giữ take 2”, “giảm text”, “đổi hook”): chỉ sửa đoạn tương ứng trong edit.json, check + stills, ghi lại plan_ready.json.
+Sau khi app xuất: viết {pdir}/review/report.md (đã làm / chức năng ĐÃ CHẠY THẬT / đã kiểm THẬT kèm qa / lỗi thuộc nguồn vs do dựng / còn thiếu;
+ghi “âm thanh chưa nghe kiểm chứng”). Xuất được MP4 không có nghĩa là đã dựng review tốt."""
+
+
 class Session:
     def __init__(self, pid: str, style: str):
         self.pid, self.style = pid, style
@@ -226,15 +260,17 @@ class Session:
         exe = shutil.which("claude")
         if not exe:
             raise RuntimeError("Chưa cài Claude Code — xem Cài đặt › Công cụ")
+        py_abs = (ROOT / ".venv" / "bin" / "python").as_posix()      # lỡ đổi thư mục làm việc: gọi python app bằng đường dẫn tuyệt đối vẫn được phép
         cmd = [exe, "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-               "--permission-mode", "acceptEdits", "--allowedTools", *ALLOWED,
-               "--append-system-prompt", (SYSTEM_V2M if self.style == "voice-to-motion" else SYSTEM).format(pid=self.pid, pdir=str(self.dir), style=self.style)]
+               "--permission-mode", "acceptEdits", "--allowedTools", *ALLOWED, f"Bash({py_abs}:*)",
+               "--append-system-prompt", {"voice-to-motion": SYSTEM_V2M, "review-editor": SYSTEM_REVIEW}.get(self.style, SYSTEM).format(pid=self.pid, pdir=str(self.dir), style=self.style)]
         from .ccut_api import load_settings
         self.model = load_settings().get("build_model") or "sonnet"
         cmd += ["--model", self.model, "--add-dir", str(self.dir.parent)]   # thư mục dự án có thể nằm ngoài thư mục app
         if self.session_id:
             cmd += ["--resume", self.session_id]
-        env = dict(os.environ, PYTHONPATH=os.pathsep.join(x for x in (str(ROOT), os.environ.get("PYTHONPATH")) if x))
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join(x for x in (str(ROOT), os.environ.get("PYTHONPATH")) if x),
+                   CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR="1")   # mỗi lệnh Bash quay về thư mục app → `.venv/bin/python` luôn chạy được
         self.proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", bufsize=1,
                                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))

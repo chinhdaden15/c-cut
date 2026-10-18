@@ -143,7 +143,9 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .tabs{display:flex;flex-direction:column;gap:4px}
 .tab{padding:7px 10px;border-radius:7px;color:var(--fg2);cursor:pointer;font-size:13px}
 .tab.on{background:var(--acc-bg);color:var(--acc-fg2)}
-.field{margin-bottom:12px}.field label{display:block;font-size:13px;color:var(--fg2);margin-bottom:5px}
+.field{margin-bottom:12px}
+#reviewCard .field{margin-bottom:8px}#reviewCard textarea,#reviewCard select{font:inherit;font-size:13px;color:var(--fg);background:var(--panel);border:0.5px solid var(--line2);border-radius:8px;padding:6px 8px;width:100%;resize:vertical}
+#reviewCard input[type=checkbox]{width:auto;margin:0}#reviewCard .chk{display:flex;gap:6px;align-items:center;margin:2px 0 8px;font-size:13px;color:var(--fg2)}.field label{display:block;font-size:13px;color:var(--fg2);margin-bottom:5px}
 .offline{background:var(--err-bg);color:var(--err);text-align:center;padding:8px;font-size:13px}
 .offline code{color:var(--fg)}
 .toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60}
@@ -183,6 +185,20 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <div class="menu"><input id="stylesearch" placeholder="Tìm style…"><div id="styleopts"></div>
           <div class="opt add" id="addstyle">+ Thêm style (.zip)</div></div>
       </div>
+    </div>
+    <div class="card" id="reviewCard" hidden>
+      <h3>Review</h3>
+      <div class="field"><label>Lĩnh vực</label><select id="rvCat"><option value="bds">Bất động sản</option><option value="cong_nghe">Công nghệ</option><option value="my_pham">Mỹ phẩm – skincare</option><option value="am_thuc">Ẩm thực</option><option value="san_pham">Sản phẩm khác</option></select></div>
+      <div class="field"><label>Phong cách</label><select id="rvStyle"><option value="tour">Tour bất động sản</option><option value="truc_tiep">Review trực tiếp</option><option value="tinh_te">Review tinh tế</option></select></div>
+      <div class="field"><label>Mức thể hiện</label><select id="rvInt"><option value="nhe">Nhẹ nhàng</option><option value="can_bang">Cân bằng</option><option value="nang_dong">Năng động</option></select></div>
+      <div class="field"><label>Tỷ lệ</label><select id="rvFmt"><option value="both">Cả dọc lẫn ngang</option><option value="9x16">Dọc 9:16</option><option value="16x9">Ngang 16:9</option></select></div>
+      <div class="field"><label>Thời lượng (giây)</label><input id="rvDur" placeholder="Tự chọn"></div>
+      <label class="chk"><input type="checkbox" id="rvSub"> Phụ đề theo lời</label>
+      <div class="field"><label>Ghi chú</label><textarea id="rvNotes" rows="2" placeholder="Brief, thông số, giá… (có nguồn)"></textarea></div>
+      <div class="field"><label>Bắt buộc giữ</label><textarea id="rvKeep" rows="2" placeholder="Câu/cảnh phải có"></textarea></div>
+      <div class="field"><label>Cần loại</label><textarea id="rvRemove" rows="2" placeholder="Đoạn/nội dung bỏ đi"></textarea></div>
+      <div class="small dim" style="margin:4px 0">Tư liệu dựng: thêm ở mục 1 (cả thư mục = 1 review). Video chỉ để tham khảo phong cách: thư mục con <b>tham_khao</b> hoặc nút dưới.</div>
+      <button class="small" id="rvRefs">+ Video tham khảo</button>
     </div>
     <div class="card">
       <h3><span class="step">3</span>Nơi xuất</h3>
@@ -333,7 +349,7 @@ async function refresh(){
   if(!S.workspace&&!wsShown)openWs();
   const sy=S.system;$('#sys').className='badge '+sy.level;$('#sys').textContent=sy.label;
   $('#outdir').textContent=S.settings.export_dir;
-  renderQueue();renderStyles();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
+  renderQueue();renderStyles();renderReview();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
 }
 let CHS=null;   // danh sách kênh (nền MG theo kênh)
 api('/api/ccut/channels').then(d=>{CHS=d.channels;renderQueue()}).catch(()=>{});
@@ -361,6 +377,19 @@ $('#scriptClear').onclick=()=>{$('#scriptText').value=''};
 $('#scriptFile').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'script'});if(r.path){try{const a=await post(`/api/ccut/queue/${scriptIdx}/script`,{path:r.path});await refresh();$('#scriptText').value=S.queue[scriptIdx].script||'';toast(`Đã nhập kịch bản (${a.chars} ký tự)`)}catch(e){toast('Không đọc được file: '+e.message)}}};
 $('#scriptSave').onclick=async()=>{const a=await post(`/api/ccut/queue/${scriptIdx}/script`,{text:$('#scriptText').value});$('#scriptBox').classList.remove('show');toast(a.chars?'Đã lưu kịch bản':'Đã xoá kịch bản');refresh()};
 let styleFilter='';
+function renderReview(){
+  const on=S.settings.style==='review-editor';$('#reviewCard').hidden=!on;if(!on)return;
+  const r=S.settings.review||{};if(document.activeElement&&$('#reviewCard').contains(document.activeElement))return;
+  $('#rvCat').value=r.category||'san_pham';$('#rvStyle').value=r.style||'truc_tiep';$('#rvInt').value=r.intensity||'can_bang';
+  const f=r.formats||['9x16','16x9'];$('#rvFmt').value=f.length>1?'both':f[0];$('#rvDur').value=r.duration||'';$('#rvSub').checked=r.subtitles!==false;
+  $('#rvNotes').value=r.notes||'';$('#rvKeep').value=r.keep||'';$('#rvRemove').value=r.remove||'';
+}
+async function saveReview(){
+  const fv=$('#rvFmt').value;
+  const review={category:$('#rvCat').value,style:$('#rvStyle').value,intensity:$('#rvInt').value,formats:fv==='both'?['9x16','16x9']:[fv],
+    duration:$('#rvDur').value.trim(),subtitles:$('#rvSub').checked,notes:$('#rvNotes').value,keep:$('#rvKeep').value,remove:$('#rvRemove').value};
+  await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({review})});S.settings.review=review;
+}
 function renderStyles(){
   const cur=S.styles.find(s=>s.slug===S.settings.style)||S.styles[0];
   $('#stylecur').innerHTML=cur?`<span>${esc(cur.name)} <span class="dim">· v${esc(cur.version)}</span></span><span>▾</span>`:'<span class="dim">Chưa có style</span><span>▾</span>';
@@ -397,6 +426,9 @@ function bigView(){const v=$('#player video');if(!v)return;const t=v.currentTime
   const esc_=e=>{if(e.key==='Escape')close()};
   d.querySelector('.close').onclick=close;d.onclick=e=>{if(e.target===d)close()};addEventListener('keydown',esc_);document.body.appendChild(d)}
 $('#pBig').onclick=bigView;
+['rvCat','rvStyle','rvInt','rvFmt','rvSub'].forEach(i=>$('#'+i).onchange=saveReview);
+['rvDur','rvNotes','rvKeep','rvRemove'].forEach(i=>$('#'+i).onblur=saveReview);
+$('#rvRefs').onclick=async()=>{try{const r=await post('/api/ccut/pick',{kind:'video'});if(r.path){const x=await post('/api/ccut/review/refs',{paths:[r.path]});toast(x.refs.length+' video tham khảo');refresh()}}catch(e){toast(e.message)}};
 $('#pSave').onclick=async()=>{if(!curOut)return;try{const r=await post('/api/ccut/output/save',{path:curOut});if(r.saved)toast('Đã lưu: '+r.saved)}catch(e){toast(e.message)}};
 $('#pDir').onclick=async()=>{if(curOut)try{await post('/api/ccut/output/reveal',{path:curOut})}catch(e){toast(e.message)}};
 function renderProject(){

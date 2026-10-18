@@ -1,0 +1,12 @@
+{
+  "name": "Review Editor",
+  "version": "1.2.2",
+  "kind": "review",
+  "summary": "Dựng video review từ bộ footage của bạn (bất động sản, sản phẩm): chọn take, ghép lời với B-roll, phụ đề + chữ thông tin, xuất dọc và/hoặc ngang",
+  "output": {"formats": ["9x16", "16x9"], "fps": 30},
+  "options": {
+    "category": {"bds": "Bất động sản", "cong_nghe": "Công nghệ", "my_pham": "Mỹ phẩm – skincare", "am_thuc": "Ẩm thực", "san_pham": "Sản phẩm khác"},
+    "style": {"tour": "Tour bất động sản", "truc_tiep": "Review trực tiếp", "tinh_te": "Review tinh tế"},
+    "intensity": {"nhe": "Nhẹ nhàng", "can_bang": "Cân bằng", "nang_dong": "Năng động"}
+  }
+}

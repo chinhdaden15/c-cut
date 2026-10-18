@@ -652,8 +652,14 @@ class Renderer:
         if base_col == "auto":   # nền sáng (vd vùng tô vàng) → chữ tối; nền tối → chữ trắng
             base_col = "#1E1606" if _lum(bg_mean) > 0.3 else "#FFFFFF"
             p = dict(p, shadow=0 if _lum(bg_mean) > 0.3 else p.get("shadow", 0.6))
+        act = p.get("active_times")   # phụ đề cả cụm hiện sẵn, tô màu từ đang đọc
+        act_i = None
+        if act:
+            act_i = max((k for k, x in enumerate(act) if x <= t), default=None)
         for i, (w, wx, wy, ww) in enumerate(words):
             col = _mix(base_col, hl.get("color", th["accent"]), hl_k) if i in hl_idx else base_col
+            if act_i is not None and i == act_i:
+                col = p.get("active_color", th["accent"])
             wrole = hl.get("font", role) if i in hl_idx else role
             wsz = rs
             spr, ox, oy = D.word_sprite(w, wrole, wsz, col, float(p.get("spacing", 0)) * qs,

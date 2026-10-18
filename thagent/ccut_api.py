@@ -19,12 +19,14 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.5.1"
+APP_VERSION = "1.5.2"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
 AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}   # style Voice to Motion nhận cả file âm thanh
 V2M = "voice-to-motion"
+REVIEW = "review-editor"
+REF_DIRS = {"tham_khao", "tham khao", "thamkhao", "reference", "references", "ref", "refs"}   # thư mục con = video tham khảo phong cách
 router = APIRouter(prefix="/api/ccut")
 WINDOW = None   # cửa sổ webview của bản cài đặt (app_main gán) → dùng hộp thoại gốc của nó
 
@@ -32,6 +34,8 @@ WINDOW = None   # cửa sổ webview của bản cài đặt (app_main gán) →
 STAGES = [("ingest", "Nhập", 8), ("transcribe", "Chép lời", 22), ("matting", "Tách nền", 25),
           ("plan", "Kế hoạch", 10), ("preflight", "Kiểm tra", 5), ("render", "Xuất", 30)]
 # Voice to Motion: voice (âm thanh, hoặc tiếng tách từ video) → motion graphic, xuất cả dọc lẫn ngang
+STAGES_REVIEW = [("analyze", "Phân tích", 22), ("select", "Chọn cảnh", 28), ("build", "Dựng", 22), ("finish", "Hoàn thiện", 20),
+                 ("check", "Kiểm tra", 4), ("export", "Xuất", 4)]
 STAGES_V2M = [("ingest", "Nhập", 3), ("transcribe", "Chép lời", 20), ("clean", "Làm sạch voice", 5),
               ("plan", "Kế hoạch", 25), ("render", "Xuất dọc + ngang", 47)]
 # TH2 (nhiều đoạn → 1 video): thêm 2 bước đầu
@@ -42,7 +46,9 @@ STAGES_MULTI = [("analyze", "Phân tích đoạn", 15), ("edl", "Ghép", 10), ("
 DEFAULTS = {"project_name": "", "project_dir": str(ROOT / "projects"),
             "export_dir": str(Path.home() / "Videos" / "C-Cut"), "style": "talking-head-style",
             "build_model": "sonnet",
-            "notify_sound": True, "notify_system": True}
+            "notify_sound": True, "notify_system": True,
+            "review": {"category": "san_pham", "style": "truc_tiep", "intensity": "can_bang", "formats": ["9x16", "16x9"],
+                       "duration": "", "subtitles": True, "notes": "", "keep": "", "remove": ""}}
 
 STATE = {"queue": [], "job": None, "notifications": []}
 WS: dict = {}     # dự án đang mở trong lần chạy app này: {"name", "dir"}; mở app lại = dự án mới
@@ -87,6 +93,7 @@ class SettingsIn(BaseModel):
     build_model: str | None = None
     notify_sound: bool | None = None
     notify_system: bool | None = None
+    review: dict | None = None
 
 
 @router.put("/settings")
@@ -234,7 +241,7 @@ def pick(body: PickIn):
         else:
             types = {"zip": ("Zip (*.zip)",), "script": ("Kịch bản (*.txt;*.srt;*.docx;*.md)",)}.get(
                 body.kind, ("Video và âm thanh (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg)",)
-                if load_settings().get("style") == V2M else ("Video (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4)",))
+                if load_settings().get("style") in (V2M, REVIEW) else ("Video (*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.MOV;*.MP4)",))
             r = WINDOW.create_file_dialog(webview.FileDialog.OPEN, file_types=types)
         return {"path": (r[0] if isinstance(r, (list, tuple)) else r) if r else None}
     if sys.platform == "darwin":
@@ -242,7 +249,7 @@ def pick(body: PickIn):
             script = 'POSIX path of (choose folder with prompt "Chọn thư mục")'
         else:
             types = {"zip": '{"zip"}', "script": '{"txt","srt","docx","md"}'}.get(
-                body.kind, '{"public.movie","public.audio"}' if load_settings().get("style") == V2M else '{"public.movie"}')
+                body.kind, '{"public.movie","public.audio"}' if load_settings().get("style") in (V2M, REVIEW) else '{"public.movie"}')
             script = f'POSIX path of (choose file with prompt "Chọn file" of type {types})'
         r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
     elif os.name == "nt":
@@ -252,7 +259,7 @@ def pick(body: PickIn):
         else:
             flt = {"zip": "Zip (*.zip)|*.zip", "script": "Kịch bản|*.txt;*.srt;*.docx;*.md"}.get(
                 body.kind, "Video/âm thanh|*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg"
-                if load_settings().get("style") == V2M else "Video|*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts")
+                if load_settings().get("style") in (V2M, REVIEW) else "Video|*.mov;*.mp4;*.m4v;*.mkv;*.avi;*.mts")
             ps = (f"Add-Type -AssemblyName System.Windows.Forms;$d=New-Object System.Windows.Forms.OpenFileDialog;"
                   f"$d.Filter='{flt}';if($d.ShowDialog() -eq 'OK'){{$d.FileName}}")
         r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps], capture_output=True, text=True)
@@ -401,7 +408,38 @@ class PathsIn(BaseModel):
 
 
 def _media_ext() -> set:
-    return VIDEO_EXT | (AUDIO_EXT if load_settings().get("style") == V2M else set())
+    st = load_settings().get("style")
+    return VIDEO_EXT | (AUDIO_EXT if st in (V2M, REVIEW) else set()) | (IMG_EXT if st == REVIEW else set())
+
+
+def _review_files(paths: list[Path]) -> tuple[list[str], list[str]]:
+    """Review: cả thư mục = MỘT review. Tư liệu dựng = mọi video/ảnh/âm thanh; thư mục con tham_khao/reference/ref = chỉ tham khảo."""
+    clips, refs = [], []
+    ext = VIDEO_EXT | AUDIO_EXT | IMG_EXT
+    for p in paths:
+        if p.is_dir():
+            for x in sorted(p.rglob("*")):
+                if x.is_file() and x.suffix.lower() in ext and not x.name.startswith("."):
+                    (refs if any(part.lower() in REF_DIRS for part in x.relative_to(p).parts[:-1]) else clips).append(str(x))
+        elif p.is_file() and p.suffix.lower() in ext:
+            clips.append(str(p))
+    return clips, refs
+
+
+def _add_review(paths: list[Path]) -> list[str]:
+    clips, refs = _review_files(paths)
+    if not clips:
+        return []
+    root = paths[0] if paths[0].is_dir() else paths[0].parent
+    name = root.name if paths[0].is_dir() else Path(clips[0]).stem
+    item = next((q for q in STATE["queue"] if q.get("kind") == "review" and q["path"] == str(root) and q["status"] == "wait"), None)
+    if item:     # thêm tư liệu vào review đang chờ
+        item["clips"] = sorted(set(item["clips"]) | set(clips)); item["refs"] = sorted(set(item.get("refs", [])) | set(refs))
+    else:
+        item = {"path": str(root), "name": name, "kind": "review", "clips": clips, "refs": refs, "status": "wait", "project": None, "script": None}
+        STATE["queue"].append(item)
+    item["meta"] = f"{len(item['clips'])} tư liệu" + (f" · {len(item['refs'])} tham khảo" if item.get("refs") else "")
+    return [name]
 
 
 def _add_video(f: Path, script: str | None = None) -> bool:
@@ -425,6 +463,9 @@ def _add_video(f: Path, script: str | None = None) -> bool:
 
 @router.post("/queue/add")
 def queue_add(body: PathsIn):
+    if load_settings().get("style") == REVIEW:     # mọi file/thư mục thả cùng lúc = một review
+        added = _add_review([Path(x).expanduser() for x in body.paths]); save_queue()
+        return {"added": added, "queue": STATE["queue"]}
     added = []
     for raw in body.paths:
         p = Path(raw).expanduser()
@@ -466,6 +507,8 @@ def _materials(d: Path) -> list[str]:
 
 
 def _guess_mode(vids: list[Path]) -> tuple[str, str]:
+    if load_settings().get("style") == REVIEW:
+        return "review", "Review: cả thư mục là MỘT video review (thư mục con tham_khao/ = video tham khảo)"
     if load_settings().get("style") == V2M:
         return "separate", "Voice to Motion: mỗi file âm thanh/video là một video riêng"
     if len(vids) < 2:
@@ -554,6 +597,9 @@ class FolderAddIn(BaseModel):
 @router.post("/folder/add")
 def folder_add(body: FolderAddIn):
     d = Path(body.path).expanduser()
+    if load_settings().get("style") == REVIEW:
+        added = _add_review([d]); save_queue()
+        return {"added": added}
     if load_settings().get("style") == V2M:      # không có trường hợp nhiều file = 1 nội dung
         mats = _materials(d)
         added = []
@@ -786,6 +832,108 @@ def _wait_plan(sess, item, job):
     item["status"] = "running"
 
 
+def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
+    """Review Editor: kiểm kê + phân tích → Claude chọn take/cảnh, viết review/edit.json → dựng dọc/ngang → kiểm file xuất → xuất."""
+    from . import agent as A
+    from .review import inventory as RI, render as RR
+    job["stage"] = "analyze"
+    pdir = P.PROJECTS / pid
+    pdir.mkdir(parents=True, exist_ok=True)
+    rv = {**DEFAULTS["review"], **(settings.get("review") or {})}
+    (pdir / "review").mkdir(exist_ok=True)
+    (pdir / "review" / "options.json").write_text(json.dumps(rv, ensure_ascii=False, indent=1), encoding="utf-8")
+    sess = A.get(pid, REVIEW)
+    try:
+        sess.warm()
+    except Exception as e:
+        log(f"Không mở được Claude: {e}")
+    clips = item.get("clips") or [item["path"]]
+    n = len(clips)
+    done = [0]
+
+    def alog(m):
+        m = str(m)
+        if m.startswith("Phân tích F"):
+            done[0] += 1
+        log(f"analyze frame {min(done[0], n)}/{n} · {m}" if m.startswith("Phân tích") else m)
+    RI.inventory(pdir, clips, alog, item.get("refs") or [])
+    job["done"].append("analyze"); job["stage"] = "select"
+    _write_script(pid, item.get("script"))
+    if not sess.plan_ready():
+        if not sess.messages:
+            sess._add("claude", f"Đã nhận {n} tư liệu của {item['name']}. Mình xem tư liệu, chọn take và dựng mạch review.", kind="text")
+        sess.send(f"Dựng video review `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill review-editor. Tư liệu đã kiểm kê + phân tích "
+                  f"({pdir}/review/inventory.json, ảnh tổng hợp review/sheets/). Tuỳ chọn của người dùng: {pdir}/review/options.json "
+                  + (f"(lĩnh vực {rv['category']}, phong cách {rv['style']}, mức {rv['intensity']}, tỷ lệ {'+'.join(rv['formats'])}, "
+                     f"thời lượng {rv['duration'] or 'tự chọn'}, phụ đề {'bật' if rv['subtitles'] else 'tắt'}). ")
+                  + (f"Video tham khảo phong cách: {len(item.get('refs') or [])} file (CHỈ học cách dựng). " if item.get("refs") else "")
+                  + "Làm theo workflow rồi ghi plan_ready.json.", show=False)
+        _wait_plan(sess, item, job)
+    job["done"].append("select"); job["stage"] = "build"
+    fmts = (sess.plan_ready() or {}).get("formats") or rv.get("formats") or ["9x16", "16x9"]
+
+    def rlog(m):
+        m = str(m)
+        if m.startswith("build frame"):
+            job["stage"] = "build"
+        elif m.startswith("finish frame"):
+            if "build" not in job["done"]:
+                job["done"].append("build")
+            job["stage"] = "finish"
+        log(m)
+    try:
+        res = RR.render(pdir, fmts, rlog)
+    except SystemExit as e:              # bản dựng còn lỗi → giao Claude sửa (tối đa 3 lần), không dựng lại liên tục
+        (pdir / "plan_ready.json").replace(pdir / "plan_ready.rejected.json")
+        item["pf_tries"] = item.get("pf_tries", 0) + 1
+        if item["pf_tries"] <= 3:
+            sess.send(f"App chưa dựng được, sửa review/edit.json rồi chạy check và ghi lại plan_ready.json:\n{e}", show=False)
+        raise RuntimeError(f"Kiểm tra bản dựng có lỗi (lần {item['pf_tries']}/3): {str(e)[:200]}")
+    for x in ("build", "finish"):
+        if x not in job["done"]:
+            job["done"].append(x)
+    job["stage"] = "check"
+    bad = [q for q in res if not q["ok"]]
+    if bad:
+        (pdir / "plan_ready.json").replace(pdir / "plan_ready.rejected.json")
+        item["pf_tries"] = item.get("pf_tries", 0) + 1
+        msg = "; ".join(f"[{q['format']}] " + " | ".join(q["errors"][:4]) for q in bad)
+        if item["pf_tries"] <= 3:
+            sess.send(f"File xuất chưa đạt kiểm tra — sửa edit.json, check + stills, ghi lại plan_ready.json:\n{msg}", show=False)
+        raise RuntimeError(f"File xuất chưa đạt (lần {item['pf_tries']}/3): {msg[:200]}")
+    item["pf_tries"] = 0
+    job["done"].append("check"); job["stage"] = "export"
+    out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
+    base = _final_path(item, out_dir, True)
+    outs = []
+    for q in res:
+        f = base.with_name(f"{base.stem}_{q['format']}.mp4")
+        shutil.copy2(q["file"], f); outs.append(f)
+    job["done"].append("export"); job["percent"] = 100
+    item.update(status="done", output=str(outs[0]), outputs=[str(o) for o in outs])
+    pr = pdir / "plan_ready.json"
+    if pr.exists():
+        pr.replace(pdir / "plan_ready.used.json")
+    sess.send("Đã xuất xong. Viết review/report.md (đã làm gì, đã kiểm gì kèm kết quả qa_<tỷ lệ>.json, còn thiếu gì, âm thanh chưa nghe kiểm chứng) "
+              "và tóm tắt ngắn cho người dùng.", show=False)
+    notify("ok", f"Xong {item['name']} → " + ", ".join(o.name for o in outs))
+    save_queue()
+
+
+@router.post("/review/refs")
+def review_refs(body: PathsIn):
+    """thêm video tham khảo phong cách cho review đang chờ (không dùng để dựng)."""
+    item = next((q for q in reversed(STATE["queue"]) if q.get("kind") == "review" and q["status"] in ("wait", "failed")), None)
+    if not item:
+        raise HTTPException(400, "Thêm tư liệu review trước")
+    refs = [str(x) for p in body.paths for x in ([Path(p)] if Path(p).is_file() else sorted(Path(p).rglob("*")))
+            if Path(x).suffix.lower() in VIDEO_EXT]
+    item["refs"] = sorted(set(item.get("refs", [])) | set(refs))
+    item["meta"] = f"{len(item['clips'])} tư liệu · {len(item['refs'])} tham khảo"
+    save_queue()
+    return {"refs": item["refs"]}
+
+
 def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
     """Voice to Motion: voice (âm thanh / tiếng của video) → chép lời → làm sạch → Claude viết timeline dọc+ngang → xuất cả hai."""
     from . import agent as A
@@ -883,6 +1031,19 @@ def _run_queue(settings: dict):
         _apply_channel(item)
         job.update(project=pid, video=item["name"], stage="analyze" if multi else "ingest", done=[], t0=time.time(),
                    percent=0, eta_s=None, stages=STAGES_MULTI if multi else STAGES)
+        if settings.get("style") == REVIEW or item.get("kind") == "review":
+            job["stages"] = STAGES_REVIEW
+            try:
+                _run_review(item, pid, job, settings, log)
+            except Exception as e:
+                cancelled = str(e) == "cancelled" or job["cancel"]
+                item["status"] = "cancelled" if cancelled else "failed"
+                item["error"] = None if cancelled else str(e)[:300]
+                job["log"].append(traceback.format_exc()[-1200:])
+                notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
+                if cancelled:
+                    break
+            continue
         if settings.get("style") == V2M and not multi:
             job["stages"] = STAGES_V2M
             try:
@@ -1059,7 +1220,7 @@ def _v2m_summary(pid: str) -> dict:
     vs = sorted((d for d in (pdir / "versions").glob("v[0-9][0-9][0-9]") if d.is_dir()), key=lambda d: d.name)
     stills = next((sorted(d.glob("sheet*.jpg")) for d in reversed(vs) if any(d.glob("sheet*.jpg"))), [])
     if not stills:
-        stills = sorted(pdir.glob("stills*.jpg"))
+        stills = sorted(pdir.glob("stills*.jpg")) + sorted((pdir / "review").glob("stills_*.jpg"))
     lab = lambda f: "Ngang" if "16x9" in f.name else "Dọc"
     return {"id": pid, "stills": [str(f) for f in stills], "timeline": [], "counts": {}, "credits": {},
             "output": str(outs[0]) if outs else None, "final": str(outs[0]) if outs else None,
@@ -1067,7 +1228,8 @@ def _v2m_summary(pid: str) -> dict:
 
 
 def project_summary(pid: str | None) -> dict | None:
-    if pid and not (P.PROJECTS / pid / "project.json").exists() and any((P.PROJECTS / pid).glob("timeline*.json")):
+    if pid and not (P.PROJECTS / pid / "project.json").exists() and (any((P.PROJECTS / pid).glob("timeline*.json"))
+                                                                   or (P.PROJECTS / pid / "review" / "inventory.json").exists()):
         return _v2m_summary(pid)
     if not pid or not (P.PROJECTS / pid / "project.json").exists():
         return None
