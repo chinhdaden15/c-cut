@@ -43,12 +43,17 @@ def _node_version(exe: str) -> tuple[int, str]:
         return 0, ""
 
 
-def npm_exe(node: str) -> str | None:
-    p = Path(node).parent
-    for c in (p / "npm", p / "npm.cmd"):
+def npm_cmd(node: str) -> list[str] | None:
+    """[node, npm-cli.js] — chạy npm qua chính node (Windows: file `npm` cạnh node.exe là script bash → WinError 193)."""
+    p = Path(node).resolve().parent
+    for js in (p / "node_modules" / "npm" / "bin" / "npm-cli.js", p.parent / "lib" / "node_modules" / "npm" / "bin" / "npm-cli.js"):
+        if js.exists():
+            return [node, str(js)]
+    for c in ((p / "npm.cmd", p / "npm") if os.name == "nt" else (p / "npm",)):
         if c.exists():
-            return str(c)
-    return shutil.which("npm")
+            return [str(c)]
+    w = shutil.which("npm.cmd" if os.name == "nt" else "npm")
+    return [w] if w else None
 
 
 def cli() -> Path:
@@ -132,14 +137,14 @@ def install(log=print) -> dict:
     major, v = _node_version(node)
     if major < NODE_MIN:
         raise RuntimeError(f"Node.js {v} quá cũ — HyperFrames cần ≥ {NODE_MIN}")
-    npm = npm_exe(node)
+    npm = npm_cmd(node)
     if not npm:
         raise RuntimeError("Không tìm thấy npm đi kèm Node.js")
     TOOL_DIR.mkdir(parents=True, exist_ok=True)
     for f in ("package.json", "package-lock.json"):
         shutil.copy2(PIN_DIR / f, TOOL_DIR / f)
     log(f"cài HyperFrames {pinned()['hyperframes']} vào {TOOL_DIR}")
-    r = subprocess.run([npm, "ci", "--no-audit", "--no-fund", "--loglevel=error"], cwd=TOOL_DIR, env=env(),
+    r = subprocess.run([*npm, "ci", "--no-audit", "--no-fund", "--loglevel=error"], cwd=TOOL_DIR, env=env(),
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     if r.returncode:
         raise RuntimeError("npm ci lỗi: " + (r.stderr or r.stdout)[-800:])
