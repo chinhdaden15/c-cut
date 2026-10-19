@@ -62,6 +62,9 @@ GHÉP NHIỀU ĐOẠN (chỉ khi app yêu cầu viết edl.json — dự án g�
    - Đọc {pdir}/clips/index.json (loại đoán: talk/mixed/broll, khoảng nói + tỉ lệ nhìn máy, khoảng lặng có/không người),
      Read ảnh {pdir}/clips/*_sheet.jpg (nhãn cam=nhìn máy, mat=có mặt nhưng không nhìn máy, -=không người), chi tiết từng từ ở clips/<đoạn>.json.
    - Đi theo thứ tự kịch bản; mỗi câu chọn TAKE TỐT NHẤT (nói đủ, không vấp, nhìn máy, thường là take sau cùng). in/out cắt sát từ đầu/cuối (đệm ~0.1s).
+   - KHÔNG có script.txt → tự dựng kịch bản từ lời nói: gom các lần nói lại cùng một ý (khớp nội dung transcript), mỗi ý chọn take tốt nhất,
+     sắp theo mạch tự nhiên (mở đầu/giới thiệu → nội dung chính → kết/CTA; không rõ thì theo thứ tự quay), bỏ câu hỏng/lạc đề.
+     Ghi thứ tự đã chọn + lý do vào confirm.json. Không dừng chờ kịch bản.
    - Đoạn nói nhưng không nhìn máy (nhìn điện thoại/kịch bản, quay sang nhìn bảng/màn hình trình chiếu, quay đi — mọi trường hợp
      không nhìn thẳng ống kính, theo nhãn cam của clips/*.json) → cam=false: CHỈ LẤY TIẾNG, hình phải che kín bằng broll (đoạn quay không người/không nói,
      chọn khớp ý câu nói) và/hoặc cover (= Motion Graphics minh họa). Ưu tiên: b-roll của dự án > MG > ảnh minh họa web.

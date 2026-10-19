@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.6.1"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -836,6 +836,12 @@ def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
     """Review Editor: kiểm kê + phân tích → Claude chọn take/cảnh, viết review/edit.json → dựng dọc/ngang → kiểm file xuất → xuất."""
     from . import agent as A
     from .review import inventory as RI, render as RR
+    _log = log
+
+    def log(m):                 # mọi bước (phân tích, chép lời, dựng) đều báo tiến độ qua đây → bấm Dừng là dừng ngay
+        if job["cancel"]:
+            raise RuntimeError("cancelled")
+        _log(m)
     job["stage"] = "analyze"
     pdir = P.PROJECTS / pid
     pdir.mkdir(parents=True, exist_ok=True)
@@ -856,7 +862,7 @@ def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
         if m.startswith("Phân tích F"):
             done[0] += 1
         log(f"analyze frame {min(done[0], n)}/{n} · {m}" if m.startswith("Phân tích") else m)
-    RI.inventory(pdir, clips, alog, item.get("refs") or [])
+    RI.inventory(pdir, clips, alog, item.get("refs") or [], cancel=lambda: job["cancel"])
     job["done"].append("analyze"); job["stage"] = "select"
     _write_script(pid, item.get("script"))
     if not sess.plan_ready():

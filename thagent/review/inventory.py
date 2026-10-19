@@ -84,16 +84,21 @@ def _frames(path: Path, info: dict):
                           "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
     n = ANA_W * h * 3
     i = 0
-    while True:
-        buf = p.stdout.read(n)
-        if len(buf) < n:
-            break
-        yield round(i * SAMPLE, 2), np.frombuffer(buf, np.uint8).reshape(h, ANA_W, 3)
-        i += 1
-    p.wait()
+    try:
+        while True:
+            buf = p.stdout.read(n)
+            if len(buf) < n:
+                break
+            yield round(i * SAMPLE, 2), np.frombuffer(buf, np.uint8).reshape(h, ANA_W, 3)
+            i += 1
+    finally:                       # dừng giữa chừng → đóng ffmpeg gọn (không log "Broken pipe")
+        if p.poll() is None:
+            p.kill()
+        p.stdout.close()
+        p.wait()
 
 
-def _visual(path: Path, info: dict, log) -> list[dict]:
+def _visual(path: Path, info: dict, log, cancel=None) -> list[dict]:
     """mỗi mẫu: nét (phương sai Laplacian), sáng (trung bình, % cháy/tối), chuyển động (lệch khung), điểm cắt, mặt."""
     try:
         import mediapipe as mp
@@ -102,6 +107,8 @@ def _visual(path: Path, info: dict, log) -> list[dict]:
         fd = None
     out, prev, prev_hist = [], None, None
     for t, rgb in _frames(path, info):
+        if cancel and cancel():                      # bấm Dừng: thôi ngay ở khung đang xét
+            raise RuntimeError("cancelled")
         g = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
         sharp = float(cv2.Laplacian(g, cv2.CV_64F).var())
         mean = float(g.mean())
@@ -243,7 +250,7 @@ def _sheet(path: Path, info: dict, shots: list[dict], dst: Path, fid: str):
     cv2.imwrite(str(dst), np.vstack([np.hstack(r) for r in rows]), [cv2.IMWRITE_JPEG_QUALITY, 80])
 
 
-def inventory(pdir, files: list[str], log=print, refs: list[str] | None = None) -> dict:
+def inventory(pdir, files: list[str], log=print, refs: list[str] | None = None, cancel=None) -> dict:
     """kiểm kê + phân tích; tư liệu tham khảo (refs) chỉ ghi nhận, KHÔNG dùng để dựng."""
     pdir = Path(pdir)
     d = pdir / "review"
@@ -277,7 +284,7 @@ def inventory(pdir, files: list[str], log=print, refs: list[str] | None = None) 
             rec["usable"] = False
         elif kind == "video" and "w" in rec:
             rec["black"] = _black(p, rec["duration"])
-            vis = _visual(p, rec, log)
+            vis = _visual(p, rec, log, cancel)
             rec["shots"] = _shots(vis, rec["duration"], rec["black"])
             rec["backlit"] = sum(s["end"] - s["start"] for s in rec["shots"] if "ngược sáng" in s["flags"]) > 0.5 * rec["duration"]
             rec["sharp_track"] = [[v["t"], v["sharp"], v["motion"]] for v in vis]   # nét/chuyển động mỗi 0,5s → cắt bỏ đoạn nhòe

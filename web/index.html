@@ -25,6 +25,14 @@ button.primary:hover{filter:brightness(1.08)}
 button.link{border:0;padding:0;color:var(--acc-fg)}
 button.link:hover{background:none;text-decoration:underline}
 input{font:inherit;color:var(--fg);background:var(--panel);border:0.5px solid var(--line2);border-radius:8px;padding:8px 10px;width:100%}
+select{-webkit-appearance:none;appearance:none;font:inherit;font-size:13px;color:var(--fg);background-color:var(--panel);border:0.5px solid var(--line2);border-radius:8px;
+  padding:7px 30px 7px 10px;width:100%;cursor:pointer;line-height:1.3;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239A9BA0' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 11px center;transition:border-color .15s}
+select:hover:not(:disabled){border-color:var(--fg3)}
+select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 2px var(--acc-bg)}
+select:disabled{opacity:.55;cursor:default}
+select option{background:var(--panel2);color:var(--fg)}
 input:focus{outline:none;border-color:var(--acc)}
 .muted{color:var(--fg2)}.dim{color:var(--fg3)}
 .small{font-size:13px}
@@ -75,10 +83,13 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .fmode{display:flex;gap:8px;margin:8px 0}.fmode label{flex:1;border:0.5px solid var(--line2);border-radius:8px;padding:10px;cursor:pointer;font-size:13px}
 .fmode label.on{border-color:var(--acc);background:var(--acc-bg)}.fmode input{display:none}
 .frow{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:0.5px solid var(--line2);font-size:13px}
-.frow .n{flex:1;min-width:0}.frow .src{font-size:12px;color:var(--fg3)}.frow textarea{width:100%;box-sizing:border-box;font:inherit;margin-top:6px}
+.frow .n{flex:1;min-width:0}.frow .src{font-size:12px;color:var(--fg3)}
+.frow textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;margin-top:6px;color:var(--fg);background:var(--panel);
+  border:0.5px solid var(--line2);border-radius:8px;padding:8px 10px;resize:vertical}
+.frow textarea:focus{outline:none;border-color:var(--acc)}.frow textarea::placeholder{color:var(--fg3)}
 .q .x{border:0;padding:0 4px;color:var(--fg3)}
 .q{flex-wrap:wrap;row-gap:4px}
-.q select.ch{flex:1 0 calc(100% - 22px);margin-left:22px;font-size:12px;padding:2px 4px;border-radius:6px}
+.q select.ch{flex:1 0 calc(100% - 22px);margin-left:22px;font-size:12px;padding:4px 26px 4px 8px;border-radius:6px;background-position:right 9px center;color:var(--fg2)}
 .st-running{color:var(--acc-fg)}.st-done{color:var(--ok)}.st-failed{color:var(--err)}.st-waiting_claude,.st-claude{color:var(--warn)}
 /* dropdown style */
 .select{position:relative}
@@ -144,7 +155,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .tab{padding:7px 10px;border-radius:7px;color:var(--fg2);cursor:pointer;font-size:13px}
 .tab.on{background:var(--acc-bg);color:var(--acc-fg2)}
 .field{margin-bottom:12px}
-#reviewCard .field{margin-bottom:8px}#reviewCard textarea,#reviewCard select{font:inherit;font-size:13px;color:var(--fg);background:var(--panel);border:0.5px solid var(--line2);border-radius:8px;padding:6px 8px;width:100%;resize:vertical}
+#reviewCard .field{margin-bottom:8px}#reviewCard textarea{font:inherit;font-size:13px;color:var(--fg);background:var(--panel);border:0.5px solid var(--line2);border-radius:8px;padding:6px 8px;width:100%;resize:vertical}
 #reviewCard input[type=checkbox]{width:auto;margin:0}#reviewCard .chk{display:flex;gap:6px;align-items:center;margin:2px 0 8px;font-size:13px;color:var(--fg2)}.field label{display:block;font-size:13px;color:var(--fg2);margin-bottom:5px}
 .offline{background:var(--err-bg);color:var(--err);text-align:center;padding:8px;font-size:13px}
 .offline code{color:var(--fg)}
@@ -264,7 +275,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <div data-p="project">
           <div class="field"><label>Nơi lưu dữ liệu làm việc của dự án (mặc định khi tạo dự án mới)</label><div class="row"><input id="sProj"><button id="pickProj">Chọn</button></div></div>
           <div class="field"><label>Nơi xuất mặc định</label><div class="row"><input id="sOut"><button id="pickOut2">Chọn</button></div></div>
-          <div class="field"><label>Model Claude khi dựng</label><select id="sModel" style="width:100%;padding:8px 10px;border-radius:8px;border:0.5px solid var(--line2);background:var(--panel2);color:inherit;font:inherit"><option value="sonnet">Sonnet 5.5 — nhanh (khuyên dùng)</option><option value="opus">Opus 5.5 — kỹ hơn, chậm hơn, tốn giới hạn hơn</option></select></div>
+          <div class="field"><label>Model Claude khi dựng</label><select id="sModel"><option value="sonnet">Sonnet 5.5 — nhanh (khuyên dùng)</option><option value="opus">Opus 5.5 — kỹ hơn, chậm hơn, tốn giới hạn hơn</option></select></div>
           <button class="primary" id="saveSettings" style="padding:8px 16px">Lưu</button>
         </div>
         <div data-p="tools" hidden>
@@ -315,7 +326,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
     <div class="small">Các video trong thư mục này là:</div>
     <div class="fmode">
       <label data-m="separate"><input type="radio" name="fm" value="separate"><b>Video riêng</b><br><span class="dim">mỗi file dựng thành 1 video</span></label>
-      <label data-m="one"><input type="radio" name="fm" value="one"><b>Các đoạn của 1 video</b><br><span class="dim">ghép theo kịch bản, có b-roll</span></label>
+      <label data-m="one"><input type="radio" name="fm" value="one"><b>Các đoạn của 1 video</b><br><span class="dim">Claude chọn take, ghép, có b-roll</span></label>
     </div>
     <div class="small dim" id="fReason"></div>
     <div id="fList" style="margin-top:8px;max-height:46vh;overflow:auto"></div>
@@ -536,15 +547,24 @@ let F=null;
 async function openFolder(path){
   try{F=await post('/api/ccut/folder/inspect',{path})}catch(e){toast(e.message);return}
   $('#fName').textContent=path.split(/[\\/]/).filter(Boolean).pop();
-  F.guess=F.mode;setMode(F.mode);$('#folderBox').classList.add('show');
+  F.guess=F.mode;F.review=S&&S.settings&&S.settings.style==='review-editor';
+  const fm=document.querySelector('#folderBox .fmode');           // Review: không hỏi chế độ (cả thư mục = 1 review)
+  fm.style.display=F.review?'none':'';fm.previousElementSibling.style.display=F.review?'none':'';
+  setMode(F.review?'one':F.mode);$('#folderBox').classList.add('show');
 }
 function setMode(m){
   F.mode=m;document.querySelectorAll('.fmode label').forEach(l=>l.classList.toggle('on',l.dataset.m===m));
-  $('#fReason').textContent=`App đoán: ${F.guess==='one'?'các đoạn của 1 video':'video riêng'} — ${F.reason}`;
+  $('#fReason').textContent=F.review?'Style Review: cả thư mục là MỘT video review (thư mục con tham_khao/ = video tham khảo). Ghi chú, nội dung bắt buộc giữ/cần loại nhập ở khung Review.'
+    :`App đoán: ${F.guess==='one'?'các đoạn của 1 video':'video riêng'} — ${F.reason}`;
   if(m==='one'){
-    $('#fList').innerHTML=`<div class="frow"><div class="n">${F.videos.length} đoạn: ${F.videos.map(v=>esc(v.name)).join(', ')}<div class="src">${F.whole_script?'Kịch bản: '+esc(F.scripts[0]):'Chưa có file kịch bản — dán kịch bản vào đây (bắt buộc)'}</div></div><textarea id="fWhole" style="width:100%;height:140px;font:inherit;margin-top:6px">${esc(F.whole_script||'')}</textarea></div>`;
-    const chk=()=>{const ok=$('#fWhole').value.trim().length>0;$('#fAdd').disabled=!ok;
-      $('#fNote').textContent=ok?`${F.videos.length} đoạn → 1 video · Claude chọn take, ghép theo kịch bản`:'Cần kịch bản để ghép';};
+    const names=`<div class="src" style="margin-top:2px">${F.videos.map(v=>esc(v.name)).join(', ')}</div>`;
+    if(F.review){
+      $('#fList').innerHTML=`<div class="frow"><div class="n">${F.videos.length} file${names}</div></div>`;
+      $('#fAdd').disabled=false;$('#fNote').textContent=`${F.videos.length} file → 1 video review · Claude tự xem tư liệu, chọn take, ghép lời với B-roll`;return;
+    }
+    $('#fList').innerHTML=`<div class="frow"><div class="n">${F.videos.length} đoạn${names}<div class="src" style="margin-top:8px">${F.whole_script?'Kịch bản: '+esc(F.scripts[0]):'Kịch bản (không bắt buộc) — có thì Claude ghép đúng thứ tự và chính tả theo kịch bản'}</div><textarea id="fWhole" rows="6" placeholder="Dán kịch bản nếu có. Để trống: Claude tự nghe các đoạn, gom các lần nói lại, chọn take tốt nhất và sắp thứ tự theo mạch lời nói.">${esc(F.whole_script||'')}</textarea></div></div>`;
+    const chk=()=>{const ok=$('#fWhole').value.trim().length>0;$('#fAdd').disabled=false;
+      $('#fNote').textContent=`${F.videos.length} đoạn → 1 video · `+(ok?'Claude chọn take, ghép theo kịch bản':'không có kịch bản: Claude tự sắp thứ tự theo lời nói, chọn take tốt nhất');};
     $('#fWhole').oninput=chk;chk();return;
   }
   $('#fAdd').disabled=false;
@@ -560,7 +580,7 @@ function setMode(m){
 document.querySelectorAll('.fmode label').forEach(l=>l.onclick=()=>setMode(l.dataset.m));
 $('#closeFolder').onclick=()=>$('#folderBox').classList.remove('show');
 $('#fAdd').onclick=async()=>{
-  const scripts=F.mode==='one'?{__whole__:$('#fWhole').value.trim()}:Object.fromEntries(F.videos.map(v=>[v.name,v.script]));
+  const scripts=F.mode==='one'?{__whole__:($('#fWhole')?$('#fWhole').value.trim():'')||null}:Object.fromEntries(F.videos.map(v=>[v.name,v.script]));
   try{const a=await post('/api/ccut/folder/add',{path:F.folder,mode:F.mode,scripts});toast(`Đã thêm ${a.added.length} video`);$('#folderBox').classList.remove('show');refresh()}catch(e){toast(e.message)}
 };
 /* style */
