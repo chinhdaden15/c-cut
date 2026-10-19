@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.5.3"
+APP_VERSION = "1.6.0"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
