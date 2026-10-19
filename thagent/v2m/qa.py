@@ -111,6 +111,16 @@ def rhythm(tl) -> list[tuple[str, str]]:
         ts += [float(e["start_s"]) for e in evs]
     for k in tl.camera:
         ts += [float(k["t"]) - float(k.get("dur", 0.6)), float(k["t"])]
+    for oid, o in tl.objs.items():          # lớp HyperFrames: lớp con hiện/ẩn bên trong cũng là hành động hình (theo spec)
+        if o["type"] == "hf":
+            v0 = o["_vis"][0]
+            sp = o.get("spec") or {}
+            for sc in sp.get("scenes") or [{"start": 0, "layers": sp.get("layers", [])}]:
+                for L in sc.get("layers", []):
+                    if L.get("type") == "shape" and not L.get("keyframes"):
+                        continue
+                    a0 = v0 + float(sc.get("start", 0)) + float(L.get("start", 0))
+                    ts += [a0] + ([a0 + float(L["duration"])] if L.get("duration") else [])
     ts = sorted(t for t in ts if 0 <= t <= tl.duration)
     end = tl.duration - END_HOLD
     for a, b in zip(ts, ts[1:] + [tl.duration]):

@@ -478,6 +478,8 @@ def validate(pdir, edit: dict) -> list[tuple[str, str]]:
     # số liệu then chốt phải được làm nổi bật (không chỉ trong phụ đề)
     from .keyinfo import coverage
     out += coverage(edit, pdir)
+    from .hfx import check as hf_check
+    out += hf_check(edit, pdir)                  # lớp HyperFrames: spec hợp lệ, track thật, sẵn sàng/chặn
     from .niche import apply, check as niche_check
     out += niche_check(apply(edit), pdir)        # quy tắc riêng lĩnh vực (mỹ phẩm: hứa hẹn công dụng)
     tgt = edit.get("target_s")

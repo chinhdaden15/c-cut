@@ -212,5 +212,9 @@
   "rules": {
     "image_source": "CLIP chỉ khi clip quay ĐÚNG vật/cảnh đang nói → cắt khung c_*; thứ clip không có (khái niệm, cảnh chung) → ảnh minh họa i_* (Unsplash/Pexels qua Bing, ĐÚNG BỐI CẢNH CHỦ ĐỀ và khán giả — vd y tế: phòng khám/bác sĩ, ẩm thực: món/bếp, công nghệ: thiết bị, BĐS văn phòng: không gian văn phòng chứ không kiểu ở nhà), app tự ghi nhãn “Hình ảnh minh họa”, nguồn lưu assets_web/illus_sources.json; ảnh ĐÚNG CHỦ THỂ w_* (thương hiệu, sản phẩm, địa điểm, dự án, người, sự kiện có thật — nguồn thật có URL, nhãn tên chủ thể) khi nói tới chính chủ thể đó. Không cố cắt clip cho vừa ý."
   },
-  "domain": "xác định lĩnh vực + khán giả + chủ thể từ transcript trước khi lập kế hoạch, ghi confirm.json id=domain; mẫu reference chỉ học cấu trúc và nhịp"
+  "domain": "xác định lĩnh vực + khán giả + chủ thể từ transcript trước khi lập kế hoạch, ghi confirm.json id=domain; mẫu reference chỉ học cấu trúc và nhịp",
+  "video": true,
+  "tool_notes": {
+    "hyperframes": "plan.hf (thagent/th_hf.py): text nhấn, tiêu đề, phụ đề thiết kế, overlay; layer front|behind_subject (sau nhân vật — alpha người vẫn đè). Phụ đề theo lời: `python -m thagent.tools hfwords <pid> f0 f1`. Giữ nguyên logic cắt lời và quy tắc chữ trước/sau nhân vật; chữ dẫn/neon chuẩn của style vẫn do bộ vẽ Talking Head."
+  }
 }

@@ -66,13 +66,18 @@ def _frames(path: str, w: int, h: int, gray=False):
     p = subprocess.Popen(["ffmpeg", "-v", "error", "-i", path, "-f", "rawvideo", "-pix_fmt", pix, "-"],
                          stdout=subprocess.PIPE)
     n = w * h * ch
-    while True:
-        b = p.stdout.read(n)
-        if len(b) < n:
-            break
-        a = np.frombuffer(b, np.uint8)
-        yield a.reshape(h, w) if gray else a.reshape(h, w, 3)
-    p.wait()
+    try:
+        while True:
+            b = p.stdout.read(n)
+            if len(b) < n:
+                break
+            a = np.frombuffer(b, np.uint8)
+            yield a.reshape(h, w) if gray else a.reshape(h, w, 3)
+    finally:                      # dừng sớm (dựng một đoạn / huỷ) → đóng ffmpeg gọn, không để nó ghi vào ống đã đóng (log "Broken pipe")
+        if p.poll() is None:
+            p.kill()
+        p.stdout.close()
+        p.wait()
 
 
 # ---------------- neo theo timeline ----------------
@@ -274,7 +279,7 @@ def overlay_mg(out: np.ndarray, plan: Plan, f: int) -> np.ndarray:
 
 def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, frame_range=None,
               progress=None, snapshots: list[int] | None = None, snap_dir: Path | None = None,
-              cancel=None):
+              cancel=None, hf_items: list[dict] | None = None):
     W, H, fps = plan.width, plan.height, plan.fps
     anchors_tl = timeline_anchors(plan, anchors_src)
     pos = resolve_layout(plan, anchors_tl, W, H)
@@ -290,6 +295,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
     last_frame = None
     vid = _frames(rc["video"], W, H)
     alp = _frames(rc["alpha"], W, H, gray=True)
+    from .hyper.overlay import Overlays
+    OV = Overlays(hf_items or [], W, H, fps)          # lớp HyperFrames (alpha) đã render sẵn — th_hf.prerender
     for f, (img, a) in enumerate(zip(vid, alp)):
         if f < a0:
             continue
@@ -307,6 +314,12 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         active = [g for g in groups if g.start <= f < g.end]
         behind = np.zeros((H, W, 4), np.float32)
         front = np.zeros((H, W, 4), np.float32)
+        if OV:
+            for buf, lay in ((behind, "behind_subject"), (front, "front")):
+                hg = OV.rgba(f / fps, lay)
+                if hg is not None:                     # premultiplied như các lớp chữ của Talking Head; vẽ TRƯỚC chữ/thẻ cùng lớp
+                    buf[..., :3] = hg[..., :3] * hg[..., 3:4]
+                    buf[..., 3] = hg[..., 3]
         for v in cards:
             if v.start <= f < v.end:
                 draw_card(behind if v.zone == "above_head" else front, v, f, *cpos[v.id])
@@ -333,6 +346,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         enc.stdin.write(last_frame.tobytes()); written += 1
     enc.stdin.close()
     enc.wait()
+    OV.close()
+    vid.close(); alp.close()
     return pos
 
 

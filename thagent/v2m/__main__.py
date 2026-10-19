@@ -153,8 +153,17 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
             out.append(("error", f"{o['id']}: parent {o['parent']} không có"))
         if o["type"] == "video" and not Path(tl.path(o["src"])).is_file():
             out.append(("error", f"{o['id']}: không có clip {o['src']}"))
-        if o["type"] not in ("text", "rect", "circle", "image", "video", "icon", "line", "list", "counter", "progress", "bars", "quote", "map", "region", "geo", "geoline", "routelabel", "callout", "figure", "pulse", "flow", "stack", "halo"):
+        if o["type"] not in ("text", "rect", "circle", "image", "video", "icon", "line", "list", "counter", "progress", "bars", "quote", "map", "region", "geo", "geoline", "routelabel", "callout", "figure", "pulse", "flow", "stack", "halo", "hf"):
             out.append(("error", f"{o['id']}: loại {o['type']} chưa hỗ trợ"))
+        if o["type"] == "hf":                     # lớp HyperFrames (công cụ dựng chung) — spec hợp lệ + công cụ sẵn sàng
+            from ..capabilities import status
+            from ..hyper import spec as HS
+            st = status("hyperframes")
+            if not st.get("ok"):
+                out.append(("error", f"{o['id']}: HyperFrames chưa sẵn sàng ({'; '.join(st.get('problems', []))}) — object hf bị chặn"))
+            else:
+                for lv, m in HS.validate(HS.normalize(R.hf_spec(tl, o))):
+                    out.append((lv, f"{o['id']} (HyperFrames): {m}"))
     return out
 
 

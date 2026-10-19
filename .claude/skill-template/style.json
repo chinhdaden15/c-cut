@@ -1,0 +1,9 @@
+{
+  "name": "{{name}}",
+  "version": "1.0.0",
+  "kind": "{{slug}}",
+  "video": true,
+  "summary": "{{description}}",
+  "output": {"formats": ["9x16", "16x9"], "fps": 30},
+  "tool_notes": {}
+}

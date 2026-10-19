@@ -1,0 +1,12 @@
+{
+  "name": "ccut-hyperframes-runtime",
+  "private": true,
+  "description": "HyperFrames runtime ghim phiên bản cho app C-Cut (công cụ dựng dùng chung)",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "gsap": "3.14.2",
+    "hyperframes": "0.8.172"
+  }
+}

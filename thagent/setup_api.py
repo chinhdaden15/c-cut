@@ -23,7 +23,10 @@ CMDS = {
     "claude_install": "irm https://claude.ai/install.ps1 | iex" if IS_WIN else "curl -fsSL https://claude.ai/install.sh | bash",
     "claude_login": "claude auth login",
     "git_install": "winget install --id Git.Git -e --source winget",
+    # HyperFrames (công cụ dựng dùng chung, tuỳ chọn) cần Node.js ≥ 22
+    "node_install": "winget install --id OpenJS.NodeJS.LTS -e --source winget" if IS_WIN else "brew install node@22 && brew link --overwrite --force node@22",
 }
+HF = {"running": False, "error": None}
 
 
 def _hub() -> Path:
@@ -63,7 +66,7 @@ def status():
     st = {"frozen": FROZEN, "os": "windows" if IS_WIN else "mac", "claude": cl, "git": _git_ok(),
           "whisper": {"ready": whisper_ready(), "running": DL["running"], "error": DL["error"],
                       "pct": 100 if whisper_ready() else min(99, round(100 * have / WHISPER_BYTES))},
-          "cmds": CMDS}
+          "cmds": CMDS, "hyperframes": _hf_status()}
     st["done"] = cl["installed"] and cl["logged_in"] and st["git"] and st["whisper"]["ready"]
     return st
 
@@ -77,6 +80,38 @@ def _download():
         DL["error"] = f"Tải lỗi: {e}"[:300]
     finally:
         DL["running"] = False
+
+
+def _hf_status() -> dict:
+    """công cụ dựng dùng chung HyperFrames — TUỲ CHỌN (không chặn thiết lập lần đầu)."""
+    try:
+        from .hyper.runtime import doctor
+        d = doctor()
+    except Exception as e:
+        d = {"ok": False, "problems": [str(e)]}
+    return {"ok": d.get("ok"), "version": d.get("hyperframes"), "pinned": (d.get("pinned") or {}).get("hyperframes"),
+            "node": d.get("node"), "problems": d.get("problems", []), "running": HF["running"], "error": HF["error"]}
+
+
+def _hf_install():
+    try:
+        from .hyper.runtime import install, ensure_browser
+        install()
+        ensure_browser()
+        HF["error"] = None
+    except Exception as e:
+        HF["error"] = f"Cài HyperFrames lỗi: {e}"[:400]
+    finally:
+        HF["running"] = False
+
+
+@router.post("/hyperframes")
+def start_hyperframes():
+    """cài đúng bản ghim (npm ci theo lockfile) + trình duyệt render. Không nâng phiên bản."""
+    if not HF["running"]:
+        HF.update(running=True, error=None)
+        threading.Thread(target=_hf_install, daemon=True).start()
+    return status()
 
 
 @router.post("/whisper")

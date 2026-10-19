@@ -617,14 +617,18 @@ function renderSetup(){
   if(SU.os==='windows')steps.push({ok:SU.git,t:'Cài Git for Windows',d:SU.git?'Đã cài.':`Claude Code trên Windows cần Git.<br>${cmd('git_install')}<div style="margin-top:6px">${btn('git_install','Mở cửa sổ cài đặt')}</div>`});
   steps.push({ok:c.logged_in,t:'Đăng nhập Claude',d:c.logged_in?'Đã đăng nhập.':!c.installed?'Cài Claude Code trước.':`Trình duyệt sẽ mở để đăng nhập tài khoản Claude.<div style="margin-top:6px">${btn('claude_login','Đăng nhập')}</div>`});
   steps.push({ok:w.ready,t:'Tải model chép lời (~3 GB, một lần)',d:w.ready?'Đã có.':w.running?`Đang tải… ${w.pct}%<div class="pbar"><i style="width:${w.pct}%"></i></div>`:`${w.error?`<span style="color:var(--err)">${esc(w.error)}</span><br>`:''}Dùng để nghe lời nói tiếng Việt trong clip. Nên tải ngay, không thì lần dựng đầu sẽ phải chờ.<div style="margin-top:6px"><button class="small" id="dlWhisper">Tải ngay</button></div>`});
+  const hf=SU.hyperframes||{};const nodeOk=!(hf.problems||[]).some(p=>p.includes('Node'));
+  steps.push({ok:hf.ok,opt:1,t:'Công cụ dựng HyperFrames (tuỳ chọn)',d:hf.ok?`Sẵn sàng — bản ghim ${esc(hf.version||'')}. Mọi style video dùng chung.`:hf.running?'Đang cài đúng bản ghim…':`${hf.error?`<span style="color:var(--err)">${esc(hf.error)}</span><br>`:''}Dựng chữ động, sơ đồ, biểu đồ, nhãn/spotlight bằng HTML. ${esc((hf.problems||[]).join('; '))}`
+    +`<div style="margin-top:6px">${nodeOk?'':`Cần Node.js ≥ 22: ${cmd('node_install')} ${btn('node_install','Mở cửa sổ cài Node.js')} `}<button class="small" id="instHF">Cài HyperFrames ${esc(hf.pinned||'')}</button></div>`});
   $('#setupSteps').innerHTML=steps.map((s,i)=>`<div class="sustep ${s.ok?'ok':''}"><div class="num">${s.ok?'✓':i+1}</div><div class="body"><b>${s.t}</b><div class="small dim" style="margin-top:3px">${s.d}</div></div></div>`).join('');
   $('#setupNote').textContent=SU.done?'Đã đủ — có thể bắt đầu.':'Làm xong từng bước rồi bấm Kiểm tra lại.';
   $('#setupDone').disabled=!SU.done;
   document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const t=SU.cmds[b.dataset.copy],ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();navigator.clipboard?.writeText(t).catch(()=>{});toast('Đã chép lệnh')});
   document.querySelectorAll('[data-run]').forEach(b=>b.onclick=async()=>{await post('/api/ccut/setup/run/'+b.dataset.run);toast('Đã mở cửa sổ — làm theo hướng dẫn trong đó')});
   const d=$('#dlWhisper');if(d)d.onclick=async()=>{SU=await post('/api/ccut/setup/whisper');renderSetup()};
+  const h=$('#instHF');if(h)h.onclick=async()=>{SU=await post('/api/ccut/setup/hyperframes');renderSetup()};
 }
-function openSetup(){$('#setupBox').classList.add('show');loadSetup();clearInterval(suTimer);suTimer=setInterval(()=>{if(SU&&(SU.whisper.running||!SU.done))loadSetup()},3000)}
+function openSetup(){$('#setupBox').classList.add('show');loadSetup();clearInterval(suTimer);suTimer=setInterval(()=>{if(SU&&(SU.whisper.running||!SU.done||(SU.hyperframes||{}).running))loadSetup()},3000)}
 function closeSetup(){$('#setupBox').classList.remove('show');clearInterval(suTimer)}
 $('#closeSetup').onclick=closeSetup;$('#setupDone').onclick=closeSetup;
 $('#setupRecheck').onclick=async()=>{await loadSetup();await post('/api/ccut/syscheck');refresh()};

@@ -515,6 +515,9 @@ class Renderer:
             v0, v1 = o["_vis"]
             if not (v0 <= t < v1):
                 continue
+            if o["type"] == "hf":            # lớp HyperFrames (công cụ dựng chung): clip alpha toàn khung, tự chuyển động
+                self._draw_hf(out, o, t - v0)
+                continue
             p = self.world(oid, t)
             if p.get("_parent_vis") is False:
                 continue
@@ -522,6 +525,20 @@ class Renderer:
             self.draw_obj(out, p, p0, t, cam, cam0)
         transition_overlay(tl, out, t)
         return out
+
+    def _draw_hf(self, dst, o, lt):
+        from ..hyper.overlay import _Reader
+        prerender_hf(self.tl, ids=[o["id"]])
+        rd = getattr(self, "_hf_readers", {})
+        self._hf_readers = rd
+        if o["id"] not in rd:
+            rd[o["id"]] = _Reader(o["_hf_path"], self.tl.W, self.tl.H, self.tl.fps)
+        fr = rd[o["id"]].frame(int(round(lt * self.tl.fps)))
+        if fr is None:
+            return
+        g = fr.astype(np.float32) / 255.0
+        a = g[..., 3:4] * float(o.get("opacity", 1))
+        dst[...] = dst * (1 - a) + g[..., :3] * a
 
     def draw_obj(self, dst, p, p0, t, cam, cam0):
         tl = self.tl
@@ -1142,8 +1159,29 @@ def load(path: Path) -> Timeline:
     return Timeline(json.loads(path.read_text(encoding="utf-8")), path.parent)
 
 
+def hf_spec(tl: Timeline, o: dict) -> dict:
+    """object "hf" → job HyperFrames: kích thước/fps theo timeline, thời lượng = khoảng hiện của object (giây trong spec tính từ lúc hiện)."""
+    import json as _json
+    v0, v1 = o["_vis"]
+    sp = dict(o.get("spec") or _json.loads(Path(tl.path(o["spec_file"])).read_text(encoding="utf-8")))
+    sp.update(job_id=f"v2m-{tl.fmt}-{o['id']}", width=tl.W, height=tl.H, fps=tl.fps, duration=round(min(v1, tl.duration) - v0, 3),
+              background="transparent", output={"path": str(tl.base / "hf" / f"{o['id']}_{tl.fmt}.mov"), "format": "mov"})
+    return sp
+
+
+def prerender_hf(tl: Timeline, progress=print, ids=None):
+    """render (hoặc dùng lại theo mã băm) mọi object "hf" — trước vòng dựng frame."""
+    from ..hyper.job import Job
+    for oid, o in tl.objs.items():
+        if o["type"] != "hf" or (ids and oid not in ids) or o.get("_hf_path"):
+            continue
+        st = Job(hf_spec(tl, o), tl.base / "hf_jobs").run(progress=progress)
+        o["_hf_path"] = st["output"]
+
+
 def render_video(tl: Timeline, out_mp4: Path, progress=print, t_range=None) -> dict:
     """dựng toàn bộ frame → mp4 không tiếng (h264). Trả số đo đứng hình để QA."""
+    prerender_hf(tl, progress)
     fps = tl.fps
     n = int(math.ceil(tl.duration * fps))
     f0, f1 = (0, n) if not t_range else (int(t_range[0] * fps), min(n, int(math.ceil(t_range[1] * fps))))
@@ -1176,6 +1214,8 @@ def render_video(tl: Timeline, out_mp4: Path, progress=print, t_range=None) -> d
     finally:
         enc.stdin.close()
         enc.wait()
+        for rd in getattr(R, "_hf_readers", {}).values():
+            rd.close()
     if enc.returncode:
         raise RuntimeError("ffmpeg dựng video lỗi")
     _STILL_R[id(tl)] = R

@@ -117,6 +117,9 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     out.extend(text_rules(pl, c.project.words, fps))
     out.extend(gaze_rules(pl, c.project.words, c.path("work", "gaze.json"), fps))
     out.extend(point_rules(pl, c.path("work", "pointing.json"), fps))
+    # 5b) lớp HyperFrames (công cụ dựng chung): spec hợp lệ, công cụ sẵn sàng (không có → bị chặn, báo rõ)
+    from .th_hf import check as hf_check
+    out += hf_check(pl)
     # 6) ảnh xem trước tại các điểm nhấn (xem bằng mắt trước khi render)
     if stills:
         frames = sorted({g.hit + 4 for g in pl.text_groups if g.enabled} |

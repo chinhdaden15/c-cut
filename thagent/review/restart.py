@@ -25,7 +25,8 @@ def _n(s):
 def _asr(path: str, a: float, b: float) -> list[dict]:
     if "m" not in _MODEL:
         from faster_whisper import WhisperModel
-        _MODEL["m"] = WhisperModel("large-v3", device="cpu", compute_type="int8")
+        import os
+        _MODEL["m"] = WhisperModel(os.environ.get("CCUT_ASR_MODEL") or "large-v3", device="cpu", compute_type="int8")
     with tempfile.TemporaryDirectory() as d:
         wav = Path(d) / "w.wav"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", path, "-vn", "-ar", "16000", "-ac", "1",

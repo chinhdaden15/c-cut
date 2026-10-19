@@ -7,6 +7,8 @@
   python -m thagent.tools img    <pid> <url> <tên_file> [nguồn] tải ảnh vào assets_web/, ghi nguồn vào illus_sources.json
   python -m thagent.tools speed  <pid> 1.1                     tốc độ cả video lúc xuất (0.8–1.5; 1 = gốc), giọng giữ cao độ
   python -m thagent.tools channel <pid> <kênh>                 gán kênh: bat-dong-san|suc-khoe|giao-duc|chia-se|lam-dep|fnb|none
+  python -m thagent.tools hfwords <pid> <frame_đầu> <frame_cuối>  lớp phụ đề HyperFrames (chữ + word_times theo timeline ĐÃ cắt)
+                                                               → dán vào plan.hf[i].spec.layers (thagent/th_hf.py)
 """
 from __future__ import annotations
 
@@ -119,7 +121,15 @@ def main():
     CMDS[cmd](*a)
 
 
-CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img, "speed": speed, "channel": channel}
+def hfwords(pid, f0, f1):
+    from .th_hf import words_tl
+    ws = words_tl(pid, int(f0), int(f1))
+    print(json.dumps({"type": "text", "text": " ".join(w for w, _ in ws), "word_times": [t for _, t in ws], "reveal": "words",
+                      "font": "bold", "size": 64, "stroke": 6, "max_w": 940, "x": "50%", "y": "78%", "active_color": "#FFD34D",
+                      "start": 0, "duration": round((int(f1) - int(f0)) / 30, 3)}, ensure_ascii=False))
+
+
+CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img, "speed": speed, "channel": channel, "hfwords": hfwords}
 
 if __name__ == "__main__":
     main()

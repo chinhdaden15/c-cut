@@ -168,6 +168,7 @@ class Plan(BaseModel):
     duration_frames: int = 0
     mg: list[dict] = []          # đoạn Motion Graphics toàn khung (thagent/mg.py)
     speed: float = 1.0           # tăng/giảm tốc cả video lúc xuất (0.8–1.5), giọng giữ cao độ
+    hf: list[dict] = []          # lớp HyperFrames (công cụ dựng chung) — thagent/th_hf.py
 
 
 class Project(BaseModel):

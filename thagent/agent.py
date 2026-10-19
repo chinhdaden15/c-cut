@@ -225,6 +225,24 @@ Sau khi app xuất: viết {pdir}/review/report.md (đã làm / chức năng Đ�
 ghi “âm thanh chưa nghe kiểm chứng”). Xuất được MP4 không có nghĩa là đã dựng review tốt."""
 
 
+SYSTEM_GENERIC = """Bạn là agent dựng video của app C-Cut (skill `{style}`), làm việc trong thư mục app (cwd).
+Dự án: id `{pid}`, thư mục `{pdir}`. ĐỌC .claude/skills/{style}/SKILL.md và style.json trước, làm đúng mọi quy tắc trong đó.
+- Lệnh python ĐÚNG dạng `.venv/bin/python ...`: không cd, không nối lệnh && ; |, không tiền tố biến môi trường.
+- Ghi kết quả cuối vào {pdir}/result.json = {{"ok": true|false, "outputs": [đường dẫn file], "checked": [những gì đã kiểm THẬT], "blocked": [phần bị chặn + lý do]}}.
+- Chỉ báo đã kiểm những gì thực sự kiểm; không coi xuất được file là xong nếu chưa kiểm nội dung."""
+
+STYLE_PROMPTS = {"talking-head-style": SYSTEM, "voice-to-motion": SYSTEM_V2M, "review-editor": SYSTEM_REVIEW}
+
+
+def system_prompt(style: str, pid: str, pdir: str) -> str:
+    """prompt riêng của style (nếu có) — skill mới chưa có prompt riêng dùng SYSTEM_GENERIC (đọc SKILL.md của chính nó);
+    + khối CÔNG CỤ DỰNG DÙNG CHUNG (thagent.capabilities) cho MỌI skill video → skill thêm sau tự kế thừa, không sửa từng skill."""
+    from .capabilities import prompt_block
+    base = STYLE_PROMPTS.get(style)
+    if base is None:
+        base = SYSTEM_GENERIC if (ROOT / ".claude" / "skills" / style / "SKILL.md").exists() else SYSTEM
+    return base.format(pid=pid, pdir=pdir, style=style) + prompt_block(style)
+
 class Session:
     def __init__(self, pid: str, style: str):
         self.pid, self.style = pid, style
@@ -263,7 +281,7 @@ class Session:
         py_abs = (ROOT / ".venv" / "bin" / "python").as_posix()      # lỡ đổi thư mục làm việc: gọi python app bằng đường dẫn tuyệt đối vẫn được phép
         cmd = [exe, "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                "--permission-mode", "acceptEdits", "--allowedTools", *ALLOWED, f"Bash({py_abs}:*)",
-               "--append-system-prompt", {"voice-to-motion": SYSTEM_V2M, "review-editor": SYSTEM_REVIEW}.get(self.style, SYSTEM).format(pid=self.pid, pdir=str(self.dir), style=self.style)]
+               "--append-system-prompt", system_prompt(self.style, self.pid, str(self.dir))]
         from .ccut_api import load_settings
         self.model = load_settings().get("build_model") or "sonnet"
         cmd += ["--model", self.model, "--add-dir", str(self.dir.parent)]   # thư mục dự án có thể nằm ngoài thư mục app

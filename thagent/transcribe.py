@@ -11,6 +11,8 @@ LOW_CONF = 0.55
 def transcribe(wav_path: str, model_name: str = "large-v3", vocab: list[str] | None = None,
                progress=None) -> tuple[list[TranscriptWord], list[Sentence]]:
     from faster_whisper import WhisperModel
+    import os
+    model_name = os.environ.get("CCUT_ASR_MODEL") or model_name      # chỉ dùng cho bộ kiểm tự động (model nhỏ, nhanh)
 
     model = WhisperModel(model_name, device="cpu", compute_type="int8")
     prompt = ", ".join(vocab) if vocab else None

@@ -42,6 +42,9 @@ jobs:
       - name: kiểm tra lệnh Review Editor (-m thagent.review)
         env: {PYTHONUTF8: "0", CCUT_HOME: build/res/seed}
         run: build/pyi/C-Cut.app/Contents/MacOS/ccut-py -m thagent.review | grep -q "Review Editor" && echo REVIEW OK
+      - name: kiểm tra lệnh HyperFrames dùng chung (-m thagent.hyper, -m thagent.capabilities)
+        env: {PYTHONUTF8: "0", CCUT_HOME: build/res/seed}
+        run: build/pyi/C-Cut.app/Contents/MacOS/ccut-py -m thagent.hyper | grep -q "HyperFrames" && echo HYPER OK
       - uses: actions/upload-artifact@v4
         with: {name: "C-Cut-mac-${{ matrix.arch }}", path: "dist/C-Cut-mac-*.dmg"}
   windows:
@@ -69,5 +72,6 @@ jobs:
           cd "$H" && .venv/bin/python -m thagent.tools | grep -q "thagent.tools where" && echo SHIM OK
           .venv/bin/python -u -m thagent.v2m | grep -q "Voice to Motion" && echo V2M OK
           .venv/bin/python -m thagent.review | grep -q "Review Editor" && echo REVIEW OK
+          .venv/bin/python -m thagent.hyper | grep -q "HyperFrames" && echo HYPER OK
       - uses: actions/upload-artifact@v4
         with: {name: C-Cut-windows, path: dist/C-Cut-Setup.exe}

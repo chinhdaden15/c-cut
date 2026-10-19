@@ -19,6 +19,7 @@ import cv2
 import numpy as np
 
 from ..v2m import render as R
+from . import hfx
 from .edit import FORMATS, crop_at, face_out, layout, media, seg_at, src_to_out, words_out
 
 REVEAL = {"nhe": ("fade", 0.45), "can_bang": ("up", 0.4), "nang_dong": ("pop", 0.35)}
@@ -163,14 +164,18 @@ def _emph_pos(edit, pdir, fmt, s, at, d, w_txt, h_txt, cap_band=None, min_w=0):
         if fmt != "9x16":
             cands = [(W * 0.21, H * 0.40, W * 0.30), (W * 0.79, H * 0.40, W * 0.30), (W / 2, H * 0.2, W * 0.8)]
         cands = [c for c in cands if c[2] >= min_w * 0.75] or cands
-    obs = _obstacles(edit, pdir, fmt, s, at, at + d) + ([cap_band] if cap_band else [])
+    obs = _obstacles(edit, pdir, fmt, s, at, at + d)
+    x0s, y0s, x1s, y1s = SAFE[fmt]
     best, score = (cands[0][0], cands[0][1], cands[0][2], 1.0), 1e18
     for sc in (1.0, 0.82, 0.68):                 # không còn chỗ trống → thu nhỏ chữ nhấn tới khi vừa khoảng trống
         for x, y, mw in cands:
             ww = min(w_txt * sc, mw)
             hh = h_txt * sc * (1 if w_txt * sc <= mw else 2)
+            y = min(max(y, y0s + hh / 2), y1s - hh / 2)          # khối cao (bảng) vẫn nằm trong vùng an toàn
             box = (x - ww / 2 - 10, y - hh / 2 - 10, x + ww / 2 + 10, y + hh / 2 + 10)
             ov = sum(_ov(box, o) for o in obs)
+            if cap_band and _ov(box, cap_band) > 0:
+                ov += 1e9                        # dải phụ đề là vùng CẤM (cả hai do app đặt) — chỉ chọn khi không còn chỗ nào khác
             if ov < score - 1e-6:
                 best, score = (x, y, mw, sc), ov
             if ov == 0:
@@ -235,6 +240,8 @@ def objects(edit: dict, pdir, fmt: str) -> tuple[list[dict], list[dict]]:
         grp = s.get("group", s["id"])
         g_end = max(x["t1"] for x in segs if x.get("group", x["id"]) == grp)       # chữ được kéo qua các đoạn con cùng nhóm
         for t in s.get("texts", []):
+            if hfx.uses(edit, t):           # dựng bằng HyperFrames (công cụ chung) — ghép ở render, không vẽ lại ở đây
+                continue
             at = s["t0"] + float(t["at"])
             d = min(float(t.get("dur", 2.5)), g_end - at + (0.0 if g_end < segs[-1]["t1"] - 1e-6 else 99))
             role = t["role"]
@@ -557,7 +564,8 @@ class Layer:
         self.Rb, self.Rw = R.Renderer(self.tb), R.Renderer(self.tw)
         self.W, self.H = FORMATS[fmt]
         self.spans = [o["_vis"] for o in self.tb.objs.values()]
-        self.spots = [Spot(t, s, edit, pdir, fmt) for s in layout(edit) for t in s.get("texts", []) if t["role"] == "spotlight" and t.get("track")]
+        self.spots = [Spot(t, s, edit, pdir, fmt) for s in layout(edit) for t in s.get("texts", [])
+                      if t["role"] == "spotlight" and t.get("track") and not hfx.uses(edit, t)]
         self.spans += [(sp.at, sp.at + sp.d) for sp in self.spots]
         self.boxes = []
 

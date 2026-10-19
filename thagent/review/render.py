@@ -194,6 +194,10 @@ def _composite(edit, pdir, fmt, base: Path, audio: Path, out: Path, progress) ->
     T = duration(edit)
     n = int(round(T * fps))
     L = Layer(edit, pdir, fmt)
+    from . import hfx
+    from ..hyper.overlay import Overlays, over
+    hf_items = hfx.prerender(edit, pdir, fmt, progress=lambda m: progress(m))     # lớp HyperFrames (alpha) — render 1 lần, lưu đệm
+    OV = Overlays(hf_items, W, H, fps)
     dec = subprocess.Popen(["ffmpeg", "-v", "error", "-i", str(base), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(fps), "-i", "-",
                             "-i", str(audio), "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "18",
@@ -210,6 +214,9 @@ def _composite(edit, pdir, fmt, base: Path, audio: Path, out: Path, progress) ->
             last = buf
             t = f / fps
             fr = np.frombuffer(buf, np.uint8).reshape(H, W, 3)
+            hg = OV.rgba(t) if OV else None
+            if hg is not None:                     # HyperFrames DƯỚI lớp chữ Review (spotlight tối nền, nhãn, bảng)
+                fr = (np.clip(over(fr.astype(np.float32) / 255, hg), 0, 1) * 255).astype(np.uint8)
             g = L.rgba(t, (f - 1) / fps if f else None)
             if g is not None:
                 a = g[..., 3:4]
@@ -221,10 +228,12 @@ def _composite(edit, pdir, fmt, base: Path, audio: Path, out: Path, progress) ->
             if f % 30 == 0:
                 progress(f"finish frame {f}/{n}")
     finally:
-        enc.stdin.close(); enc.wait(); dec.kill()
+        enc.stdin.close(); enc.wait(); dec.kill(); OV.close()
     if enc.returncode:
         raise RuntimeError("ffmpeg ghép lớp chữ lỗi")
     spots = [{"at": round(sp.at, 2), "dur": sp.d, "frames": int(sp.d * fps), "miss": sp.miss} for sp in L.spots]
+    spots += [{"at": round(it["start"], 2), "dur": round(it["dur"], 2), "engine": "hyperframes", "role": it["role"], "clip": it["path"]}
+              for it in hf_items]
     return samples, spots
 
 
@@ -309,7 +318,7 @@ def check_output(out: Path, edit: dict, fmt: str, samples, pdir=None, spots=None
         (errors if len(ts) >= 2 else warns).append(f"chữ “{txt[:24]}” chạm mặt/tóc {ts[0]:.1f}–{ts[-1]:.1f}s")
     # spotlight theo đúng vật suốt thời gian hiện
     for sp in spots or []:
-        if sp["frames"] and sp["miss"] > 0.15 * sp["frames"]:
+        if sp.get("frames") and sp["miss"] > 0.15 * sp["frames"]:
             warns.append(f"spotlight {sp['at']}s: mất dấu vật {sp['miss']}/{sp['frames']} khung — đã tắt ở các khung đó")
     # điểm nối (từ audio nguồn): nghỉ / đầu-cuối hụt
     if pdir is not None:

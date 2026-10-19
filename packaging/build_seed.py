@@ -25,7 +25,8 @@ def main():
     shutil.copy2(ROOT / "styles.json", seed / "styles.json")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in sorted((ROOT / ".claude" / "skills").rglob("*")):
+        for f in sorted([*(ROOT / ".claude" / "skills").rglob("*"), *(ROOT / ".claude" / "shared").rglob("*"),
+                         *(ROOT / ".claude" / "skill-template").rglob("*")]):      # skill + tài liệu công cụ dùng chung + template skill
             if f.is_file() and "__pycache__" not in f.parts and f.name != ".DS_Store":
                 z.write(f, f.relative_to(ROOT).as_posix())
     (seed / "skill.bin").write_bytes(_xor(buf.getvalue()))

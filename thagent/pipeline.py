@@ -186,9 +186,14 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     fr = frame_range or (0, plan.duration_frames)
     fr = (max(0, fr[0]), min(plan.duration_frames, fr[1]))
     snaps = sorted({g.hit + 3 for g in plan.text_groups if g.enabled and fr[0] <= g.hit < fr[1]})
+    hf_items = []
+    if plan.hf:
+        from .th_hf import prerender
+        c.log(f"HyperFrames: {len(plan.hf)} lớp (render 1 lần, lưu đệm)")
+        hf_items = prerender(plan, c.path("work", "x").parent, c.log)
     c.log(f"Compositing frame {fr[0]}–{fr[1]}")
     layout = R.composite(plan, rc, anchors, str(vdir / "video_noaudio.mp4"), fr, progress=c.log,
-                         snapshots=snaps, snap_dir=vdir, cancel=c.cancel)
+                         snapshots=snaps, snap_dir=vdir, cancel=c.cancel, hf_items=hf_items)
     c.log("Phối âm voice + SFX, chuẩn loudness")
     rep = R.mix_audio(plan, rc["voice"], SFX_DIR, man, str(vdir / "mix.wav"), fr)
     out = vdir / f"{c.project.id}_{label}.mp4"
