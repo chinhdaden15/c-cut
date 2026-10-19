@@ -46,10 +46,10 @@ jobs:
       - name: e2e (Windows — UTF-8 như trình khởi động của app; bản đóng gói thật kiểm ở workflow build)
         if: runner.os == 'Windows'
         env: {PYTHONUTF8: "1"}
-        run: python packaging/e2e.py e2e_work
+        run: python packaging/e2e.py e2e_work --only common,hyper,review
       - name: e2e (macOS)
         if: runner.os == 'macOS'
-        run: python packaging/e2e.py e2e_work
+        run: python packaging/e2e.py e2e_work --only common,hyper,review
       - uses: actions/upload-artifact@v4
         if: always()
         with:

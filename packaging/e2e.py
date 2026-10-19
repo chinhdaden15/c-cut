@@ -20,7 +20,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 FIX = HERE / "fixtures"
 REPO = HERE.parent
-sys.path.insert(0, str(REPO))
+try:                                   # bản đóng gói (ccut-py): dùng thagent ĐÃ BIÊN DỊCH, không lấy mã nguồn trong repo
+    import thagent  # noqa: F401
+except ImportError:
+    sys.path.insert(0, str(REPO))
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
 args = sys.argv[1:]
@@ -170,9 +173,34 @@ def _niches():
 
 @case("common", "API app (FastAPI): trang chính, thiết lập, trạng thái, kênh")
 def _api():
-    from fastapi.testclient import TestClient
     from thagent.server import app
-    c = TestClient(app)
+    try:
+        from fastapi.testclient import TestClient
+        c = TestClient(app)
+    except Exception:                      # bản đóng gói không kèm httpx → chạy server thật, gọi HTTP
+        import threading
+        import urllib.request
+        import uvicorn
+
+        class _R:
+            def __init__(self, code, body):
+                self.status_code, self.text = code, body
+
+            def json(self):
+                return json.loads(self.text)
+
+        srv = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8799, log_level="error"))
+        threading.Thread(target=srv.run, daemon=True).start()
+        for _ in range(100):
+            if srv.started:
+                break
+            time.sleep(0.1)
+
+        class _C:
+            def get(self, path):
+                with urllib.request.urlopen("http://127.0.0.1:8799" + path, timeout=60) as r:
+                    return _R(r.status, r.read().decode("utf-8"))
+        c = _C()
     out = {}
     for path in ("/", "/api/ccut/setup", "/api/ccut/state", "/api/ccut/channels", "/api/ccut/workspace"):
         r = c.get(path)
@@ -339,9 +367,10 @@ def _rv_edit(P, hf=False):
     e = {"category": "cong_nghe", "style": "truc_tiep", "intensity": "can_bang", "formats": ["9x16", "16x9"], "fps": 30, "subtitles": True,
          "auto_zoom": True, "keep_terms": ["mAh"],
          "segments": [
-             {"id": "S1", "src": talk, "in": max(0.0, round(ws[0]["start"] - 0.15, 2)), "out": cut, "role": "talk",
+             {"id": "S1", "src": talk, "in": max(0.0, round(ws[0]["start"] - 0.15, 2)), "out": cut, "role": "talk", "clean": False,
               "say": "mở hộp", "why": "kiểm thử",
-              "cutaways": [{"src": br, "in": 0.2, "at": round(max(1.0, cut - ws[0]["start"] - 1.8), 2), "dur": 1.4, "why": "cầm máy"}],
+              "cutaways": [{"src": br, "in": 0.2, "at": round(max(2.4, cut - max(0.0, ws[0]["start"] - 0.15) - 1.6), 2),
+                            "dur": round(min(1.6, cut - max(0.0, ws[0]["start"] - 0.15) - 2.4), 2), "why": "cầm máy — chạy tới hết đoạn"}],
               "texts": [{"role": "emph", "text": "Mở hộp điện thoại", "sub": "Công nghệ", "at": 0.15, "dur": 0.9},
                         {"role": "label", "text": "Hộp máy", "track": "obj", "at": 0.9, "dur": 1.4, **({"engine": "hyperframes"} if hf else {})},
                         {"role": "spotlight", "track": "obj", "at": 0.9, "dur": 1.4, **({"engine": "hyperframes"} if hf else {})}]},

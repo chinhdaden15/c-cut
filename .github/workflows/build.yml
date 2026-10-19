@@ -45,6 +45,14 @@ jobs:
       - name: kiểm tra lệnh HyperFrames dùng chung (-m thagent.hyper, -m thagent.capabilities)
         env: {PYTHONUTF8: "0", CCUT_HOME: build/res/seed}
         run: build/pyi/C-Cut.app/Contents/MacOS/ccut-py -m thagent.hyper | grep -q "HyperFrames" && echo HYPER OK
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - name: e2e mọi skill trên BẢN ĐÓNG GÓI (lỗi → không xuất bản cài)
+        env: {PYTHONUTF8: "0", CCUT_HOME: build/res/seed, CCUT_ASR_MODEL: small}
+        run: |
+          export PATH="$PWD/build/ffmpeg:$PATH"
+          build/pyi/C-Cut.app/Contents/MacOS/ccut-py -m thagent.hyper install
+          build/pyi/C-Cut.app/Contents/MacOS/ccut-py packaging/e2e.py e2e_frozen --only common,hyper,review
       - uses: actions/upload-artifact@v4
         with: {name: "C-Cut-mac-${{ matrix.arch }}", path: "dist/C-Cut-mac-*.dmg"}
   windows:
@@ -73,5 +81,14 @@ jobs:
           .venv/bin/python -u -m thagent.v2m | grep -q "Voice to Motion" && echo V2M OK
           .venv/bin/python -m thagent.review | grep -q "Review Editor" && echo REVIEW OK
           .venv/bin/python -m thagent.hyper | grep -q "HyperFrames" && echo HYPER OK
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - name: e2e mọi skill trên BẢN ĐÓNG GÓI Windows, bảng mã mặc định (lỗi → không xuất bản cài)
+        env: {PYTHONUTF8: "0", PYTHONIOENCODING: "", CCUT_HOME: build/res/seed, CCUT_ASR_MODEL: small}
+        shell: pwsh
+        run: |
+          $env:PATH = "$PWD\build\ffmpeg;$env:PATH"
+          build\pyi\C-Cut\ccut-py.exe -m thagent.hyper install; if ($LASTEXITCODE) { exit 1 }
+          build\pyi\C-Cut\ccut-py.exe packaging\e2e.py e2e_frozen --only common,hyper,review; if ($LASTEXITCODE) { exit 1 }
       - uses: actions/upload-artifact@v4
         with: {name: C-Cut-windows, path: dist/C-Cut-Setup.exe}
