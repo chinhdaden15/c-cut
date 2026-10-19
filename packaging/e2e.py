@@ -145,8 +145,9 @@ def _prompts():
         p = system_prompt(st, "x", str(WORK))
         assert "CÔNG CỤ DỰNG DÙNG CHUNG" in p and "{" not in p.split("CÔNG CỤ")[0][-5:], st
     from thagent import newskill
+    from thagent.paths import ROOT
     slug = "e2e-probe"
-    d = REPO / ".claude" / "skills" / slug
+    d = ROOT / ".claude" / "skills" / slug
     shutil.rmtree(d, ignore_errors=True)
     try:
         newskill.create(slug, "E2E Probe", "skill thử tạm của bộ kiểm")

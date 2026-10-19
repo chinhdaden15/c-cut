@@ -103,7 +103,8 @@ def table() -> dict:
     return {slug: {"video": st.get("video", True), "tools": tools_for(slug), "version": st.get("version")} for slug, st in skills().items()}
 
 
-if __name__ == "__main__":
+def main():
+    """bản đóng gói (Nuitka) chạy `-m thagent.capabilities` bằng main() — runpy không dùng được với mô-đun đã biên dịch."""
     a = sys.argv[1:]
     if a:
         print(prompt_block(a[0]) or f"(skill {a[0]} không dùng công cụ dựng chung)")
@@ -111,3 +112,7 @@ if __name__ == "__main__":
         print(json.dumps({"tools": {k: {"name": v["name"], "version": v["version"](), "command": v["command"], "doc": v["doc"],
                                         "ready": status(k).get("ok")} for k, v in TOOLS.items()},
                           "skills": table()}, ensure_ascii=False, indent=1))
+
+
+if __name__ == "__main__":
+    main()

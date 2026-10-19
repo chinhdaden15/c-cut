@@ -38,8 +38,22 @@ def _force_utf8():
             pass
 
 
+def _no_inherit_stdin():
+    """Windows: tiến trình con (ffmpeg…) mặc định KHÔNG kế thừa stdin của app — app chạy không có console/stdin hợp lệ
+    thì Popen lỗi WinError 50 khi nhân bản tay cầm. Ai cần stdin thì truyền stdin=… rõ ràng (vd PIPE) như trước."""
+    import subprocess
+    orig = subprocess.Popen.__init__
+
+    def init(self, *a, **kw):
+        if not (kw.get("creationflags", 0) & getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)):   # cửa sổ lệnh cho người dùng gõ: giữ nguyên
+            kw.setdefault("stdin", subprocess.DEVNULL)
+        orig(self, *a, **kw)
+    subprocess.Popen.__init__ = init
+
+
 if os.name == "nt":
     _force_utf8()
+    _no_inherit_stdin()
 
 from thagent.app_main import main
 

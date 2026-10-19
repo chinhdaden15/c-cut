@@ -28,8 +28,14 @@ def create(slug: str, name: str, description: str):
     return dst
 
 
-if __name__ == "__main__":
+def main():
     a = sys.argv[1:]
     if len(a) < 3:
-        print(__doc__); sys.exit(1)
+        print(__doc__)
+        return 1
     create(*a[:3])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

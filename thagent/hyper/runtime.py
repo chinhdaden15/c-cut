@@ -18,8 +18,8 @@ from pathlib import Path
 
 from ..paths import ROOT
 
-PIN_DIR = ROOT / "assets" / "hyperframes"                        # package.json + package-lock.json ghim (đi kèm app)
-TOOL_DIR = ROOT / "tools" / "hyperframes"                        # nơi cài (ghi được)
+PIN_DIR = (ROOT / "assets" / "hyperframes").resolve()                        # package.json + package-lock.json ghim (đi kèm app)
+TOOL_DIR = (ROOT / "tools" / "hyperframes").resolve()            # nơi cài (ghi được) — tuyệt đối: node chạy ở thư mục job
 NODE_MIN = 22
 
 
