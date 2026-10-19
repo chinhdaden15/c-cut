@@ -14,5 +14,10 @@ STAGE=build/dmg; rm -rf $STAGE; mkdir -p $STAGE
 cp -R "$APP" $STAGE/; ln -s /Applications $STAGE/Applications
 cp "packaging/guide/Huong dan su dung C-Cut.pdf" $STAGE/
 mkdir -p dist; rm -f dist/C-Cut-mac-$TAG.dmg
-hdiutil create -volname "C-Cut" -srcfolder $STAGE -ov -format UDZO dist/C-Cut-mac-$TAG.dmg
+# hdiutil trên máy build hay báo "Resource busy" ngẫu nhiên → thử lại tối đa 5 lần
+for i in 1 2 3 4 5; do
+  hdiutil create -volname "C-Cut" -srcfolder $STAGE -ov -format UDZO dist/C-Cut-mac-$TAG.dmg && break
+  [ $i = 5 ] && exit 1
+  echo "hdiutil lỗi, thử lại ($i)"; sleep 10
+done
 echo "→ dist/C-Cut-mac-$TAG.dmg"
