@@ -193,6 +193,11 @@ def run_app():
     win = webview.create_window(APP_NAME, f"http://127.0.0.1:{port}", width=1440, height=900, min_size=(1100, 700),
                                 text_select=True)
     ccut_api.WINDOW = win
+    try:                                        # công cụ dựng dùng chung: chưa sẵn sàng → tự cài nền (Node portable + HyperFrames)
+        from thagent.hyper.autoinstall import start_background
+        start_background()
+    except Exception:
+        pass
     from thagent import agent
     agent.limits_loop()   # làm mới giới hạn Claude khi mở app + mỗi 15 phút
     webview.start()

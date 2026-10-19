@@ -26,7 +26,6 @@ CMDS = {
     # HyperFrames (công cụ dựng dùng chung, tuỳ chọn) cần Node.js ≥ 22
     "node_install": "winget install --id OpenJS.NodeJS.LTS -e --source winget" if IS_WIN else "brew install node@22 && brew link --overwrite --force node@22",
 }
-HF = {"running": False, "error": None}
 
 
 def _hub() -> Path:
@@ -89,28 +88,19 @@ def _hf_status() -> dict:
         d = doctor()
     except Exception as e:
         d = {"ok": False, "problems": [str(e)]}
+    from .hyper.autoinstall import STATE
     return {"ok": d.get("ok"), "version": d.get("hyperframes"), "pinned": (d.get("pinned") or {}).get("hyperframes"),
-            "node": d.get("node"), "problems": d.get("problems", []), "running": HF["running"], "error": HF["error"]}
-
-
-def _hf_install():
-    try:
-        from .hyper.runtime import install, ensure_browser
-        install()
-        ensure_browser()
-        HF["error"] = None
-    except Exception as e:
-        HF["error"] = f"Cài HyperFrames lỗi: {e}"[:400]
-    finally:
-        HF["running"] = False
+            "node": d.get("node"), "problems": d.get("problems", []), "running": STATE["running"], "stage": STATE["stage"],
+            "pct": STATE["pct"], "error": STATE["error"]}
 
 
 @router.post("/hyperframes")
 def start_hyperframes():
-    """cài đúng bản ghim (npm ci theo lockfile) + trình duyệt render. Không nâng phiên bản."""
-    if not HF["running"]:
-        HF.update(running=True, error=None)
-        threading.Thread(target=_hf_install, daemon=True).start()
+    """cài ngay (như lúc mở app): Node portable nếu thiếu → HyperFrames bản ghim → trình duyệt. Không nâng phiên bản."""
+    from .hyper.autoinstall import STATE, run
+    if not STATE["running"]:
+        STATE["running"] = True
+        threading.Thread(target=run, daemon=True, name="hyperframes-manual").start()
     return status()
 
 
