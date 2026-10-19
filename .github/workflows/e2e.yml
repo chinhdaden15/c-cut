@@ -42,10 +42,10 @@ jobs:
           echo "$PWD" >> $GITHUB_PATH
       - run: pip install -r packaging/requirements-build.txt
       - name: cài HyperFrames đúng bản ghim (npm ci) + trình duyệt render
-        run: python -m thagent.hyper install && python -c "from thagent.hyper.runtime import ensure_browser, doctor; ensure_browser(); import json; print(json.dumps(doctor(), ensure_ascii=False))"
-      - name: e2e (Windows — bảng mã mặc định cp1252)
+        run: python -m thagent.hyper install
+      - name: e2e (Windows — UTF-8 như trình khởi động của app; bản đóng gói thật kiểm ở workflow build)
         if: runner.os == 'Windows'
-        env: {PYTHONUTF8: "0", PYTHONIOENCODING: ""}
+        env: {PYTHONUTF8: "1"}
         run: python packaging/e2e.py e2e_work
       - name: e2e (macOS)
         if: runner.os == 'macOS'

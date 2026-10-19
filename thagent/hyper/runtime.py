@@ -77,6 +77,15 @@ def ffmpeg_exe() -> str | None:
 
 
 WRAPPER = TOOL_DIR / "chrome-wrapper.sh"
+CHROME_CACHE = Path.home() / ".cache" / "hyperframes" / "chrome"
+
+
+def managed_chrome() -> str | None:
+    """chrome-headless-shell do HyperFrames tải (bản khớp phiên bản ghim) — app LUÔN dùng bản này, không dùng Chrome cài sẵn
+    trên máy (CI Windows: Chrome hệ thống treo khi chạy --version → HyperFrames báo lỗi)."""
+    name = "chrome-headless-shell.exe" if os.name == "nt" else "chrome-headless-shell"
+    hits = sorted(CHROME_CACHE.glob(f"chrome-headless-shell/*/*/{name}"))
+    return str(hits[-1]) if hits else None
 
 
 def browser_wrapper() -> str | None:
@@ -84,15 +93,9 @@ def browser_wrapper() -> str | None:
     (--no-proxy-server — render chỉ đọc file cục bộ): loa/tai nghe lỗi → AudioContext lỗi → runtime không 'render-ready';
     VPN/proxy hệ thống (vd Cloudflare WARP) làm Chrome kẹt dò mạng ~8–15 phút mỗi lần mở. Cả hai đã đo trên máy dev.
     (macOS/Linux; Windows dùng trình duyệt mặc định của HyperFrames.)"""
-    if os.name == "nt":
-        return None
-    try:
-        r = subprocess.run([*cli_cmd(), "browser", "path"], env=_base_env(), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
-        real = (r.stdout.strip().splitlines() or [""])[-1]
-    except Exception:
-        return None
-    if not real or not Path(real).exists():
-        return None
+    real = managed_chrome()
+    if os.name == "nt" or not real:
+        return real
     body = f'#!/bin/sh\nexec "{real}" --disable-audio-output --mute-audio --no-proxy-server "$@"\n'
     if not WRAPPER.exists() or WRAPPER.read_text() != body:
         WRAPPER.write_text(body)
@@ -104,6 +107,8 @@ def env() -> dict:
     e = _base_env()
     if WRAPPER.exists() and os.name != "nt":
         e["HYPERFRAMES_BROWSER_PATH"] = str(WRAPPER)
+    elif managed_chrome():
+        e["HYPERFRAMES_BROWSER_PATH"] = managed_chrome()
     return e
 
 
@@ -148,13 +153,18 @@ def install(log=print) -> dict:
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     if r.returncode:
         raise RuntimeError("npm ci lỗi: " + (r.stderr or r.stdout)[-800:])
+    ensure_browser(log)
     return doctor()
 
 
 def ensure_browser(log=print) -> str | None:
-    r = run_cli(["browser", "ensure"], timeout=900)
-    if r.returncode != 0:
-        return None
+    if not managed_chrome():               # tải bản headless-shell riêng (bỏ qua Chrome hệ thống)
+        e = _base_env()
+        r = subprocess.run([*cli_cmd(), "browser", "ensure", "--force"], env=e, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=900)
+        if r.returncode != 0 or not managed_chrome():
+            log("tải trình duyệt render lỗi: " + (r.stdout + r.stderr)[-600:])
+            return None
     return browser_wrapper()
 
 
@@ -182,7 +192,9 @@ def doctor() -> dict:
     if not out["ffmpeg"]:
         out["problems"].append("không thấy ffmpeg")
     out["chrome"] = None
-    if not out["problems"] and not WRAPPER.exists():
+    if not out["problems"] and not managed_chrome():
+        out["problems"].append("chưa có trình duyệt render riêng của HyperFrames — chạy: python -m thagent.hyper install")
+    elif not out["problems"] and os.name != "nt" and not WRAPPER.exists():
         browser_wrapper()
     if not out["problems"]:
         try:

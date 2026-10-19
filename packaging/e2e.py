@@ -179,6 +179,7 @@ def _api():
         assert r.status_code == 200, f"GET {path} → {r.status_code} {r.text[:300]}"
         out[path] = r.status_code
     st = c.get("/api/ccut/setup").json()
+    os.environ["CCUT_PROJECTS"] = str(WORK / "projects")      # server đặt lại CCUT_PROJECTS theo thư mục đang mở — trả về cho các mục sau
     assert "hyperframes" in st, "thiết lập thiếu mục HyperFrames"
     html = c.get("/").text
     for k in ("rvCat", "cong_nghe", "my_pham", "am_thuc", "instHF"):
