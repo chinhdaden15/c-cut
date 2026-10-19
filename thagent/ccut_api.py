@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import pipeline as P
 
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.6.2"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -426,7 +426,7 @@ def _review_files(paths: list[Path]) -> tuple[list[str], list[str]]:
     return clips, refs
 
 
-def _add_review(paths: list[Path]) -> list[str]:
+def _add_review(paths: list[Path], script: str | None = None) -> list[str]:
     clips, refs = _review_files(paths)
     if not clips:
         return []
@@ -435,8 +435,9 @@ def _add_review(paths: list[Path]) -> list[str]:
     item = next((q for q in STATE["queue"] if q.get("kind") == "review" and q["path"] == str(root) and q["status"] == "wait"), None)
     if item:     # thêm tư liệu vào review đang chờ
         item["clips"] = sorted(set(item["clips"]) | set(clips)); item["refs"] = sorted(set(item.get("refs", [])) | set(refs))
+        item["script"] = script or item.get("script")
     else:
-        item = {"path": str(root), "name": name, "kind": "review", "clips": clips, "refs": refs, "status": "wait", "project": None, "script": None}
+        item = {"path": str(root), "name": name, "kind": "review", "clips": clips, "refs": refs, "status": "wait", "project": None, "script": script}
         STATE["queue"].append(item)
     item["meta"] = f"{len(item['clips'])} tư liệu" + (f" · {len(item['refs'])} tham khảo" if item.get("refs") else "")
     return [name]
@@ -598,7 +599,19 @@ class FolderAddIn(BaseModel):
 def folder_add(body: FolderAddIn):
     d = Path(body.path).expanduser()
     if load_settings().get("style") == REVIEW:
-        added = _add_review([d]); save_queue()
+        if body.mode == "one":           # cả thư mục = 1 video review
+            added = _add_review([d], body.scripts.get("__whole__") or next((v for v in body.scripts.values() if v), None))
+        else:                            # mỗi file video = 1 video review riêng (tham_khao/ dùng chung)
+            _, refs = _review_files([d])
+            added = []
+            for f in _videos(d):
+                if f.suffix.lower() not in VIDEO_EXT or any(q["path"] == str(f) for q in STATE["queue"]):
+                    continue
+                STATE["queue"].append({"path": str(f), "name": f.stem, "kind": "review", "clips": [str(f)], "refs": refs,
+                                       "status": "wait", "project": None, "script": body.scripts.get(f.name),
+                                       "meta": "1 tư liệu" + (f" · {len(refs)} tham khảo" if refs else "")})
+                added.append(f.name)
+        save_queue()
         return {"added": added}
     if load_settings().get("style") == V2M:      # không có trường hợp nhiều file = 1 nội dung
         mats = _materials(d)
@@ -873,6 +886,8 @@ def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
                   + (f"(lĩnh vực {rv['category']}, phong cách {rv['style']}, mức {rv['intensity']}, tỷ lệ {'+'.join(rv['formats'])}, "
                      f"thời lượng {rv['duration'] or 'tự chọn'}, phụ đề {'bật' if rv['subtitles'] else 'tắt'}). ")
                   + (f"Video tham khảo phong cách: {len(item.get('refs') or [])} file (CHỈ học cách dựng). " if item.get("refs") else "")
+                  + (f"Có kịch bản người dùng: {pdir}/script.txt — bám mạch, thứ tự và chính tả theo kịch bản. " if item.get("script")
+                     else "KHÔNG có kịch bản — tự dựng mạch review từ lời nói và tư liệu (chọn take tốt nhất, sắp thứ tự hợp lý). ")
                   + "Làm theo workflow rồi ghi plan_ready.json.", show=False)
         _wait_plan(sess, item, job)
     job["done"].append("select"); job["stage"] = "build"

@@ -548,28 +548,27 @@ async function openFolder(path){
   try{F=await post('/api/ccut/folder/inspect',{path})}catch(e){toast(e.message);return}
   $('#fName').textContent=path.split(/[\\/]/).filter(Boolean).pop();
   F.guess=F.mode;F.review=S&&S.settings&&S.settings.style==='review-editor';
-  const fm=document.querySelector('#folderBox .fmode');           // Review: không hỏi chế độ (cả thư mục = 1 review)
-  fm.style.display=F.review?'none':'';fm.previousElementSibling.style.display=F.review?'none':'';
-  setMode(F.review?'one':F.mode);$('#folderBox').classList.add('show');
+  if(F.review){                                                   // Review: tách tham_khao/ khỏi danh sách; mặc định cả thư mục = 1 review
+    F.all=F.videos;F.guess='one';F.reason='thư mục con tham_khao/ = video tham khảo phong cách, không dựng';}
+  setMode(F.guess);$('#folderBox').classList.add('show');
 }
 function setMode(m){
   F.mode=m;document.querySelectorAll('.fmode label').forEach(l=>l.classList.toggle('on',l.dataset.m===m));
-  $('#fReason').textContent=F.review?'Style Review: cả thư mục là MỘT video review (thư mục con tham_khao/ = video tham khảo). Ghi chú, nội dung bắt buộc giữ/cần loại nhập ở khung Review.'
+  if(F.review)F.videos=m==='one'?F.all:F.all.filter(v=>/\.(mov|mp4|m4v|mkv|avi|webm|mts)$/i.test(v.name));   // mỗi video = 1 review: bỏ file âm thanh/ảnh rời
+  $('#fReason').textContent=F.review?`Style Review — ${F.reason}. Ghi chú, nội dung bắt buộc giữ/cần loại nhập ở khung Review.`
     :`App đoán: ${F.guess==='one'?'các đoạn của 1 video':'video riêng'} — ${F.reason}`;
   if(m==='one'){
     const names=`<div class="src" style="margin-top:2px">${F.videos.map(v=>esc(v.name)).join(', ')}</div>`;
-    if(F.review){
-      $('#fList').innerHTML=`<div class="frow"><div class="n">${F.videos.length} file${names}</div></div>`;
-      $('#fAdd').disabled=false;$('#fNote').textContent=`${F.videos.length} file → 1 video review · Claude tự xem tư liệu, chọn take, ghép lời với B-roll`;return;
-    }
-    $('#fList').innerHTML=`<div class="frow"><div class="n">${F.videos.length} đoạn${names}<div class="src" style="margin-top:8px">${F.whole_script?'Kịch bản: '+esc(F.scripts[0]):'Kịch bản (không bắt buộc) — có thì Claude ghép đúng thứ tự và chính tả theo kịch bản'}</div><textarea id="fWhole" rows="6" placeholder="Dán kịch bản nếu có. Để trống: Claude tự nghe các đoạn, gom các lần nói lại, chọn take tốt nhất và sắp thứ tự theo mạch lời nói.">${esc(F.whole_script||'')}</textarea></div></div>`;
+    $('#fList').innerHTML=`<div class="frow"><div class="n">${F.videos.length} ${F.review?'file':'đoạn'}${names}<div class="src" style="margin-top:8px">${F.whole_script?'Kịch bản: '+esc(F.scripts[0]):'Kịch bản (không bắt buộc) — có thì Claude ghép đúng thứ tự và chính tả theo kịch bản'}</div><textarea id="fWhole" rows="6" placeholder="Dán kịch bản nếu có. Để trống: Claude tự nghe các đoạn, gom các lần nói lại, chọn take tốt nhất và sắp thứ tự theo mạch lời nói.">${esc(F.whole_script||'')}</textarea></div></div>`;
     const chk=()=>{const ok=$('#fWhole').value.trim().length>0;$('#fAdd').disabled=false;
-      $('#fNote').textContent=`${F.videos.length} đoạn → 1 video · `+(ok?'Claude chọn take, ghép theo kịch bản':'không có kịch bản: Claude tự sắp thứ tự theo lời nói, chọn take tốt nhất');};
+      $('#fNote').textContent=`${F.videos.length} ${F.review?'file → 1 video review':'đoạn → 1 video'} · `+(ok?'Claude chọn take, ghép theo kịch bản':'không có kịch bản: Claude tự sắp thứ tự theo lời nói, chọn take tốt nhất');};
     $('#fWhole').oninput=chk;chk();return;
   }
   $('#fAdd').disabled=false;
   const n=F.videos.filter(v=>v.script).length;
-  $('#fNote').textContent=`${F.videos.length} video · ${n} có kịch bản`+(F.scripts.length?` · tìm thấy ${F.scripts.length} file kịch bản`:'');
+  const skip=F.review?F.all.length-F.videos.length:0;
+  $('#fNote').textContent=`${F.videos.length} video${F.review?' review riêng':''} · ${n} có kịch bản (không có thì Claude tự dựng)`+(F.scripts.length?` · tìm thấy ${F.scripts.length} file kịch bản`:'')
+    +(skip?` · bỏ ${skip} file âm thanh/ảnh rời (chỉ dùng được khi cả thư mục = 1 video)`:'');
   $('#fList').innerHTML=F.videos.map((v,i)=>`<div class="frow"><div class="n">${esc(v.name)}
     <div class="src">${v.script?'📄 '+esc(v.source)+' · '+esc(v.script.slice(0,70))+(v.script.length>70?'…':''):'Chưa có kịch bản'}</div>
     <textarea rows="5" data-i="${i}" hidden placeholder="Dán kịch bản cho video này">${esc(v.script||'')}</textarea></div>
