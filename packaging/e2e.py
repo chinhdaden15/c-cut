@@ -364,24 +364,21 @@ def _rv_edit(P, hf=False):
     g, i = min((x for x in gaps if x[0] >= 0.3), key=lambda x: abs(ws[x[1]]["end"] - mid_t), default=max(gaps))   # nghỉ gần giữa clip
     cut = round(ws[i]["end"] + min(0.25, g / 2), 2)
     nxt = round(max(cut + 0.01, ws[i + 1]["start"] - 0.15), 2)
+    a = max(0.0, round(ws[0]["start"] - 0.15, 2))
+    hfx = {"engine": "hyperframes"} if hf else {}
     e = {"category": "cong_nghe", "style": "truc_tiep", "intensity": "can_bang", "formats": ["9x16", "16x9"], "fps": 30, "subtitles": True,
          "auto_zoom": True, "keep_terms": ["mAh"],
          "segments": [
-             {"id": "S1", "src": talk, "in": max(0.0, round(ws[0]["start"] - 0.15, 2)), "out": cut, "role": "talk", "clean": False,
-              "say": "mở hộp", "why": "kiểm thử",
-              "cutaways": [{"src": br, "in": 0.2, "at": round(max(2.4, cut - max(0.0, ws[0]["start"] - 0.15) - 1.6), 2),
-                            "dur": round(min(1.6, cut - max(0.0, ws[0]["start"] - 0.15) - 2.4), 2), "why": "cầm máy — chạy tới hết đoạn"}],
-              "texts": [{"role": "emph", "text": "Mở hộp điện thoại", "sub": "Công nghệ", "at": 0.15, "dur": 0.9},
-                        {"role": "label", "text": "Hộp máy", "track": "obj", "at": 0.9, "dur": 1.4, **({"engine": "hyperframes"} if hf else {})},
-                        {"role": "spotlight", "track": "obj", "at": 0.9, "dur": 1.4, **({"engine": "hyperframes"} if hf else {})}]},
-             {"id": "S2", "src": talk, "in": nxt, "out": end, "role": "talk", "pause": "lon",
-              "say": "so sánh", "why": "kiểm thử",
-              "texts": [{"role": "compare", "title": "So với đời trước", "cols": ["Mới", "Cũ"],
+             {"id": "S1", "src": talk, "in": a, "out": end, "role": "talk", "clean": False, "say": "mở hộp + so sánh", "why": "kiểm thử",
+              "cutaways": [{"src": br, "in": 0.2, "at": 2.6, "dur": 1.6, "why": "cầm máy"}],
+              "texts": [{"role": "emph", "text": "Mở hộp điện thoại", "sub": "Công nghệ", "at": 0.15, "dur": 1.0},
+                        {"role": "label", "text": "Hộp máy", "track": "obj", "at": 1.2, "dur": 1.3, **hfx},
+                        {"role": "spotlight", "track": "obj", "at": 1.2, "dur": 1.3, **hfx},
+                        {"role": "compare", "title": "So với đời trước", "cols": ["Mới", "Cũ"],
                          "rows": [["Màn hình", "6,7 inch", "6,1 inch"], ["Pin", "5.000 mAh", "4.500 mAh"]], "win": [1, 1],
-                         "at": 0.3, "dur": 2.4, **({"engine": "hyperframes"} if hf else {})},
-                        {"role": "info", "text": "Kịch bản mẫu", "sub": "Ghi chú", "at": 2.8, "dur": 1.3,
-                         **({"engine": "hyperframes"} if hf else {})},
-                        {"role": "stat", "value": 5000, "unit": "mAh", "label": "Pin", "at": 4.2, "dur": 1.3}]}]}
+                         "at": 4.6, "dur": 2.4, **hfx},
+                        {"role": "info", "text": "Kịch bản mẫu", "sub": "Ghi chú", "at": 7.3, "dur": 1.3, **hfx},
+                        {"role": "stat", "value": 5000, "unit": "mAh", "label": "Pin", "at": 8.9, "dur": 1.3}]}]}
     return e
 
 
