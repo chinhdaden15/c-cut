@@ -56,6 +56,8 @@ def _no_inherit_stdin():
                 # (close_fds=False: không dùng PROC_THREAD_ATTRIBUTE_HANDLE_LIST); lần 3 → chờ chút rồi thử lại (lỗi chập chờn)
                 if getattr(e, "winerror", None) != 50 or attempt == 3:
                     raise
+                if hasattr(self, "_devnull"):    # Popen lỗi đã ĐÓNG tay cầm NUL nhưng vẫn giữ trong đệm → lần thử lại dùng
+                    del self._devnull             # tay cầm chết (WinError 6 "handle is invalid") — bỏ để mở tay cầm mới
                 if attempt == 0:
                     for k in ("stdout", "stderr"):
                         if kw.get(k) is None:
