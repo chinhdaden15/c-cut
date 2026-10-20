@@ -197,14 +197,14 @@ def _prompt_docs():
     return f"{len(refs)} tài liệu"
 
 
-@case("common", "bản quyền skill: Talking Head miễn phí, skill bán bị chặn khi chưa mua/không có lượt thử, mã giả bị từ chối")
+@case("common", "bản quyền skill: mọi skill bán (Talking Head, Review, Voice to Motion) bị chặn khi chưa mua/không có lượt thử, mã giả bị từ chối")
 def _license():
     import base64
     from thagent import license as L
     real = L.STORE
     L.STORE = WORK / "license_empty.json"
     try:
-        assert L.require("talking-head-style", "p") == "free"
+        assert "talking-head-style" in L.PAID and not L.FREE, "Talking Head phải là skill bán"
         for sk in L.PAID:
             try:
                 L.require(sk, "p-e2e")
@@ -521,6 +521,7 @@ def _th():
     from thagent import pipeline as Pp
     from thagent.preflight import check
     pid = "e2e_th"
+    Pp.PROJECTS = Path(os.environ["CCUT_PROJECTS"])     # bài API (load_settings) có thể đã trỏ PROJECTS sang thư mục làm việc của app
     shutil.rmtree(Pp.PROJECTS / pid, ignore_errors=True)
     c = Pp.Ctx(pid, log=lambda m: None)
     Pp.step_ingest(c, str(FIX / "presenter.mp4"))

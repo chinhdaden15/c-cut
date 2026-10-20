@@ -2,6 +2,9 @@ name = "ccut-license"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
+[assets]                  # video hướng dẫn (public/video/*) — trang /huong-dan
+directory = "./public"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "ccut_license"

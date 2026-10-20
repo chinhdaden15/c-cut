@@ -160,6 +160,8 @@ def denoise_voice(src: str, out: str, log=print, sr=48000):
 
 
 def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None) -> dict:
+    from .license import require
+    require("talking-head-style", c.dir, c.log)          # skill bán: đã mua hoặc còn lượt thử (1 lượt = 1 dự án)
     plan = plan or c.project.plan
     T.build_mapping(plan)
     from .channels import theme

@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "1.7.1"
+APP_VERSION = "1.7.2"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1085,6 +1085,7 @@ def _run_queue(settings: dict):
         c = P.Ctx(pid, log, cancel=lambda: job["cancel"])
         try:
             from . import agent as A
+            L.can_start(settings.get("style") or "talking-head-style", pid)    # skill bán: hết lượt thử → báo ngay
             src = item["path"]
             if multi:
                 src = str(_run_multi(item, pid, job, settings, log))

@@ -6,6 +6,7 @@ Trả về danh sách lỗi (error) / cảnh báo (warn); error > 0 → không r
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import subprocess
 import sys
 from collections import Counter
@@ -131,6 +132,7 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     # 5) quy tắc nội dung chữ + Motion Graphics
     out.extend(text_rules(pl, c.project.words, fps))
     out.extend(gaze_rules(pl, c.project.words, c.path("work", "gaze.json"), fps))
+    out.extend(entity_rules(pl, c.project.words, c.dir, fps))
     out.extend(point_rules(pl, c.path("work", "pointing.json"), fps))
     # 5b) lớp HyperFrames (công cụ dựng chung): spec hợp lệ, công cụ sẵn sàng (không có → bị chặn, báo rõ)
     from .th_hf import check as hf_check
@@ -294,6 +296,25 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
         else:
             out.append(("warn", f"quay đi, không nhìn máy {T.tc(a)}→{T.tc(b)} ({(b - a) / fps:.1f}s) — xem ảnh: giới thiệu không gian thì giữ, còn lại che MG"))
     return out
+
+
+def entity_rules(pl, words, pdir, fps: int) -> list[tuple[str, str]]:
+    """nói tên dự án/địa danh/thương hiệu trong cảnh MG có ảnh → phải có ảnh THẬT của đúng chủ thể (w_*) — thagent/entities.py"""
+    from . import entities as E, mg as M
+    ws = []
+    for w in words or []:
+        f = T.src_to_tl(pl, w.source_start)
+        if f is not None:
+            ws.append((w.text, f / fps))
+    scenes = []
+    for seg in pl.mg:
+        for k, sc in enumerate(seg["scenes"]):
+            ims = []
+            for e in M.layout_scene(sc)["elements"]:
+                for it in (e["items"] if e["type"] == "photos" else [e] if e["type"] == "photo" else []):
+                    ims.append({"file": Path(it["file"]).name, "label": it.get("label", ""), "real": Path(it["file"]).name.startswith(("w_", "c_"))})
+            scenes.append({"id": f"{seg['id']}/cảnh {k + 1}", "t0": sc["start"] / fps, "t1": sc["end"] / fps, "images": ims})
+    return E.check(pdir, ws, scenes, lambda im: im["real"])
 
 
 def point_rules(pl, point_file, fps: int) -> list[tuple[str, str]]:

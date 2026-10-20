@@ -18,6 +18,7 @@ DOCS = {   # file .md → (mã nguồn, tiêu đề)
     "review-edit.md": ("thagent/review/edit.py", "review/edit.json — bản dựng Review"),
     "hyperframes-spec.md": ("thagent/hyper/spec.py", "Spec job HyperFrames (dùng chung mọi skill)"),
     "talking-head-hf.md": ("thagent/th_hf.py", "plan.hf — lớp HyperFrames trong Talking Head"),
+    "entities.md": ("thagent/entities.py", "entities.json — chủ thể có tên (dự án, địa danh…) + ảnh thật"),
 }
 
 

@@ -2,7 +2,7 @@
 // App: /v1/status, /v1/trial, /v1/activate. Mua (trong nước, chuyển khoản QR): /v1/products, /v1/order, /mua.
 // Ngân hàng báo tiền về (SePay): /v1/webhook/sepay. Quản lý: /admin (ADMIN_TOKEN).
 // Bí mật: ADMIN_TOKEN, SEPAY_API_KEY, SIGNING_KEY (Ed25519 PKCS8 base64 — app giữ khoá công khai để kiểm mã offline).
-import { BUY_HTML, ADMIN_HTML } from "./pages.js";
+import { BUY_HTML, ADMIN_HTML, GUIDE_HTML } from "./pages.js";
 
 const now = () => Math.floor(Date.now() / 1000);
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type, authorization",
@@ -222,6 +222,7 @@ export default {
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
     try {
       if (p === "/" || p === "/mua") return html(BUY_HTML);
+      if (p === "/huong-dan" || p === "/huong-dan/") return html(GUIDE_HTML);
       if (p === "/admin") return html(ADMIN_HTML);
       if (p.startsWith("/admin/api/")) return await admin(env, req, p.slice(11));
       if (p === "/v1/products") return await products(env);

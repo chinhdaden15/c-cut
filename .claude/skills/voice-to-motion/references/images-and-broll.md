@@ -24,6 +24,9 @@ không để nhiều cảnh liền nhau chỉ toàn icon. Mức gợi ý: mỗi 
   bài báo về dự án (Báo Đầu Tư, VnExpress, CafeLand…) — ảnh phối cảnh hoặc ảnh chụp thực tế của chính dự án đó.
   TUYỆT ĐỐI không thay bằng ảnh minh họa chung (nhà phố khác, phố cổ…) khi lời đang nói tên dự án.
   Tìm kỹ mà vẫn không có ảnh thật → dùng bản đồ vị trí / sơ đồ / chữ tên dự án, KHÔNG dùng ảnh của nơi khác.
+  **App kiểm (check)**: ghi `entities.json` ở thư mục dự án — `[{"name": "Vinhomes Central Park", "aka": ["Vinhomes Tân Cảng"], "photos": ["w_vhcp_1.jpg"], "no_photo": null}]`;
+  ảnh trong `photos` dựng với `real=True`, nguồn là URL trang; cảnh đang nói tên chủ thể phải có ảnh của nó (không có ảnh thật → `"no_photo": "lý do"`,
+  dùng bản đồ/chữ tên). Không có chủ thể nào → `[]`. Nội thất/tiện ích/khái niệm nói chung chung vẫn dùng ảnh minh họa.
 - **Ảnh minh họa** (khái niệm, cảnh chung): nhãn trên video: “Hình ảnh minh họa”.
 - **Trên video KHÔNG ghi nguồn** — chỉ ghi “Hình ảnh minh họa” / “Hình ảnh thực tế” (người dùng tự ghi nguồn khi đăng bài).
   Nguồn vẫn BẮT BUỘC lưu khi tải (`assets_web/illus_sources.json`) để app hiện ở mục “Nguồn và bản quyền”.

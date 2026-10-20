@@ -1,4 +1,4 @@
-"""Bản quyền skill C-Cut: Talking Head miễn phí; skill bán (PAID) dùng thử 2 video/skill/máy, mua thì mở khoá vĩnh viễn trên 1 máy.
+"""Bản quyền skill C-Cut: mọi skill bán (PAID) dùng thử 2 video/skill/máy, mua thì mở khoá vĩnh viễn trên 1 máy.
 
 - Mã thiết bị: băm mã phần cứng có sẵn của máy (Windows MachineGuid, Mac IOPlatformUUID) → cài lại app/Windows vẫn ra đúng mã.
 - Máy chủ (license-server/, Cloudflare Worker) KÝ mọi quyền dùng bằng Ed25519; app chỉ giữ khoá công khai → không giả được mã/lượt thử,
@@ -27,8 +27,8 @@ from .paths import ROOT
 
 SERVER = (os.environ.get("CCUT_LICENSE_URL") or "https://ccut-license.dvchinh155.workers.dev").rstrip("/")   # mọi phản hồi đều đã ký
 PUBLIC_KEY = bytes.fromhex("c3885110c50b9b67aacca1ff0f0734e166eebe9c432e90a57863a19b7a41994a")   # Ed25519 — CỐ ĐỊNH, không cho đổi qua biến môi trường
-FREE = {"talking-head-style"}
-PAID = {"review-editor": "Skill Review", "voice-to-motion": "Skill Voice to Motion"}
+FREE: set[str] = set()                     # không còn skill miễn phí (skill người dùng tự tạo bằng newskill không thuộc PAID → tự do)
+PAID = {"talking-head-style": "Skill Talking Head", "review-editor": "Skill Review", "voice-to-motion": "Skill Voice to Motion"}
 COMBO = "all"
 STORE = Path(os.environ.get("CCUT_LICENSE_STORE") or ROOT / "license.json")   # nội dung đã ký → đổi chỗ lưu không mở khoá được gì
 _LOCK = threading.Lock()

@@ -134,6 +134,18 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
                 out.append(("error", f"{sc['id']}: {ex}"))
     if prev < tl.duration - 0.05:
         out.append(("error", f"cảnh cuối dừng ở {prev:.2f}s, voice dài {tl.duration:.2f}s"))
+    # nói tên dự án/địa danh/thương hiệu trong cảnh có ảnh → ảnh THẬT của đúng chủ thể (real=True) — thagent/entities.py
+    try:
+        from .. import entities as E
+        tr = json.loads((pdir / "transcript.json").read_text(encoding="utf-8"))
+        ws = [(w["text"], float(w["start"])) for w in tr.get("words", [])]
+        scs = [{"id": sc["id"], "t0": sc["start_s"], "t1": sc["end_s"],
+                "images": [{"file": Path(str(o["src"])).name, "label": o.get("label", ""), "real": o.get("label") == "Hình ảnh thực tế"}
+                           for o in tl.objs.values() if o["type"] in ("image", "video") and o.get("_scene") == sc["id"] and "assets_web/" in str(o.get("src", ""))]}
+               for sc in tl.scenes]
+        out += E.check(pdir, ws, scs, lambda im: im["real"])
+    except FileNotFoundError:
+        pass
     for o in tl.objs.values():
         if o["type"] == "image":
             if not Path(tl.path(o["src"])).is_file():

@@ -2,3 +2,4 @@ node_modules/
 .wrangler/
 .dev.vars
 .test_pub
+public/video/*.mp4
