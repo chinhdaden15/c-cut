@@ -5,7 +5,7 @@ compatibility_date = "2026-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "ccut_license"
-database_id = "00000000-0000-0000-0000-000000000000"   # điền sau khi tạo: npx wrangler d1 create ccut_license
+database_id = "d465ed25-932d-4b64-8f97-64f9969b5176"
 migrations_dir = "migrations"
 
 # Bí mật (không ghi ở đây): npx wrangler secret put ADMIN_TOKEN | SEPAY_API_KEY | SIGNING_KEY

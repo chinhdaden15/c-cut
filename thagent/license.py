@@ -25,7 +25,7 @@ from pathlib import Path
 
 from .paths import ROOT
 
-SERVER = os.environ.get("CCUT_LICENSE_URL", "").rstrip("/") or ""          # điền khi đưa máy chủ lên mạng (phần 3)
+SERVER = (os.environ.get("CCUT_LICENSE_URL") or "https://ccut-license.dvchinh155.workers.dev").rstrip("/")   # mọi phản hồi đều đã ký
 PUBLIC_KEY = bytes.fromhex("c3885110c50b9b67aacca1ff0f0734e166eebe9c432e90a57863a19b7a41994a")   # Ed25519 — CỐ ĐỊNH, không cho đổi qua biến môi trường
 FREE = {"talking-head-style"}
 PAID = {"review-editor": "Skill Review", "voice-to-motion": "Skill Voice to Motion"}
