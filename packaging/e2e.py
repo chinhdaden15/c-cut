@@ -543,6 +543,10 @@ def _th():
                  {"id": "title", "start": 10, "end": min(pl.duration_frames, 100), "layer": "behind_subject", "spec": {"layers": [
                      {"type": "text", "text": "SERUM", "font": "black", "size": 130, "x": "50%", "y": "40%", "start": 0,
                       "duration": round((min(pl.duration_frames, 100) - 10) / 30, 3), "enter": {"type": "pop"}}]}}]
+        D = pl.duration_frames                   # đoạn kết: hình nhân vật + chữ kết (quy tắc mở đầu/kết của Talking Head)
+        pl.hf.append({"id": "outro", "start": max(0, D - 60), "end": D, "layer": "front", "spec": {"layers": [
+            {"type": "text", "text": "ĐĂNG KÝ KÊNH", "font": "black", "size": 96, "x": "50%", "y": "70%", "start": 0,
+             "duration": round(min(D, 60) / 30, 3), "enter": {"type": "pop"}}]}})
         for L in pl.hf[0]["spec"]["layers"]:
             for k in [k for k, v in L.items() if v is None]:
                 L.pop(k)

@@ -197,6 +197,7 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     out.extend(text_rules(pl, c.project.words, fps))
     out.extend(gaze_rules(pl, c.project.words, c.path("work", "gaze.json"), fps))
     out.extend(entity_rules(pl, c.project.words, c.dir, fps))
+    out.extend(open_close_rules(pl, c.project.words, fps))
     out.extend(point_rules(pl, c.path("work", "pointing.json"), fps))
     # 5b) lớp HyperFrames (công cụ dựng chung): spec hợp lệ, công cụ sẵn sàng (không có → bị chặn, báo rõ)
     from .th_hf import check as hf_check
@@ -352,15 +353,66 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
                 if f is not None and a <= f < b and g.get("down") and not any(x <= f < y for x, y in covers):
                     out.append(("error", f"{m['id']}: chuyển cảnh {name} @ {T.tc(f)} lộ cảnh cúi nhìn điện thoại — dời mốc MG"))
                     break
+    h, e = open_close(pl, words, fps)
     for a, b, nd in runs:
         if b - a < fps:
             continue
+        if a < h or b > e:
+            out.append(("warn", f"không nhìn máy {T.tc(a)}→{T.tc(b)} nằm trong đoạn mở đầu/kết — giữ hình nhân vật (không che MG); "
+                                "nếu cúi đọc kịch bản thì chọn take/câu khác cho hook/kết hoặc cắt bỏ khúc đó"))
+            continue
         if nd >= 2:
-            tail = b >= pl.duration_frames - fps // 2
-            out.append(("error", f"cúi nhìn điện thoại/kịch bản {T.tc(a)}→{T.tc(b)} ({(b - a) / fps:.1f}s) chưa được MG/ảnh che — chỉ lấy tiếng"
-                        + (" (đuôi video, vẫn còn tiếng nói: kéo MG cuối phủ tới hết video, hoặc thêm cảnh MG kết ≥2.5s kết thúc đúng cuối video)" if tail else "")))
+            out.append(("error", f"cúi nhìn điện thoại/kịch bản {T.tc(a)}→{T.tc(b)} ({(b - a) / fps:.1f}s) chưa được MG/ảnh che — chỉ lấy tiếng"))
         else:
             out.append(("warn", f"quay đi, không nhìn máy {T.tc(a)}→{T.tc(b)} ({(b - a) / fps:.1f}s) — xem ảnh: giới thiệu không gian thì giữ, còn lại che MG"))
+    return out
+
+
+def open_close(pl, words, fps: int) -> tuple[int, int]:
+    """(cuối đoạn mở đầu, đầu đoạn kết) theo frame timeline: câu nói đầu / câu nói cuối, mỗi đoạn 2–6s."""
+    D = pl.duration_frames
+    tl = sorted((f, T.src_to_tl(pl, w.source_end) or f, w.text) for w in words or [] if (f := T.src_to_tl(pl, w.source_start)) is not None)
+    if not tl:
+        return min(D, 3 * fps), max(0, D - 3 * fps)
+    lo, hi = 2 * fps, 6 * fps
+
+    def sent_end(i0, step):                       # đi theo câu: dừng ở dấu kết câu hoặc khoảng ngừng > 0.5s
+        i = i0
+        while 0 <= i + step < len(tl):
+            a, b = (tl[i], tl[i + step]) if step > 0 else (tl[i + step], tl[i])
+            if a[2].rstrip()[-1:] in ".!?" or b[0] - a[1] > fps // 2:
+                break
+            i += step
+        return i
+    h = tl[sent_end(0, 1)][1]
+    e = tl[sent_end(len(tl) - 1, -1)][0]
+    h = min(max(h, tl[0][0] + lo), tl[0][0] + hi, D)
+    e = max(min(e, D - lo), D - hi, 0)
+    return int(h), int(e)
+
+
+def open_close_rules(pl, words, fps: int) -> list[tuple[str, str]]:
+    """Talking Head: đoạn mở đầu (hook) và đoạn kết LUÔN là hình nhân vật + chữ — không Motion Graphics / b-roll toàn khung."""
+    from . import mg as M
+    h, e = open_close(pl, words, fps)
+    out = []
+    M.chain(pl.mg)
+    covers = [(m["id"], *M.covered_range(m)) for m in pl.mg] + [(v.id, v.start, v.end) for v in pl.visuals
+                                                                 if v.enabled and v.zone == "fullscreen"]     # ảnh/b-roll toàn khung che người
+    for cid, a, b in covers:
+        if a < h:
+            out.append(("error", f"{cid} ({T.tc(a)}→{T.tc(b)}) che đoạn mở đầu (hook, tới {T.tc(h)}) — hook phải là hình nhân vật + chữ hook, "
+                                 f"dời MG bắt đầu từ {T.tc(h)} trở đi"))
+        if b > e:
+            out.append(("error", f"{cid} ({T.tc(a)}→{T.tc(b)}) che đoạn kết (từ {T.tc(e)}) — đoạn kết phải là hình nhân vật + chữ kết, "
+                                 f"cho MG kết thúc trước {T.tc(e)}"))
+    spans = [(g.start, g.end) for g in pl.text_groups if g.enabled] + \
+            [(int(it["start"]), int(it["end"])) for it in (getattr(pl, "hf", None) or [])        # chữ dựng bằng HyperFrames cũng tính
+             if any(L.get("type") == "text" for L in (it.get("spec") or {}).get("layers", []))]
+    if not any(a <= fps and b > a for a, b in spans):
+        out.append(("error", f"đoạn mở đầu chưa có chữ hook trong 1s đầu — thêm tiêu đề/con số hook trên hình nhân vật (tới {T.tc(h)})"))
+    if not any(b > e and a < pl.duration_frames for a, b in spans):
+        out.append(("error", f"đoạn kết ({T.tc(e)}→hết) chưa có chữ kết — thêm chữ kết/CTA trên hình nhân vật"))
     return out
 
 
