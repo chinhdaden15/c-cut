@@ -234,6 +234,8 @@ def render(pdir, *fmts, progress=print):
     """render <dự-án> [9x16|16x9|both] — mặc định: định dạng của timeline.json (dọc nếu không ghi).
     Mỗi định dạng dùng timeline bố cục riêng (timeline_<fmt>.json), dựng và kiểm tra RIÊNG."""
     pdir = Path(pdir)
+    from ..license import require
+    require("voice-to-motion", pdir, progress)          # skill bán: đã mua hoặc còn lượt thử (1 lượt = 1 dự án)
     want = [f for f in fmts if not str(f).startswith("-")]
     have = [f for f in ("9x16", "16x9") if (pdir / f"timeline_{f}.json").exists()]
     if not want:   # mặc định: dự án có bố cục cả hai tỷ lệ → xuất cả hai; dự án cũ chỉ có timeline.json → như trước
@@ -266,6 +268,8 @@ def _render_one_cli(pdir, fmt, vdir):
 
 
 def _render_one(pdir, fmt, progress=print, vdir=None):
+    from ..license import require
+    require("voice-to-motion", pdir, progress)          # cũng chặn khi gọi thẳng lệnh con _render_one
     FMT["value"] = fmt
     issues = validate(pdir)
     errs = [m for s, m in issues if s == "error"]

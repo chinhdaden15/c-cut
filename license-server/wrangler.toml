@@ -1,0 +1,11 @@
+name = "ccut-license"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ccut_license"
+database_id = "00000000-0000-0000-0000-000000000000"   # điền sau khi tạo: npx wrangler d1 create ccut_license
+migrations_dir = "migrations"
+
+# Bí mật (không ghi ở đây): npx wrangler secret put ADMIN_TOKEN | SEPAY_API_KEY | SIGNING_KEY

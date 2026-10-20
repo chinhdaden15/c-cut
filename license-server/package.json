@@ -1,0 +1,15 @@
+{
+ "name": "ccut-license-server",
+ "private": true,
+ "type": "module",
+ "scripts": {
+  "dev": "wrangler dev --local --port 8787",
+  "migrate:local": "wrangler d1 migrations apply ccut_license --local",
+  "migrate:remote": "wrangler d1 migrations apply ccut_license --remote",
+  "deploy": "wrangler deploy",
+  "test": "node test/run.mjs"
+ },
+ "devDependencies": {
+  "wrangler": "4.146.0"
+ }
+}
