@@ -237,6 +237,19 @@ Dự án: id `{pid}`, thư mục `{pdir}`. ĐỌC .claude/skills/{style}/SKILL.m
 STYLE_PROMPTS = {"talking-head-style": SYSTEM, "voice-to-motion": SYSTEM_V2M, "review-editor": SYSTEM_REVIEW}
 
 
+FACT_RULES = """
+KHÔNG BỊA THÔNG TIN (mọi skill, bắt buộc):
+- Tên kênh, thương hiệu, tên người, tên dự án/sản phẩm CHỈ được đưa lên màn hình khi có NGUỒN: kịch bản (script.txt), kênh người dùng
+  chọn trong app, ghi chú/tuỳ chọn người dùng, hoặc lời nói nghe rõ (từ có confidence > 0). Không có nguồn → câu chung, không nêu tên
+  (vd “Đăng ký kênh để không bỏ lỡ video mới”) hoặc bỏ hẳn. Không tự đặt tên kênh.
+- Từ needs_review + confidence 0 = câu “ảo giác” của Whisper (vd “Hãy subscribe cho kênh Ghiền Mì Gõ để không bỏ lỡ những video hấp dẫn”,
+  “Cảm ơn các bạn đã theo dõi”): ASR tự chèn khi nghe không rõ — KHÔNG lấy tên riêng/nội dung trong câu đó làm chữ trên màn hình; ghi vào confirm.json.
+- Mốc thời gian của câu ảo giác không đáng tin: KHÔNG cắt đuôi video theo mốc chữ đó — app cắt theo lúc giọng thật dứt.
+- Khoanh/đánh dấu vật (highlight, label, spotlight) CHỈ khi người trong clip thật sự chỉ vào một vật NHÌN THẤY RÕ trong khung (xem ảnh để chắc)
+  và lời nói gọi đúng vật đó; nhãn = tên vật nhìn thấy. Giơ tay/khua tay khi nói không phải chỉ vật → không khoanh. Không chắc → không khoanh.
+"""
+
+
 def system_prompt(style: str, pid: str, pdir: str) -> str:
     """prompt riêng của style (nếu có) — skill mới chưa có prompt riêng dùng SYSTEM_GENERIC (đọc SKILL.md của chính nó);
     + khối CÔNG CỤ DỰNG DÙNG CHUNG (thagent.capabilities) cho MỌI skill video → skill thêm sau tự kế thừa, không sửa từng skill."""
@@ -244,7 +257,7 @@ def system_prompt(style: str, pid: str, pdir: str) -> str:
     base = STYLE_PROMPTS.get(style)
     if base is None:
         base = SYSTEM_GENERIC if (ROOT / ".claude" / "skills" / style / "SKILL.md").exists() else SYSTEM
-    return base.format(pid=pid, pdir=pdir, style=style) + prompt_block(style)
+    return base.format(pid=pid, pdir=pdir, style=style) + FACT_RULES + prompt_block(style)
 
 class Session:
     def __init__(self, pid: str, style: str):
