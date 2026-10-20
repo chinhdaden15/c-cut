@@ -30,12 +30,76 @@ def _frames(path: str) -> int:
     return int(tok or 0)
 
 
+def trim_tail_gaze(c) -> str | None:
+    """Đuôi video: người cúi nhìn điện thoại / quay đi (vd lúc bấm dừng quay) và khúc đó IM LẶNG → app tự cắt thay vì bắt che MG
+    (không có lời để che). Còn tiếng nói trong khúc đó → giữ, quy tắc nhìn máy vẫn áp (Claude kéo MG cuối phủ tới hết video)."""
+    pl = c.project.plan
+    gf = c.path("work", "gaze.json")
+    if pl is None or not gf.exists():
+        return None
+    ks = T.kept(pl)
+    if not ks:
+        return None
+    last = ks[-1]
+    gz = sorted((g for g in json.loads(gf.read_text()) if last.source_in <= g["t"] <= last.source_out + 0.01), key=lambda g: g["t"])
+    t0 = None
+    for g in reversed(gz):                      # chuỗi mẫu cuối liên tiếp không nhìn máy
+        if g.get("cam"):
+            break
+        t0 = g["t"]
+    if t0 is None or last.source_out - t0 < 0.4 or last.source_out - t0 > 3.0:
+        return None
+    try:                                         # khúc nhìn đi phải IM LẶNG (nghe tiếng thật, không tin mốc chữ — câu ảo giác Whisper)
+        from .cleancut import silences
+        sil = silences(c.project.proxy)
+    except Exception:
+        return None
+    span = last.source_out - t0
+    quiet = sum(max(0.0, min(b, last.source_out) - max(a, t0)) for a, b in sil)
+    if quiet < 0.8 * span:
+        return None                              # vẫn còn nói trong khúc nhìn đi → giữ, quy tắc nhìn máy áp (MG che)
+    real = [w for w in c.project.words or [] if w.confidence > 0 and last.source_in <= w.source_start < t0]
+    new = max(t0 - 0.1, max((w.source_end for w in real), default=last.source_in) + 0.15)
+    hush = next((x for x, y in sil if x <= t0 + 0.1 < y), None)     # giọng dứt lúc khoảng lặng bắt đầu → cắt sau đó, không xén âm cuối
+    if hush is not None:
+        new = max(new, hush + 0.1)
+    if new <= last.source_in + 0.3 or new >= last.source_out - 0.05:
+        return None
+    old = last.source_out
+    last.source_out = round(new, 3)
+    T.build_mapping(pl)
+    D = pl.duration_frames
+    for g in pl.text_groups:                     # phần tử nằm quá đuôi mới → rút về
+        if g.start >= D - 3:
+            g.enabled = False
+        elif g.end > D:
+            g.end = D
+    for e in [*pl.visuals, *pl.fx]:
+        if e.start >= D - 3:
+            e.enabled = False
+        elif e.end > D:
+            e.end = D
+    for sd in pl.sounds:
+        if sd.hit >= D:
+            sd.enabled = False
+    for m in pl.mg:
+        if m["end"] > D:
+            m["end"] = D
+            for sc in m.get("scenes", []):
+                sc["end"] = min(sc["end"], D)
+    c.save()
+    return f"app tự cắt đuôi {old - new:.1f}s cuối (nguồn {new:.2f}→{old:.2f}s): người nhìn đi chỗ khác, không còn lời — không cần MG che"
+
+
 def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     c = P.Ctx(pid)
+    trimmed = trim_tail_gaze(c)
     pl = c.project.plan
     T.build_mapping(pl)
     fps, out = pl.fps, []
     add = lambda sev, msg: out.append((sev, msg))
+    if trimmed:
+        add("info", trimmed)
 
     # 1) độ dài nguồn: proxy/alpha phải đủ frame cho mọi đoạn giữ
     need = max(T.sec_to_frame(s.source_out, fps) for s in T.kept(pl))
@@ -292,7 +356,9 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
         if b - a < fps:
             continue
         if nd >= 2:
-            out.append(("error", f"cúi nhìn điện thoại/kịch bản {T.tc(a)}→{T.tc(b)} ({(b - a) / fps:.1f}s) chưa được MG/ảnh che — chỉ lấy tiếng"))
+            tail = b >= pl.duration_frames - fps // 2
+            out.append(("error", f"cúi nhìn điện thoại/kịch bản {T.tc(a)}→{T.tc(b)} ({(b - a) / fps:.1f}s) chưa được MG/ảnh che — chỉ lấy tiếng"
+                        + (" (đuôi video, vẫn còn tiếng nói: kéo MG cuối phủ tới hết video, hoặc thêm cảnh MG kết ≥2.5s kết thúc đúng cuối video)" if tail else "")))
         else:
             out.append(("warn", f"quay đi, không nhìn máy {T.tc(a)}→{T.tc(b)} ({(b - a) / fps:.1f}s) — xem ảnh: giới thiệu không gian thì giữ, còn lại che MG"))
     return out
