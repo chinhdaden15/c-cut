@@ -4,6 +4,8 @@ compatibility_date = "2026-09-01"
 
 [assets]                  # video hướng dẫn (public/video/*) — trang /huong-dan
 directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/video/*"]   # video: Worker trả từng đoạn (Range → 206) để Safari/iPhone phát & tua được
 
 [[d1_databases]]
 binding = "DB"

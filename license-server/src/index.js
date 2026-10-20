@@ -216,9 +216,25 @@ async function admin(env, req, path) {
   return err("không có lệnh này", 404);
 }
 
+async function video(req, env) {
+  // tài nguyên tĩnh không trả 206 → tự cắt đoạn theo Range (Safari/iOS bắt buộc khi phát video)
+  const r = await env.ASSETS.fetch(new Request(new URL(req.url).toString()));
+  if (!r.ok) return r;
+  const type = r.headers.get("content-type") || "video/mp4";
+  const base = { "content-type": type, "accept-ranges": "bytes", "cache-control": "public, max-age=86400" };
+  const m = /bytes=(\d*)-(\d*)/.exec(req.headers.get("range") || "");
+  if (!m) return new Response(r.body, { headers: { ...base, "content-length": r.headers.get("content-length") || "" } });
+  const buf = await r.arrayBuffer(), n = buf.byteLength;
+  let a = m[1] === "" ? n - Number(m[2]) : Number(m[1]);
+  let b = m[1] === "" || m[2] === "" ? n - 1 : Math.min(Number(m[2]), n - 1);
+  if (!(a >= 0 && a <= b && a < n)) return new Response(null, { status: 416, headers: { ...base, "content-range": `bytes */${n}` } });
+  return new Response(buf.slice(a, b + 1), { status: 206, headers: { ...base, "content-range": `bytes ${a}-${b}/${n}`, "content-length": String(b - a + 1) } });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url), p = url.pathname;
+    if (p.startsWith("/video/") && env.ASSETS) return await video(req, env);
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
     try {
       if (p === "/" || p === "/mua") return html(BUY_HTML);
