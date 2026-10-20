@@ -369,7 +369,8 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
 
 
 def open_close(pl, words, fps: int) -> tuple[int, int]:
-    """(cuối đoạn mở đầu, đầu đoạn kết) theo frame timeline: câu nói đầu / câu nói cuối, mỗi đoạn 2–6s."""
+    """(cuối đoạn mở đầu, đầu đoạn kết) theo frame timeline. Mở đầu = câu nói đầu (2–6s). Kết = khoảng CTA 5s cuối
+    (câu cuối bắt đầu sớm hơn chút thì tính từ đầu câu, tối đa 6s) — không cắt đôi câu CTA giữa MG và hình người."""
     D = pl.duration_frames
     tl = sorted((f, T.src_to_tl(pl, w.source_end) or f, w.text) for w in words or [] if (f := T.src_to_tl(pl, w.source_start)) is not None)
     if not tl:
@@ -387,7 +388,7 @@ def open_close(pl, words, fps: int) -> tuple[int, int]:
     h = tl[sent_end(0, 1)][1]
     e = tl[sent_end(len(tl) - 1, -1)][0]
     h = min(max(h, tl[0][0] + lo), tl[0][0] + hi, D)
-    e = max(min(e, D - lo), D - hi, 0)
+    e = max(min(e, D - 5 * fps), D - hi, 0)
     return int(h), int(e)
 
 
@@ -397,14 +398,13 @@ def open_close_rules(pl, words, fps: int) -> list[tuple[str, str]]:
     h, e = open_close(pl, words, fps)
     out = []
     M.chain(pl.mg)
-    covers = [(m["id"], *M.covered_range(m)) for m in pl.mg] + [(v.id, v.start, v.end) for v in pl.visuals
-                                                                 if v.enabled and v.zone == "fullscreen"]     # ảnh/b-roll toàn khung che người
+    covers = [(m["id"], *M.covered_range(m)) for m in pl.mg] + [(v.id, v.start, v.end) for v in pl.visuals if v.enabled]   # MG, ảnh, b-roll
     for cid, a, b in covers:
         if a < h:
-            out.append(("error", f"{cid} ({T.tc(a)}→{T.tc(b)}) che đoạn mở đầu (hook, tới {T.tc(h)}) — hook phải là hình nhân vật + chữ hook, "
+            out.append(("error", f"{cid} ({T.tc(a)}→{T.tc(b)}) che đoạn mở đầu (hook, tới {T.tc(h)}) — hook chỉ có hình nhân vật + chữ hook (không MG/ảnh), "
                                  f"dời MG bắt đầu từ {T.tc(h)} trở đi"))
         if b > e:
-            out.append(("error", f"{cid} ({T.tc(a)}→{T.tc(b)}) che đoạn kết (từ {T.tc(e)}) — đoạn kết phải là hình nhân vật + chữ kết, "
+            out.append(("error", f"{cid} ({T.tc(a)}→{T.tc(b)}) che đoạn kết (từ {T.tc(e)}) — đoạn kết (CTA ~5s cuối) chỉ có hình nhân vật + chữ CTA nổi bật (không MG/ảnh), "
                                  f"cho MG kết thúc trước {T.tc(e)}"))
     spans = [(g.start, g.end) for g in pl.text_groups if g.enabled] + \
             [(int(it["start"]), int(it["end"])) for it in (getattr(pl, "hf", None) or [])        # chữ dựng bằng HyperFrames cũng tính
