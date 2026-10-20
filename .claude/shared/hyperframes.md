@@ -25,7 +25,7 @@ clip `mov` có alpha (hoặc `mp4` khi là đoạn hoàn chỉnh) — không ren
 Mỗi job có thư mục riêng (`hf_jobs/<job_id>/`: project/, state.json, render.log, lint.json, check.json). Nội dung không đổi →
 dùng lại kết quả. Lỗi spec/lint/check → không render, sửa spec rồi chạy lại. Render lỗi tạm thời thử lại tối đa 2 lần.
 
-## Spec (tóm tắt — đầy đủ ở docstring `thagent/hyper/spec.py`)
+## Spec (tóm tắt — đầy đủ ở `.claude/shared/schemas/hyperframes-spec.md`)
 
 ```json
 {"job_id": "rv-9x16-spot-01", "width": 1080, "height": 1920, "fps": 30, "duration": 3.2, "background": "transparent",
@@ -52,7 +52,7 @@ Font mặc định của app (Montserrat, Be Vietnam Pro — đủ dấu tiếng
 
 | Skill | Ghi ở đâu | Bộ dựng sở hữu timeline |
 | --- | --- | --- |
-| Talking Head | `plan.hf` (thagent/th_hf.py), layer `front` / `behind_subject`; phụ đề: `python -m thagent.tools hfwords <pid> f0 f1` | render.composite (alpha người đè lớp sau) |
+| Talking Head | `plan.hf` (định dạng: `.claude/shared/schemas/talking-head-hf.md`), layer `front` / `behind_subject`; phụ đề: `python -m thagent.tools hfwords <pid> f0 f1` | render.composite (alpha người đè lớp sau) |
 | Voice to Motion | object `{"type": "hf", "spec": {...}}` trong timeline_<fmt>.json | v2m renderer (camera, geo, nhịp) |
 | Review | texts[] `"engine": "hyperframes"` / `edit.graphics_engine`; role `hf` | review render (track thật → spotlight/nhãn) |
 | Skill mới | gọi `thagent.hyper` trực tiếp, hoặc tạo điểm nối riêng theo mẫu trên | skill tự quyết, ghi rõ trong SKILL.md |

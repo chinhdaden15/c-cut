@@ -158,6 +158,24 @@ def _prompts():
     return "3 style + skill mới"
 
 
+@case("common", "tài liệu lời dặn Claude nhắc tới đều có trong bản cài (không trỏ vào mã nguồn đã biên dịch)")
+def _prompt_docs():
+    import re
+    from thagent.agent import system_prompt
+    from thagent.paths import ROOT
+    from thagent import schemadocs
+    texts = [system_prompt(st, "x", str(WORK)) for st in ("talking-head-style", "voice-to-motion", "review-editor")]
+    texts += [f.read_text(encoding="utf-8") for f in (ROOT / ".claude" / "shared").glob("*.md")]
+    texts.append(schemadocs.text("edl.md"))
+    bad = sorted({m for t in texts for m in re.findall(r"(?:docstring|schema (?:ở|trong))[^\n]{0,40}thagent/[\w/]+\.py", t)})
+    assert not bad, f"lời dặn trỏ vào mã nguồn (bản cài không đọc được): {bad}"
+    refs = sorted({m for t in texts for m in re.findall(r"\.claude/shared/[\w/.-]+\.md", t)})
+    miss = [r for r in refs if not (ROOT / r).is_file()]
+    assert refs and not miss, f"thiếu tài liệu: {miss}"
+    assert '"segments"' in schemadocs.text("edl.md") and '"segments"' in schemadocs.text("review-edit.md")
+    return f"{len(refs)} tài liệu"
+
+
 @case("common", "quy tắc riêng ngành: mỹ phẩm (khoá màu, chặn hứa hẹn công dụng), ẩm thực (tiếng hiện trường, ấm màu)")
 def _niches():
     import copy

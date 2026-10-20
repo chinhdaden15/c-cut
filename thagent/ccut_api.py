@@ -18,8 +18,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from . import pipeline as P
+from . import schemadocs as SD
 
-APP_VERSION = "1.6.2"
+APP_VERSION = "1.6.3"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -781,8 +782,8 @@ def _run_multi(item: dict, pid: str, job: dict, settings: dict, log) -> Path:
         sess.send(f"Dự án `{pid}` gồm {len(item['clips'])} đoạn quay của MỘT video (style `{settings['style']}`). "
                   "Đọc skill, clips/index.json, ảnh clips/*_sheet.jpg, clips/<đoạn>.json"
                   + (", và script.txt (kịch bản gốc — là chuẩn thứ tự + chính tả)" if item.get("script") else "")
-                  + ". Viết edl.json theo schema trong thagent/clips.py (bước GHÉP NHIỀU ĐOẠN trong hướng dẫn hệ thống), "
-                  "đặt \"ready\": true khi xong. Không dừng chờ duyệt.", show=False)
+                  + ". Viết edl.json (bước GHÉP NHIỀU ĐOẠN trong hướng dẫn hệ thống), đặt \"ready\": true khi xong. Không dừng chờ duyệt.\n"
+                  "ĐỊNH DẠNG edl.json (đầy đủ, không cần tìm thêm):\n" + SD.text("edl.md"), show=False)
     tries = 0
     while True:
         item["status"] = "claude"

@@ -87,7 +87,7 @@ def prompt_block(slug: str) -> str:
         st = status(t)
         ok = "SẴN SÀNG" if st.get("ok") else "CHƯA SẴN SÀNG: " + "; ".join(st.get("problems", []))[:300]
         lines += [f"- {T['name']} {T['version']()} — {ok}",
-                  f"  Gọi: `.venv/bin/python -m thagent.hyper validate|render|stills <spec.json>` (chuẩn spec: docstring thagent/hyper/spec.py; "
+                  f"  Gọi: `.venv/bin/python -m thagent.hyper validate|render|stills <spec.json>` (chuẩn spec: .claude/shared/schemas/hyperframes-spec.md; "
                   f"hướng dẫn: {T['doc']}).",
                   "  Nên cân nhắc cho: " + "; ".join(T["use_for"]) + ".",
                   "  KHÔNG dùng cho: " + "; ".join(T["not_for"]) + " — HyperFrames nhận KẾT QUẢ của các bước đó để dựng.",

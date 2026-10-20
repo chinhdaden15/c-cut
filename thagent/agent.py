@@ -70,7 +70,7 @@ GHÉP NHIỀU ĐOẠN (chỉ khi app yêu cầu viết edl.json — dự án g�
      chọn khớp ý câu nói) và/hoặc cover (= Motion Graphics minh họa). Ưu tiên: b-roll của dự án > MG > ảnh minh họa web.
    - Đoạn nhìn máy cũng có thể chèn broll ngắn khi câu nói tả cảnh/tiện ích. Không dùng 1 khúc b-roll 2 lần.
    - Câu kịch bản không có take nào, b-roll không dùng tới, take còn nghi ngờ → ghi confirm.json. KHÔNG dừng chờ duyệt.
-   - Ghi {pdir}/edl.json theo schema ở đầu thagent/clips.py, "ready": true. App tự kiểm tra; nếu báo lỗi thì sửa và ghi lại.
+   - Ghi {pdir}/edl.json theo định dạng ở .claude/shared/schemas/edl.md (app cũng gửi kèm trong yêu cầu ghép), "ready": true. App tự kiểm tra; nếu báo lỗi thì sửa và ghi lại.
    - Sau khi app ghép xong: {pdir}/covers.json liệt kê các khoảng (giây trên video mới) kind=broll/mg/audio_only.
      kind=mg và audio_only phải có MG phủ kín; trên khoảng broll/mg chỉ dùng chữ lớp front_of_subject (không có người để tách nền).
 1. Đọc transcript, sửa lỗi chép lời theo ngữ cảnh. Mỗi chỗ sửa/nghi vấn (tên riêng, số liệu, điều kiện) ghi vào {pdir}/confirm.json dạng
@@ -206,7 +206,7 @@ Nhiệm vụ:
 1. Xem ảnh tổng hợp từng file (Read review/sheets/*.jpg), media + takes: nhận diện người dẫn, sản phẩm/phiên bản, không gian (tầng/phòng), thao tác, cỡ cảnh.
    Không phân biệt được footage thuộc sản phẩm/căn nhà nào (thiết yếu) → hỏi người dùng 1 câu ngắn rồi dừng chờ; còn lại tự quyết.
 2. Chọn take (không mặc định take cuối/ngắn nhất), xây mạch theo phong cách, ghép lời với B-roll ĐÚNG đối tượng (xem bằng frames), viết {pdir}/review/edit.json
-   (schema: docstring thagent/review/edit.py — ghi say/why/missing cho từng đoạn).
+   (định dạng: .claude/shared/schemas/review-edit.md — ghi say/why/missing cho từng đoạn).
    Soát “CẦN SOÁT” của từng file: chữ chép sai (tên app/sản phẩm/thương hiệu, số) → sửa phụ đề bằng "replace"/"fixes" trong edit.json.
    HƯỚNG SỰ CHÚ Ý (bắt buộc khi người dẫn cầm/chỉ sản phẩm — workflow.md §5b): motion (cắt gọn khung nhòe/thao tác chuẩn bị) → hands
    (lúc chỉ tay) → frames có lưới → track bám sản phẩm → reframe "face+<track>" khi đưa sản phẩm lên, "base" khi về nhận xét → nhãn

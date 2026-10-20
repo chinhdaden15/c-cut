@@ -23,6 +23,8 @@ def main():
         if junk.name in ("install.py", ".installed.json", ".DS_Store") or "__pycache__" in junk.parts:
             shutil.rmtree(junk) if junk.is_dir() else junk.unlink(missing_ok=True)
     shutil.copy2(ROOT / "styles.json", seed / "styles.json")
+    from thagent import schemadocs                  # định dạng dữ liệu cho Claude (bản cài không đọc được mã nguồn)
+    schemadocs.write()
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted([*(ROOT / ".claude" / "skills").rglob("*"), *(ROOT / ".claude" / "shared").rglob("*"),
