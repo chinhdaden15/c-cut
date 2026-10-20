@@ -47,16 +47,23 @@ def _no_inherit_stdin():
     def init(self, *a, **kw):
         if not (kw.get("creationflags", 0) & getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)):   # cửa sổ lệnh cho người dùng gõ: giữ nguyên
             kw.setdefault("stdin", subprocess.DEVNULL)
-        try:
-            orig(self, *a, **kw)
-        except OSError as e:
-            # tay cầm stdout/stderr của chính app không nhân bản được (WinError 50) → luồng chưa chỉ định trỏ về NUL rồi mở lại
-            if getattr(e, "winerror", None) != 50:
-                raise
-            for k in ("stdout", "stderr"):
-                if kw.get(k) is None:
-                    kw[k] = subprocess.DEVNULL
-            orig(self, *a, **kw)
+        import time
+        for attempt in range(4):
+            try:
+                return orig(self, *a, **kw)
+            except OSError as e:
+                # WinError 50 (máy ảo/CI, app không console): lần 1 → luồng chưa chỉ định trỏ về NUL; lần 2 → bỏ danh sách tay cầm
+                # (close_fds=False: không dùng PROC_THREAD_ATTRIBUTE_HANDLE_LIST); lần 3 → chờ chút rồi thử lại (lỗi chập chờn)
+                if getattr(e, "winerror", None) != 50 or attempt == 3:
+                    raise
+                if attempt == 0:
+                    for k in ("stdout", "stderr"):
+                        if kw.get(k) is None:
+                            kw[k] = subprocess.DEVNULL
+                elif attempt == 1:
+                    kw["close_fds"] = False
+                else:
+                    time.sleep(0.5)
     subprocess.Popen.__init__ = init
 
 
