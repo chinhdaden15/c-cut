@@ -28,6 +28,22 @@
     "8766"
    ],
    "port": 8766
+  },
+  {
+   "name": "c-cut-license",
+   "runtimeExecutable": "/usr/bin/env",
+   "runtimeArgs": [
+    "CCUT_LICENSE_URL=http://127.0.0.1:8787",
+    ".venv/bin/python",
+    "-m",
+    "uvicorn",
+    "thagent.server:app",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8767"
+   ],
+   "port": 8767
   }
  ]
 }

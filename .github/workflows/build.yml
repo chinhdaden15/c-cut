@@ -46,7 +46,7 @@ jobs:
         env: {PYTHONUTF8: "0", CCUT_HOME: build/res/seed}
         run: build/pyi/C-Cut.app/Contents/MacOS/ccut-py -m thagent.hyper | grep -q "HyperFrames" && echo HYPER OK
       - name: e2e mọi skill trên BẢN ĐÓNG GÓI (lỗi → không xuất bản cài)
-        env: {PYTHONUTF8: "0", CCUT_ASR_MODEL: small}
+        env: {PYTHONUTF8: "0", CCUT_ASR_MODEL: small, CCUT_TEST_SIGNING_KEY: "${{ secrets.CCUT_TEST_SIGNING_KEY }}"}   # ký mã bản quyền thử cho bài dựng skill bán
         run: |
           export PATH="$PWD/build/ffmpeg:$PATH" CCUT_HOME="$PWD/e2e_home"   # thư mục dữ liệu MỚI như máy vừa cài
           PY=build/pyi/C-Cut.app/Contents/MacOS/ccut-py
@@ -82,7 +82,7 @@ jobs:
           .venv/bin/python -m thagent.review | grep -q "Review Editor" && echo REVIEW OK
           .venv/bin/python -m thagent.hyper | grep -q "HyperFrames" && echo HYPER OK
       - name: e2e mọi skill trên BẢN ĐÓNG GÓI Windows, bảng mã mặc định (lỗi → không xuất bản cài)
-        env: {PYTHONUTF8: "0", PYTHONIOENCODING: "", CCUT_ASR_MODEL: small}
+        env: {PYTHONUTF8: "0", PYTHONIOENCODING: "", CCUT_ASR_MODEL: small, CCUT_TEST_SIGNING_KEY: "${{ secrets.CCUT_TEST_SIGNING_KEY }}"}
         shell: pwsh
         run: |
           $env:PATH = "$PWD\build\ffmpeg;$env:PATH"

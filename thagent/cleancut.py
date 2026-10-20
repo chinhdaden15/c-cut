@@ -108,6 +108,17 @@ def _drops(words) -> list[tuple[int, int, str]]:
     return sorted(out)
 
 
+def speech_stop(sil, t: float, src_dur: float, cap: float = 6.0) -> float:
+    """giọng THẬT dứt hẳn sau chữ cuối (mốc t): khoảng lặng ≥0.7s đầu tiên hoặc lặng tới hết file. ASR có thể đặt mốc chữ cuối
+    sớm hơn lời thật (câu ảo giác Whisper ở đuôi clip) → cắt đuôi theo TIẾNG, không theo mốc chữ."""
+    for a, b in sil:
+        if b <= t:
+            continue
+        if b - max(a, t) >= 0.7 or b >= src_dur - 0.05:
+            return max(t, min(a, t + cap))
+    return min(src_dur, t + cap)
+
+
 def clean_cut(words, src_dur: float, media: str, zoom=1.08, fps=30):
     """→ (segments keep theo order, cuts keep=False, zoom fx xen kẽ theo timeline)."""
     sil = silences(media)
@@ -147,7 +158,7 @@ def clean_cut(words, src_dur: float, media: str, zoom=1.08, fps=30):
             spans.append((a, x)); a = y
             cuts.append(EditSegment(id=f"cut_g{len(cuts)}", source_in=round(x, 3), source_out=round(y, 3), keep=False,
                                     reason=f"lặng {g:.2f}s → giữ {k:.2f}s" if not jumped else "nối qua đoạn bỏ", confidence=0.9))
-    end = min(src_dur, voice_end(keep_w[-1].source_end) + TAIL)
+    end = min(src_dur, max(voice_end(keep_w[-1].source_end) + TAIL, speech_stop(sil, keep_w[-1].source_end, src_dur) + 0.3))
     spans.append((a, end))
     # ậm ừ: tiếng đệm không thành lời giữa 2 từ (ASR bỏ qua “ờ/ừm”) + từ 1 âm tiết bị kéo dài (“ởờờ”, “vớiii”)
     lv, sp, no = levels(media)

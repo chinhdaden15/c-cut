@@ -32,7 +32,7 @@ def _norm(s: str) -> str:
     return re.sub(r"[^\w%²\s]", "", s.lower()).strip()
 
 
-def cut_plan(words: list[TranscriptWord], src_dur: float, max_gap=0.45, pad_pre=0.10, pad_post=0.16) -> list[EditSegment]:
+def cut_plan(words: list[TranscriptWord], src_dur: float, max_gap=0.45, pad_pre=0.10, pad_post=0.16, media: str | None = None) -> list[EditSegment]:
     """Giữ vùng có lời; rút khoảng lặng dài còn ~0.26s. Biên cắt có đệm để không mất phụ âm cuối."""
     segs: list[EditSegment] = []
     cuts: list[EditSegment] = []
@@ -65,8 +65,15 @@ def cut_plan(words: list[TranscriptWord], src_dur: float, max_gap=0.45, pad_pre=
                                     reason=f"khoảng lặng {gap:.2f}s rút còn ~{pad_pre + pad_post:.2f}s", confidence=0.85))
             start = b
         prev = w
+    end = prev.source_end + pad_post + 0.15
+    if media:                       # đuôi: tới lúc giọng thật dứt (mốc chữ cuối của ASR có thể sớm hơn lời thật)
+        try:
+            from .cleancut import silences, speech_stop
+            end = max(end, speech_stop(silences(media), prev.source_end, src_dur) + 0.3)
+        except Exception:
+            pass
     segs.append(EditSegment(id=f"s{len(segs):03d}", source_in=round(start, 3),
-                            source_out=round(min(prev.source_end + pad_post + 0.15, src_dur), 3),
+                            source_out=round(min(end, src_dur), 3),
                             reason="giữ lời nói", confidence=0.9))
     # nối đoạn repeat-cut: đoạn keep chứa vùng drop phải tách
     final = []
@@ -216,11 +223,11 @@ def illustration_needs(plan: Plan, sentences: list[Sentence]) -> None:
     plan.visuals = vis
 
 
-def make_plan(words, sentences, src_dur, fps=30, planner="auto") -> Plan:
+def make_plan(words, sentences, src_dur, fps=30, planner="auto", media: str | None = None) -> Plan:
     plan = Plan(fps=fps)
     use_claude = planner == "claude" or (planner == "auto" and os.environ.get("ANTHROPIC_API_KEY"))
     plan.planner = "heuristic (quy tắc, chưa dùng LLM)"
-    plan.segments = cut_plan(words, src_dur)
+    plan.segments = cut_plan(words, src_dur, media=media)
     plan.hook_candidates = find_hooks(sentences, words)
     plan.notes.append("Hook: chỉ liệt kê ứng viên; heuristic không đủ tin cậy để tự di chuyển câu lên đầu.")
     last = sentences[-1].text.lower() if sentences else ""

@@ -149,6 +149,10 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
 .overlay.show{display:flex}
 .modal{width:min(640px,92vw);background:var(--bg);border:0.5px solid var(--line2);border-radius:12px;padding:16px}
+.lic-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:0.5px solid var(--line2);font-size:14px}.lic-row .n{flex:1}
+.ltag{font-size:12px;padding:2px 8px;border-radius:6px;white-space:nowrap}.ltag.free,.ltag.own{background:var(--ok-bg);color:var(--ok)}.ltag.trial{background:var(--acc-bg);color:var(--acc-fg)}.ltag.out{background:var(--err-bg);color:var(--err)}
+.lic-opt{display:flex;gap:10px;align-items:center;border:0.5px solid var(--line2);border-radius:10px;padding:10px 12px;margin:6px 0;cursor:pointer;font-size:14px}.lic-opt.on{border-color:var(--acc);background:var(--acc-bg)}.lic-opt b{margin-left:auto;font-weight:600}
+.lic-qr{width:220px;max-width:70vw;display:block;margin:6px auto;border-radius:10px;background:#fff}.lic-tb td{padding:3px 6px;font-size:13px}.lic-tb td:first-child{color:var(--fg2)}
 .mhead{display:flex;align-items:center;margin-bottom:14px}.mhead b{font-size:16px;font-weight:500}.mhead button{margin-left:auto;border:0}
 .mgrid{display:grid;grid-template-columns:140px 1fr;gap:16px}
 .tabs{display:flex;flex-direction:column;gap:4px}
@@ -176,6 +180,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div class="right">
     <button class="newproj" id="newProj" title="Tạo dự án mới">＋ Dự án mới</button>
     <span class="badge warn" id="sys">Đang kiểm tra…</span>
+    <button class="iconbtn" id="licBtn" aria-label="Bản quyền skill" title="Bản quyền skill">🔑</button>
     <button class="iconbtn" id="bell" aria-label="Thông báo">🔔<span class="dot" id="belldot" hidden></span></button>
     <button class="iconbtn" id="gear" aria-label="Cài đặt">⚙</button>
   </div>
@@ -341,6 +346,28 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
     <div class="row" style="margin-top:12px"><span class="small dim" id="setupNote" style="flex:1"></span><button id="setupRecheck">Kiểm tra lại</button><button class="primary" id="setupDone" style="padding:8px 16px;margin-left:8px">Bắt đầu dùng</button></div>
   </div>
 </div>
+<div class="overlay" id="licBox">
+  <div class="modal">
+    <div class="mhead"><b>Bản quyền skill</b><button id="closeLic" aria-label="Đóng">✕</button></div>
+    <div id="licMain">
+      <div class="small dim">Skill Talking Head miễn phí. Các skill khác được dùng thử 2 video mỗi skill; mua một lần dùng vĩnh viễn trên máy này.</div>
+      <div id="licRows" style="margin-top:8px"></div>
+      <div class="small" style="margin-top:14px;font-weight:500">Đã có mã bản quyền (mua qua fanpage / được tặng)</div>
+      <div class="row" style="gap:8px;margin-top:6px"><input id="licKey" placeholder="CC-XXXXX-XXXXX-XXXXX" style="flex:1;text-transform:uppercase"><button class="primary" id="licAct" style="padding:8px 16px">Kích hoạt</button></div>
+      <div class="small" style="margin-top:16px;font-weight:500">Mua bằng chuyển khoản</div>
+      <div id="licProds"></div>
+      <input id="licContact" placeholder="Email hoặc số Zalo (để nhận lại mã khi cần — không bắt buộc)" style="margin-top:6px">
+      <div style="margin-top:10px"><button class="primary" id="licBuy" style="padding:8px 16px">Tạo mã QR chuyển khoản</button></div>
+    </div>
+    <div id="licPay" hidden>
+      <div class="small dim">Quét mã bằng app ngân hàng — số tiền và nội dung đã điền sẵn. Skill tự mở khoá khi tiền về (thường dưới 1 phút).</div>
+      <img class="lic-qr" id="licQr" alt="Mã QR chuyển khoản"><table class="lic-tb" id="licBank" style="margin:0 auto"></table>
+      <div class="small" id="licWait" style="text-align:center;margin-top:10px;color:var(--acc-fg)">Đang chờ tiền về…</div>
+      <div class="row" style="margin-top:10px"><button id="licBack">← Quay lại</button></div>
+    </div>
+    <div class="small dim" style="margin-top:14px;display:flex;gap:8px;align-items:center"><span id="licDev" style="flex:1"></span><button class="link" id="licSync">Đồng bộ lại</button></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -375,7 +402,9 @@ function renderQueue(){
   const q=S.queue;
   $('#queue').innerHTML=q.length?q.map((x,i)=>{
     const ic={wait:'⏱',running:'⟳',done:'✓',failed:'!',cancelled:'–',waiting_claude:'…',claude:'✦'}[x.status]||'';
-    const lab={wait:'chờ',running:'đang dựng',done:'xong',failed:'lỗi',cancelled:'đã dừng',waiting_claude:'chờ Claude',claude:'Claude đang lập kế hoạch'}[x.status];
+    const licErr=x.status==='failed'&&String(x.error||'').startsWith('BẢN QUYỀN');
+    const lab=licErr?'cần mua skill — bấm 🔑':{wait:'chờ',running:'đang dựng',done:'xong',failed:'lỗi',cancelled:'đã dừng',waiting_claude:'chờ Claude',claude:'Claude đang lập kế hoạch'}[x.status];
+    if(licErr&&!licPrompted[x.name+x.error]){licPrompted[x.name+x.error]=1;toast(x.error.replace('BẢN QUYỀN: ',''));openLic(x.kind==='review'?'review-editor':S.settings.style)}
     return `<div class="q st-${x.status}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}${chSel(x,i)}</div>`}).join(''):'';
   document.querySelectorAll('.q .sc').forEach(b=>b.onclick=()=>openScript(+b.dataset.i));
   document.querySelectorAll('.q select.ch').forEach(b=>b.onchange=async()=>{b.blur();await api(`/api/ccut/queue/${b.dataset.i}/channel`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel:b.value})});toast(b.value?'Đã chọn kênh — xuất lần sau dùng nền kênh này':'Claude sẽ tự nhận kênh');refresh()});
@@ -401,12 +430,14 @@ async function saveReview(){
     duration:$('#rvDur').value.trim(),subtitles:$('#rvSub').checked,notes:$('#rvNotes').value,keep:$('#rvKeep').value,remove:$('#rvRemove').value};
   await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({review})});S.settings.review=review;
 }
+function licTag(slug){const L=S.license;if(!L)return'';if(L.free.includes(slug))return'<span class="ltag free">Miễn phí</span>';const k=L.skills[slug];if(!k)return'';
+  if(k.owned)return'<span class="ltag own">Đã mua</span>';const left=Math.max(0,k.limit-k.used);return left?`<span class="ltag trial">Thử còn ${left}/${k.limit}</span>`:'<span class="ltag out">Hết lượt thử</span>'}
 function renderStyles(){
   const cur=S.styles.find(s=>s.slug===S.settings.style)||S.styles[0];
-  $('#stylecur').innerHTML=cur?`<span>${esc(cur.name)} <span class="dim">· v${esc(cur.version)}</span></span><span>▾</span>`:'<span class="dim">Chưa có style</span><span>▾</span>';
+  $('#stylecur').innerHTML=cur?`<span>${esc(cur.name)} <span class="dim">· v${esc(cur.version)}</span> ${licTag(cur.slug)}</span><span>▾</span>`:'<span class="dim">Chưa có style</span><span>▾</span>';
   const list=S.styles.filter(s=>(s.name+' '+s.summary).toLowerCase().includes(styleFilter));
   const recent=S.settings.style;list.sort((a,b)=>(b.slug===recent)-(a.slug===recent));
-  $('#styleopts').innerHTML=list.map(s=>`<div class="opt ${s.slug===recent?'sel':''}" data-s="${s.slug}">${esc(s.name)} <span class="dim">v${esc(s.version)}</span><div class="d">${esc(s.summary)}</div></div>`).join('')||'<div class="empty" style="padding:6px">Không thấy style.</div>';
+  $('#styleopts').innerHTML=list.map(s=>`<div class="opt ${s.slug===recent?'sel':''}" data-s="${s.slug}">${esc(s.name)} <span class="dim">v${esc(s.version)}</span> ${licTag(s.slug)}<div class="d">${esc(s.summary)}</div></div>`).join('')||'<div class="empty" style="padding:6px">Không thấy style.</div>';
   document.querySelectorAll('#styleopts .opt').forEach(o=>o.onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({style:o.dataset.s})});$('#stylesel').classList.remove('open');refresh()});
 }
 function renderJob(){
@@ -623,6 +654,33 @@ $('#saveNotify').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',
 $('#openSetup')&&($('#openSetup').onclick=()=>{$('#settings').classList.remove('show');openSetup()});
 $('#recheck').onclick=async()=>{toast('Đang kiểm tra công cụ…');await post('/api/ccut/syscheck');await refresh();openSettings('tools')};
 /* thông báo */
+var LIC=null,licSel=null,licOrder=null,licPrompted={};
+const vnd=n=>(n||0).toLocaleString('vi-VN')+' đ';
+async function openLic(skill){$('#licBox').classList.add('show');$('#licPay').hidden=true;$('#licMain').hidden=false;if(skill)licSel=skill;
+  try{LIC=await api('/api/ccut/license')}catch(e){toast(e.message);return}renderLic()}
+function renderLic(){const L=LIC;$('#licDev').textContent='Mã máy: '+L.device+(L.configured?'':' · chưa nối máy chủ bản quyền');
+  const rows=[...L.free.map(s=>({n:(S.styles.find(x=>x.slug===s)||{name:s}).name,t:'<span class="ltag free">Miễn phí</span>'})),
+    ...Object.entries(L.skills).map(([s,k])=>({n:k.name,t:k.owned?'<span class="ltag own">Đã mua</span>':(k.limit-k.used>0?`<span class="ltag trial">Dùng thử còn ${k.limit-k.used}/${k.limit} video</span>`:'<span class="ltag out">Hết lượt thử</span>')}))];
+  $('#licRows').innerHTML=rows.map(r=>`<div class="lic-row"><span class="n">${esc(r.n)}</span>${r.t}</div>`).join('');
+  const ps=(L.products||[]).filter(p=>p.id==='all'?!L.combo:!(L.skills[p.id]&&L.skills[p.id].owned));
+  if(!ps.some(p=>p.id===licSel))licSel=(ps[0]||{}).id;
+  $('#licProds').innerHTML=ps.length?ps.map(p=>`<div class="lic-opt${p.id===licSel?' on':''}" data-p="${p.id}">${esc(p.name)}<b>${vnd(p.price)}</b></div>`).join(''):`<div class="small dim" style="margin-top:6px">${L.combo||Object.values(L.skills).every(k=>k.owned)?'Bạn đã sở hữu toàn bộ skill.':'Chưa mở bán hoặc chưa kết nối được máy chủ — thử “Đồng bộ lại”.'}</div>`;
+  $('#licBuy').hidden=!ps.length;
+  document.querySelectorAll('.lic-opt').forEach(o=>o.onclick=()=>{licSel=o.dataset.p;renderLic()})}
+$('#licBtn').onclick=()=>openLic();$('#closeLic').onclick=()=>{$('#licBox').classList.remove('show');licOrder=null};
+$('#licSync').onclick=async()=>{try{LIC=await post('/api/ccut/license/sync');renderLic();toast('Đã đồng bộ');refresh()}catch(e){toast(e.message)}};
+$('#licAct').onclick=async()=>{const k=$('#licKey').value.trim();if(!k)return;$('#licAct').disabled=true;
+  try{LIC=await post('/api/ccut/license/activate',{key:k});$('#licKey').value='';renderLic();toast('Đã kích hoạt '+LIC.result.name);refresh()}catch(e){toast(e.message)}$('#licAct').disabled=false};
+$('#licBuy').onclick=async()=>{$('#licBuy').disabled=true;
+  try{const o=await post('/api/ccut/license/order',{product:licSel,contact:$('#licContact').value.trim()});licOrder=o.id;
+    $('#licQr').src=o.qr;$('#licBank').innerHTML=`<tr><td>Ngân hàng</td><td>${esc(o.bank)}</td></tr><tr><td>Số tài khoản</td><td>${esc(o.account)}</td></tr><tr><td>Chủ tài khoản</td><td>${esc(o.account_name||'')}</td></tr><tr><td>Số tiền</td><td><b>${vnd(o.amount)}</b></td></tr><tr><td>Nội dung</td><td><b>${esc(o.code)}</b> (ghi đúng)</td></tr>`;
+    $('#licWait').textContent='Đang chờ tiền về…';$('#licMain').hidden=true;$('#licPay').hidden=false;licPoll(o.id)}catch(e){toast(e.message)}$('#licBuy').disabled=false};
+$('#licBack').onclick=()=>{licOrder=null;$('#licPay').hidden=true;$('#licMain').hidden=false};
+async function licPoll(id){if(licOrder!==id)return;
+  try{const r=await api('/api/ccut/license/order/'+id);if(r.status==='paid'){licOrder=null;
+    $('#licWait').innerHTML=r.activated?'<span style="color:var(--ok)">Đã nhận tiền — skill đã mở khoá trên máy này.</span>':`<span style="color:var(--ok)">Đã nhận tiền.</span> Mã của bạn: <b>${esc(r.key)}</b>`;
+    LIC=await api('/api/ccut/license');refresh();return}}catch(e){}
+  setTimeout(()=>licPoll(id),3000)}
 $('#bell').onclick=()=>{$('#notifs').classList.add('show');const ns=S.notifications;if(ns.length){seenNotif=ns[ns.length-1].t;localStorage.setItem('ccut_seen',seenNotif)}$('#belldot').hidden=true};
 $('#closeNotifs').onclick=()=>$('#notifs').classList.remove('show');
 /* thiết lập lần đầu */
@@ -632,9 +690,9 @@ function renderSetup(){
   if(!SU)return;const c=SU.claude,w=SU.whisper,steps=[];
   const btn=(k,t)=>`<button class="small" data-run="${k}">${t}</button>`;
   const cmd=k=>`<code style="user-select:all">${esc(SU.cmds[k])}</code> <button class="small" data-copy="${k}">Chép</button>`;
-  steps.push({ok:c.installed,t:'Cài Claude Code',d:c.installed?'Đã cài.':`Bộ não lên kế hoạch dựng, chạy bằng tài khoản Claude của bạn (gói Pro/Max).<br>${cmd('claude_install')}<div style="margin-top:6px">${btn('claude_install','Mở cửa sổ cài đặt')}</div>`});
-  if(SU.os==='windows')steps.push({ok:SU.git,t:'Cài Git for Windows',d:SU.git?'Đã cài.':`Claude Code trên Windows cần Git.<br>${cmd('git_install')}<div style="margin-top:6px">${btn('git_install','Mở cửa sổ cài đặt')}</div>`});
-  steps.push({ok:c.logged_in,t:'Đăng nhập Claude',d:c.logged_in?'Đã đăng nhập.':!c.installed?'Cài Claude Code trước.':`Trình duyệt sẽ mở để đăng nhập tài khoản Claude.<div style="margin-top:6px">${btn('claude_login','Đăng nhập')}</div>`});
+  steps.push({ok:c.installed,t:'Cài Claude',d:c.installed?'Đã cài.':`Bộ não lên kế hoạch dựng, chạy bằng tài khoản Claude của bạn (gói Pro/Max).<br>${cmd('claude_install')}<div style="margin-top:6px">${btn('claude_install','Mở cửa sổ cài đặt')}</div>`});
+  if(SU.os==='windows')steps.push({ok:SU.git,t:'Cài Git for Windows',d:SU.git?'Đã cài.':`Claude trên Windows cần Git.<br>${cmd('git_install')}<div style="margin-top:6px">${btn('git_install','Mở cửa sổ cài đặt')}</div>`});
+  steps.push({ok:c.logged_in,t:'Đăng nhập Claude',d:c.logged_in?'Đã đăng nhập.':!c.installed?'Cài Claude trước.':`Trình duyệt sẽ mở để đăng nhập tài khoản Claude.<div style="margin-top:6px">${btn('claude_login','Đăng nhập')}</div>`});
   steps.push({ok:w.ready,t:'Tải model chép lời (~3 GB, một lần)',d:w.ready?'Đã có.':w.running?`Đang tải… ${w.pct}%<div class="pbar"><i style="width:${w.pct}%"></i></div>`:`${w.error?`<span style="color:var(--err)">${esc(w.error)}</span><br>`:''}Dùng để nghe lời nói tiếng Việt trong clip. Nên tải ngay, không thì lần dựng đầu sẽ phải chờ.<div style="margin-top:6px"><button class="small" id="dlWhisper">Tải ngay</button></div>`});
   const hf=SU.hyperframes||{};const nodeOk=!(hf.problems||[]).some(p=>p.includes('Node'));
   steps.push({ok:hf.ok,opt:1,t:'Công cụ dựng HyperFrames (tự cài)',d:hf.ok?`Sẵn sàng — bản ghim ${esc(hf.version||'')}. Mọi style video dùng chung.`:hf.running?`Đang tự cài nền: ${esc(hf.stage||'')}… ${hf.pct||0}%<div class="pbar"><i style="width:${hf.pct||0}%"></i></div>`:`${hf.error?`<span style="color:var(--err)">${esc(hf.error)}</span><br>`:''}Dựng chữ động, sơ đồ, biểu đồ, nhãn/spotlight bằng HTML. ${esc((hf.problems||[]).join('; '))}`

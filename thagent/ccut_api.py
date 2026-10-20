@@ -18,9 +18,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from . import pipeline as P
+from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "1.6.3"
+APP_VERSION = "1.7.0"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -850,6 +851,7 @@ def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
     """Review Editor: kiểm kê + phân tích → Claude chọn take/cảnh, viết review/edit.json → dựng dọc/ngang → kiểm file xuất → xuất."""
     from . import agent as A
     from .review import inventory as RI, render as RR
+    L.can_start(REVIEW, pid)                    # skill bán: hết lượt thử → báo ngay, không tốn công phân tích/Claude
     _log = log
 
     def log(m):                 # mọi bước (phân tích, chép lời, dựng) đều báo tiến độ qua đây → bấm Dừng là dừng ngay
@@ -960,6 +962,7 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
     """Voice to Motion: voice (âm thanh / tiếng của video) → chép lời → làm sạch → Claude viết timeline dọc+ngang → xuất cả hai."""
     from . import agent as A
     from .v2m import __main__ as V
+    L.can_start(V2M, pid)
     pdir = P.PROJECTS / pid
     sess = A.get(pid, V2M)
     try:
@@ -1297,6 +1300,85 @@ def channels_get():
     return {"every": CH.EVERY, "channels": CH.summary()}
 
 
+# ---------------- bản quyền skill ----------------
+_LIC = {"products": None, "at": 0.0, "syncing": False}
+
+
+def _lic_sync_bg(force: bool = False):
+    """đồng bộ nền (mã đã mua, lượt thử) — tối đa 10 phút/lần, không chặn giao diện."""
+    if _LIC["syncing"] or (not force and time.time() - (L._load().get("synced") or 0) < 600):
+        return
+
+    def run():
+        _LIC["syncing"] = True
+        try:
+            L.sync()
+            _LIC.update(products=L.products(), at=time.time())
+        except Exception:
+            pass
+        finally:
+            _LIC["syncing"] = False
+    threading.Thread(target=run, daemon=True).start()
+
+
+@router.get("/license")
+def license_get():
+    _lic_sync_bg()
+    if _LIC["products"] is None or time.time() - _LIC["at"] > 600:
+        try:
+            _LIC.update(products=L.products(), at=time.time())
+        except Exception:
+            pass
+    return {**L.summary(), "products": _LIC["products"] or []}
+
+
+@router.post("/license/sync")
+def license_sync():
+    try:
+        L.sync()
+    except L.LicenseError as e:
+        raise HTTPException(400, str(e).replace("BẢN QUYỀN: ", ""))
+    return license_get()
+
+
+class LicKeyIn(BaseModel):
+    key: str
+
+
+@router.post("/license/activate")
+def license_activate(body: LicKeyIn):
+    try:
+        r = L.activate(body.key)
+    except L.LicenseError as e:
+        raise HTTPException(400, str(e).replace("BẢN QUYỀN: ", ""))
+    notify("ok", f"Đã kích hoạt {r['name']}")
+    return {"result": r, **license_get()}
+
+
+class LicOrderIn(BaseModel):
+    product: str
+    contact: str = ""
+
+
+@router.post("/license/order")
+def license_order(body: LicOrderIn):
+    try:
+        return L.order(body.product, body.contact)
+    except L.LicenseError as e:
+        raise HTTPException(400, str(e).replace("BẢN QUYỀN: ", ""))
+
+
+@router.get("/license/order/{oid}")
+def license_order_status(oid: str):
+    try:
+        r = L.order_status(oid)
+    except L.LicenseError as e:
+        raise HTTPException(400, str(e).replace("BẢN QUYỀN: ", ""))
+    if r["activated"]:
+        notify("ok", "Đã nhận tiền — skill đã mở khoá")
+    return r
+
+
 @router.get("/state")
 def state(project: str | None = None):
     s = load_settings()
@@ -1323,7 +1405,7 @@ def state(project: str | None = None):
     return {"app": {"name": "C-Cut", "version": APP_VERSION}, "workspace": WS or None, "settings": s,
             "claude": {"project": pid, "confirms": confirms, "activity": activity, "busy": busy, "usage": usage,
                        "alive": alive, "model": s.get("build_model") or "sonnet"}, "system": system_status(),
-            "styles": list_styles(), "queue": STATE["queue"], "job": pub_job, "project": project_summary(pid),
+            "styles": list_styles(), "license": L.summary(), "queue": STATE["queue"], "job": pub_job, "project": project_summary(pid),
             "notifications": STATE["notifications"][-10:]}
 
 

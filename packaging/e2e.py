@@ -36,6 +36,27 @@ WORK = Path(args[0]) if args else Path(tempfile.mkdtemp(prefix="ccut_e2e_"))
 WORK.mkdir(parents=True, exist_ok=True)
 os.environ["CCUT_PROJECTS"] = str(WORK / "projects")
 (WORK / "projects").mkdir(exist_ok=True)
+os.environ["CCUT_LICENSE_STORE"] = str(WORK / "license.json")      # bản quyền thử của bộ kiểm — không đụng dữ liệu thật
+os.environ["CCUT_LICENSE_URL"] = "http://127.0.0.1:9"              # không gọi máy chủ thật (cổng đóng)
+
+
+def _signing_seed() -> bytes | None:
+    """khoá ký bản quyền (CI: bí mật CCUT_TEST_SIGNING_KEY; máy chủ app: ~/.ccut-license/keys.json) → 32 byte seed."""
+    import base64
+    k = os.environ.get("CCUT_TEST_SIGNING_KEY")
+    f = Path.home() / ".ccut-license" / "keys.json"
+    if not k and f.exists():
+        k = json.loads(f.read_text())["SIGNING_KEY"]
+    return base64.b64decode(k)[-32:] if k else None
+
+
+def _test_token(seed: bytes, product: str, device: str) -> str:
+    import base64
+    from thagent import license as L
+    body = json.dumps({"v": 1, "t": "lic", "key": "CC-E2E00-TEST0-" + product[:5].upper().ljust(5, "0"), "product": product,
+                       "device": device, "iat": int(time.time())}).encode()
+    b = lambda x: base64.urlsafe_b64encode(x).decode().rstrip("=")
+    return f"{b(body)}.{b(L._sign(seed, body))}"
 
 RESULTS: list[dict] = []
 CTX: dict = {}
@@ -174,6 +195,35 @@ def _prompt_docs():
     assert refs and not miss, f"thiếu tài liệu: {miss}"
     assert '"segments"' in schemadocs.text("edl.md") and '"segments"' in schemadocs.text("review-edit.md")
     return f"{len(refs)} tài liệu"
+
+
+@case("common", "bản quyền skill: Talking Head miễn phí, skill bán bị chặn khi chưa mua/không có lượt thử, mã giả bị từ chối")
+def _license():
+    import base64
+    from thagent import license as L
+    real = L.STORE
+    L.STORE = WORK / "license_empty.json"
+    try:
+        assert L.require("talking-head-style", "p") == "free"
+        for sk in L.PAID:
+            try:
+                L.require(sk, "p-e2e")
+                raise AssertionError(f"{sk} không bị chặn khi chưa mua")
+            except L.LicenseError as e:
+                assert str(e).startswith("BẢN QUYỀN"), e
+        body = json.dumps({"t": "lic", "key": "X", "product": "all", "device": L.device_id()}).encode()
+        fake = base64.urlsafe_b64encode(body).decode().rstrip("=") + "." + "A" * 86
+        L._save({"tokens": [fake]})
+        assert not L.owns("review-editor"), "mã giả (sai chữ ký) lại mở khoá được"
+        seed = _signing_seed()
+        if seed:
+            L._save({"tokens": [_test_token(seed, "all", "f" * 64)]})
+            assert not L.owns("review-editor"), "mã của máy khác lại mở khoá được"
+            L._save({"tokens": [_test_token(seed, "review-editor", L.device_id())]})
+            assert L.owns("review-editor") and not L.owns("voice-to-motion"), "mã lẻ mở sai skill"
+    finally:
+        L.STORE = real
+    return "đã kiểm chữ ký" if _signing_seed() else "không có khoá ký — bỏ phần mã hợp lệ"
 
 
 @case("common", "quy tắc riêng ngành: mỹ phẩm (khoá màu, chặn hứa hẹn công dụng), ẩm thực (tiếng hiện trường, ấm màu)")
@@ -515,6 +565,12 @@ def _th():
 
 if __name__ == "__main__":
     print(f"C-Cut e2e · python {sys.version.split()[0]} · {sys.platform} · làm việc: {WORK}", flush=True)
+    _seed = _signing_seed()
+    if _seed:                          # skill bán (Review, Voice to Motion) cần bản quyền để xuất → cấp mã combo thử cho máy kiểm
+        from thagent import license as _L
+        _L._save({"tokens": [_test_token(_seed, "all", _L.device_id())]})
+    else:
+        print("CHÚ Ý: không có khoá ký bản quyền (CCUT_TEST_SIGNING_KEY) — bài dựng Review/Voice to Motion sẽ bị chặn", flush=True)
     for fn in CASES:
         fn()
     rep = WORK / "e2e_report.json"

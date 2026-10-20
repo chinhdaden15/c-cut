@@ -123,7 +123,7 @@ def step_matting(c: Ctx):
 
 def step_plan(c: Ctx, force=False):
     if c.project.plan is None or force:
-        c.project.plan = make_plan(c.project.words, c.project.sentences, c.project.source.duration)
+        c.project.plan = make_plan(c.project.words, c.project.sentences, c.project.source.duration, media=c.project.proxy)
     c.project.status = "designed"
     c.save()
 

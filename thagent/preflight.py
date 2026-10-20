@@ -113,6 +113,21 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
                 add("error", f"{a.id} chồng {b.id} cùng lớp {(a.end - b.start)} frame")
     for gid in sorted(R.MOVED_DOWN):
         add("info", f"{gid}: đầu sát mép trên, không đủ chỗ cho chữ sau đầu → app tự đưa xuống trước ngực (xem stills)")
+    # 4b) không cắt khi người còn đang nói ở cuối video
+    try:
+        from .cleancut import silences
+        last = max(T.kept(pl), key=lambda s: s.order)
+        dur = (P.probe_source(c.project.proxy).duration if c.project.proxy else 0) or 0
+        t = last.source_out
+        if dur - t > 0.3 and not any(a <= t + 0.05 and b > t for a, b in silences(c.project.proxy)):
+            add("error", f"cuối video cắt ở {t:.2f}s (nguồn) khi người còn đang nói — kéo đoạn cuối tới lúc giọng dứt hẳn")
+    except Exception as e:
+        add("info", f"không kiểm được đuôi video: {e}")
+    # 4c) chữ trên màn hình lấy từ câu ảo giác của Whisper (tên kênh bịa)
+    blob = json.dumps(pl.model_dump(include={"text_groups", "mg", "fx", "hf"}), ensure_ascii=False).lower()
+    for name in ("ghiền mì gõ", "la la school", "lalaschool"):
+        if name in blob:
+            add("error", f"chữ trên màn hình có “{name}” — tên kênh do bộ chép lời tự bịa (câu ảo giác Whisper), không có trong clip → bỏ/đổi câu chung")
     # 5) quy tắc nội dung chữ + Motion Graphics
     out.extend(text_rules(pl, c.project.words, fps))
     out.extend(gaze_rules(pl, c.project.words, c.path("work", "gaze.json"), fps))
@@ -282,9 +297,10 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
 
 
 def point_rules(pl, point_file, fps: int) -> list[tuple[str, str]]:
-    """nhân vật chỉ tay/giơ tay giới thiệu vật mà chưa có highlight (hoặc MG che) → cảnh báo để agent xem ảnh và đặt."""
+    """cử chỉ tay chưa highlight → chỉ GHI CHÚ (info): khoanh vật CHỈ khi người thật sự chỉ vào một vật nhìn thấy rõ.
+    Giơ tay/khua tay khi nói KHÔNG phải chỉ vật → bỏ qua; mặc định không khoanh."""
     if not point_file.exists():
-        return [("warn", "chưa dò cử chỉ chỉ tay (work/pointing.json) — chạy python -m thagent.pointing <id>")]
+        return []
     from . import mg as M, neon
     M.chain(pl.mg)
     covers = [M.covered_range(m) for m in pl.mg]
@@ -297,7 +313,8 @@ def point_rules(pl, point_file, fps: int) -> list[tuple[str, str]]:
         mid = (a + b) // 2
         if any(x <= mid < y for x, y in covers) or any(x < b and y > a for x, y in hls):
             continue
-        out.append(("warn", f"chỉ tay {T.tc(a)}→{T.tc(b)} (“{r['said'][:40]}”) chưa làm nổi bật — xem ảnh, đặt fx highlight box=…"))
+        out.append(("info", f"cử chỉ tay {T.tc(a)}→{T.tc(b)} (“{r['said'][:40]}”): chỉ khoanh nếu xem ảnh thấy người CHỈ vào một vật "
+                            "nhìn thấy rõ và lời nói gọi đúng vật đó (nhãn = tên vật); giơ tay khi nói → bỏ qua"))
     return out
 
 

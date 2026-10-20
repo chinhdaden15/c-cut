@@ -343,6 +343,8 @@ def check_output(out: Path, edit: dict, fmt: str, samples, pdir=None, spots=None
 
 def render(pdir, fmts=None, progress=print) -> list[dict]:
     pdir = Path(pdir)
+    from ..license import require
+    require("review-editor", pdir, progress)            # skill bán: đã mua hoặc còn lượt thử (1 lượt = 1 dự án)
     edit = load(pdir)
     issues = validate(pdir, edit)
     errs = [m for s, m in issues if s == "error"]

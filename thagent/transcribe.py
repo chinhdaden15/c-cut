@@ -8,6 +8,18 @@ from .schema import TranscriptWord, Sentence
 LOW_CONF = 0.55
 
 
+# Câu "ảo giác" quen thuộc của Whisper tiếng Việt (học từ phụ đề YouTube): hay tự chèn ở đoạn cuối/đoạn nói nhỏ, kèm TÊN KÊNH
+# KHÔNG có thật trong clip. Từ thuộc câu này → confidence 0 + needs_review (ASR nghi bịa) — không đưa tên riêng lên màn hình.
+HALLU_NAMES = ["ghiền mì gõ", "la la school", "lalaschool", "mì gõ", "vtv24", "bác sĩ tâm", "sub by", "subtitle by", "amara.org"]
+HALLU_RE = re.compile(r"(subscribe|đăng ký) (cho )?kênh|ghiền mì gõ|la ?la school|không bỏ lỡ những video hấp dẫn|"
+                      r"cảm ơn các bạn đã (theo dõi|xem)|hẹn gặp lại các bạn trong (những|các) video|"
+                      r"like,? share và (subscribe|đăng ký)|nhấn (nút )?chuông|subtitles? by|amara\.org", re.I)
+
+
+def is_hallucination(text: str) -> bool:
+    return bool(HALLU_RE.search(text or ""))
+
+
 def transcribe(wav_path: str, model_name: str = "large-v3", vocab: list[str] | None = None,
                progress=None) -> tuple[list[TranscriptWord], list[Sentence]]:
     from faster_whisper import WhisperModel
@@ -24,6 +36,7 @@ def transcribe(wav_path: str, model_name: str = "large-v3", vocab: list[str] | N
     sentences: list[Sentence] = []
     for si, seg in enumerate(segs):
         ids = []
+        hallu = is_hallucination(seg.text)
         for w in seg.words or []:
             t = w.word.strip()
             if not t:
@@ -31,8 +44,8 @@ def transcribe(wav_path: str, model_name: str = "large-v3", vocab: list[str] | N
             wid = f"w{len(words):04d}"
             words.append(TranscriptWord(
                 id=wid, text=t, source_start=round(w.start, 3), source_end=round(w.end, 3),
-                confidence=round(w.probability, 3),
-                needs_review=w.probability < LOW_CONF or bool(re.search(r"\d", t)),
+                confidence=0.0 if hallu else round(w.probability, 3),
+                needs_review=hallu or w.probability < LOW_CONF or bool(re.search(r"\d", t)),
                 sentence_id=si,
             ))
             ids.append(wid)
