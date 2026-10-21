@@ -50,9 +50,15 @@ t("status trả mã đã mua + lượt thử (cài lại app khôi phục đư�
 
 // thu hồi / gỡ máy
 await adm("license/revoke", { key: k1 });
-r = await post("/v1/status", { device: D1 });
+r = await post("/v1/status", { device: D1, nonce: "n1" });
 t("thu hồi → status không còn mã, báo thu hồi", r.tokens.length === 0 && r.revoked.includes(k1), r);
-await adm("license/restore", { key: k1 }); await adm("license/unbind", { key: k1 });
+let st = dec(r.state);
+t("trạng thái đã ký: đúng máy + nonce, không còn mã bị thu hồi", st.ok && st.p.t === "st" && st.p.device === D1 && st.p.nonce === "n1" && !st.p.keys.includes(k1), st);
+await adm("license/restore", { key: k1 });
+t("khôi phục → trạng thái ký có lại mã", dec((await post("/v1/status", { device: D1, nonce: "n2" })).state).p.keys.includes(k1));
+await adm("license/unbind", { key: k1 });
+st = dec((await post("/v1/status", { device: D1, nonce: "n3" })).state);
+t("gỡ khỏi máy → trạng thái ký của máy cũ không còn mã", st.ok && !st.p.keys.includes(k1), st);
 t("gỡ khỏi máy → máy mới kích hoạt được", (await post("/v1/activate", { key: k1, device: D2 })).ok);
 
 // khoá máy

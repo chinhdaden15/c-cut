@@ -2,7 +2,8 @@
 
 - Mã thiết bị: băm mã phần cứng có sẵn của máy (Windows MachineGuid, Mac IOPlatformUUID) → cài lại app/Windows vẫn ra đúng mã.
 - Máy chủ (license-server/, Cloudflare Worker) KÝ mọi quyền dùng bằng Ed25519; app chỉ giữ khoá công khai → không giả được mã/lượt thử,
-  kể cả khi trỏ app sang máy chủ khác. Mã đã mua kiểm offline (không cần mạng sau khi kích hoạt).
+  kể cả khi trỏ app sang máy chủ khác. Mã đã mua dùng được offline, nhưng có mạng là app hỏi lại máy chủ (≥10 phút/lần) theo danh sách mã
+  CÒN HIỆU LỰC đã ký kèm nonce → thu hồi / gỡ khỏi máy / khoá máy có hiệu lực ngay lần hỏi sau; quá OFFLINE_DAYS không hỏi được → phải nối mạng.
 - Chặn ở 2 chỗ: đầu việc (can_start — hết lượt thì báo ngay, không tốn công Claude) và trong hàm XUẤT video của skill (require).
   1 lượt thử = 1 dự án được xuất; xuất lại cùng dự án không trừ thêm.
 """
@@ -32,6 +33,8 @@ PAID = {"talking-head-style": "Skill Talking Head", "review-editor": "Skill Revi
 COMBO = "all"
 STORE = Path(os.environ.get("CCUT_LICENSE_STORE") or ROOT / "license.json")   # nội dung đã ký → đổi chỗ lưu không mở khoá được gì
 _LOCK = threading.Lock()
+RECHECK_S = 600                            # skill đã mua: hỏi lại máy chủ tối đa 10 phút/lần khi bắt đầu / xuất
+OFFLINE_DAYS = 7                           # không hỏi được máy chủ quá chừng này ngày → cần mạng để xác minh lại
 
 
 class LicenseError(RuntimeError):
@@ -244,16 +247,41 @@ def _project(pdir_or_pid) -> str:
 
 def sync(timeout: float = 12) -> dict:
     """lấy từ máy chủ: mã đã mua của máy này (cài lại app tự khôi phục), mã bị thu hồi, lượt thử đã dùng."""
-    r = _http("POST", "/v1/status", _info(), timeout)
+    nonce = uuid.uuid4().hex
+    r = _http("POST", "/v1/status", {**_info(), "nonce": nonce}, timeout)
     if not r.get("ok"):
         raise LicenseError("BẢN QUYỀN: " + str(r.get("error", "máy chủ không phản hồi")))
+    st = read_token(r.get("state", ""))
+    if not (st and st.get("t") == "st" and st.get("device") == device_id() and st.get("nonce") == nonce):
+        raise LicenseError("BẢN QUYỀN: phản hồi máy chủ không hợp lệ")
+    keys = set(st.get("keys") or [])
     with _LOCK:
         d = _load()
-        d["tokens"] = sorted(set(d.get("tokens", [])) | set(r.get("tokens", [])))
+        # máy chủ là nguồn đúng: chỉ giữ mã còn hiệu lực của máy này (bỏ mã đã thu hồi / gỡ khỏi máy / máy bị khoá)
+        d["tokens"] = sorted({tok for tok in [*d.get("tokens", []), *r.get("tokens", [])]
+                              if (p := read_token(tok)) and p.get("key") in keys})
         d.update(revoked=r.get("revoked", []), trials=r.get("trials", {}), trial_limit=r.get("trial_limit", 2),
-                 blocked=bool(r.get("blocked")), synced=time.time())
+                 blocked=bool(st.get("blocked")), synced=time.time(), verified=time.time())
         _save(d)
     return d
+
+
+def _recheck(skill: str) -> None:
+    """skill đã mua (theo mã lưu trên máy): hỏi lại máy chủ nếu lâu chưa hỏi. Mất mạng → vẫn dùng trong OFFLINE_DAYS ngày."""
+    d = _load()
+    last = float(d.get("verified") or 0)
+    if last > time.time() + 300:            # sửa tay license.json để khỏi hỏi lại → coi như chưa xác minh
+        last = 0
+    if time.time() - last < RECHECK_S:
+        return
+    try:
+        sync(timeout=8)
+    except LicenseError:
+        if time.time() - last > OFFLINE_DAYS * 86400:
+            raise LicenseError(f"BẢN QUYỀN: cần kết nối mạng để xác minh {PAID[skill]} (đã {OFFLINE_DAYS} ngày chưa xác minh)")
+    except Exception:
+        if time.time() - last > OFFLINE_DAYS * 86400:
+            raise LicenseError(f"BẢN QUYỀN: cần kết nối mạng để xác minh {PAID[skill]} (đã {OFFLINE_DAYS} ngày chưa xác minh)")
 
 
 def summary() -> dict:
@@ -269,8 +297,14 @@ def summary() -> dict:
 
 def can_start(skill: str, project) -> None:
     """đầu việc: skill bán + chưa mua + hết lượt thử → báo ngay. Lỗi mạng → để bước xuất quyết định."""
-    if skill not in PAID or owns(skill):
+    if skill not in PAID:
         return
+    if owns(skill):
+        _recheck(skill)
+        if owns(skill):
+            return
+        if _load().get("blocked"):
+            raise LicenseError("BẢN QUYỀN: máy này đã bị khoá — liên hệ người bán")
     pr = _project(project)
     d = _load()
     if _grant(d, skill, pr):
@@ -292,7 +326,11 @@ def require(skill: str, project, log=print) -> str:
     if skill not in PAID:
         return "free"
     if owns(skill):
-        return "licensed"
+        _recheck(skill)
+        if owns(skill):
+            return "licensed"
+        if _load().get("blocked"):
+            raise LicenseError("BẢN QUYỀN: máy này đã bị khoá — liên hệ người bán")
     pr = _project(project)
     if _grant(_load(), skill, pr):
         return "trial"
@@ -327,6 +365,7 @@ def _keep(tok: str) -> dict:
         d = _load()
         d["tokens"] = sorted(set(d.get("tokens", [])) | {tok})
         d["revoked"] = [k for k in d.get("revoked", []) if k != p["key"]]
+        d["verified"] = time.time()
         _save(d)
     return p
 

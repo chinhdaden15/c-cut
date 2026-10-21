@@ -221,6 +221,42 @@ def _license():
             assert not L.owns("review-editor"), "mã của máy khác lại mở khoá được"
             L._save({"tokens": [_test_token(seed, "review-editor", L.device_id())]})
             assert L.owns("review-editor") and not L.owns("voice-to-motion"), "mã lẻ mở sai skill"
+            # thu hồi / gỡ khỏi máy: máy chủ trả danh sách mã còn hiệu lực (đã ký kèm nonce) → app bỏ mã không còn trong đó
+            import base64
+            tok = _test_token(seed, "review-editor", L.device_id())
+            key = L.read_token(tok)["key"]
+            b = lambda x: base64.urlsafe_b64encode(x).decode().rstrip("=")
+            real_http = L._http
+
+            def fake(keys, nonce_ok=True):
+                def h(method, path, body=None, timeout=12):
+                    st = json.dumps({"v": 1, "t": "st", "device": L.device_id(), "nonce": body["nonce"] if nonce_ok else "cu",
+                                     "keys": keys, "blocked": False, "iat": int(time.time())}).encode()
+                    return {"ok": True, "tokens": [tok] if key in keys else [], "trials": {}, "revoked": [], "state": f"{b(st)}.{b(L._sign(seed, st))}"}
+                return h
+            try:
+                L._save({"tokens": [tok], "verified": 0})
+                L._http = fake([key])
+                assert L.require("review-editor", "p-e2e") == "licensed", "mã còn hiệu lực bị bỏ"
+                L._save({"tokens": [tok], "verified": 0})
+                L._http = fake([key], nonce_ok=False)
+                try:
+                    L.sync(); raise AssertionError("phát lại phản hồi cũ (sai nonce) vẫn được nhận")
+                except L.LicenseError:
+                    pass
+                L._http = fake([])
+                try:
+                    L.require("review-editor", "p-e2e2"); raise AssertionError("mã đã thu hồi / gỡ khỏi máy vẫn dùng được")
+                except L.LicenseError:
+                    pass
+                assert not L.owns("review-editor"), "mã thu hồi vẫn còn trên máy"
+                L._save({"tokens": [tok], "verified": time.time() + 10 ** 8})
+                try:
+                    L.require("review-editor", "p-e2e3"); raise AssertionError("sửa tay giờ xác minh để khỏi hỏi lại vẫn qua")
+                except L.LicenseError:
+                    pass
+            finally:
+                L._http = real_http
     finally:
         L.STORE = real
     return "đã kiểm chữ ký" if _signing_seed() else "không có khoá ký — bỏ phần mã hợp lệ"
@@ -608,7 +644,7 @@ if __name__ == "__main__":
     _seed = _signing_seed()
     if _seed:                          # skill bán (Review, Voice to Motion) cần bản quyền để xuất → cấp mã combo thử cho máy kiểm
         from thagent import license as _L
-        _L._save({"tokens": [_test_token(_seed, "all", _L.device_id())]})
+        _L._save({"tokens": [_test_token(_seed, "all", _L.device_id())], "verified": time.time()})   # máy chủ giả (cổng đóng) → dùng hạn offline
     else:
         print("CHÚ Ý: không có khoá ký bản quyền (CCUT_TEST_SIGNING_KEY) — bài dựng Review/Voice to Motion sẽ bị chặn", flush=True)
     for fn in CASES:

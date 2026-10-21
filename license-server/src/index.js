@@ -56,8 +56,11 @@ async function status(env, body) {
   const dev = await seen(env, body.device, body);
   const { results } = await env.DB.prepare("SELECT skill, COUNT(*) n FROM trial_uses WHERE device = ? GROUP BY skill").bind(body.device).all();
   const revoked = (await env.DB.prepare("SELECT key FROM licenses WHERE device = ? AND revoked = 1").bind(body.device).all()).results.map((r) => r.key);
+  const keys = dev.blocked ? [] : (await env.DB.prepare("SELECT key FROM licenses WHERE device = ? AND revoked = 0").bind(body.device).all()).results.map((r) => r.key);
+  // danh sách mã CÒN HIỆU LỰC của máy, ký kèm nonce app gửi → app bỏ mã đã thu hồi / gỡ khỏi máy, không giả hay phát lại được phản hồi cũ
+  const state = await sign(env, { v: 1, t: "st", device: body.device, nonce: String(body.nonce || "").slice(0, 64), keys, blocked: !!dev.blocked, iat: now() });
   return json({ ok: true, blocked: !!dev.blocked, trial_limit: Number(await setting(env, "trial_limit", "2")),
-    trials: Object.fromEntries(results.map((r) => [r.skill, r.n])), tokens: dev.blocked ? [] : await deviceTokens(env, body.device), revoked });
+    trials: Object.fromEntries(results.map((r) => [r.skill, r.n])), tokens: dev.blocked ? [] : await deviceTokens(env, body.device), revoked, state });
 }
 
 async function trial(env, body) {
