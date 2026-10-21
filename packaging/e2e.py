@@ -270,7 +270,7 @@ def _entities():
     assert any("đã dùng ở A" in m for m in errs), "không bắt ảnh lặp"
     page = WORK / "entities" / "page.html"
     page.write_text('<title>T</title><meta property="og:image" content="/a.jpg"><img src="logo.png"><img data-src="https://cdn.x/b.jpg">')
-    rs = [r["url"] for r in page_results(page.as_uri())]
+    rs = [r["url"] for r in page_results(page.resolve().as_uri())]
     assert rs == ["https://cdn.x/b.jpg"], f"lấy ảnh trong trang sai: {rs}"     # bỏ logo; ảnh không phải http(s) bị loại
     return f"{len(errs)} lỗi đúng chỗ"
 
