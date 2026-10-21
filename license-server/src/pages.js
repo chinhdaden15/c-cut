@@ -102,21 +102,19 @@ if(T)load().catch(()=>{});
 const DL = "https://github.com/chinhdaden15/c-cut-releases/releases/latest/download/";
 export const GUIDE_HTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hướng dẫn cài C-Cut</title><style>${BASE_CSS}
-.wrap{max-width:960px}.tabs{display:flex;gap:8px;margin:18px 0 12px;flex-wrap:wrap}.tabs button{background:var(--panel2);color:var(--fg)}
+.wrap{max-width:960px}.tabs{display:flex;gap:8px;margin:18px 0 12px;flex-wrap:wrap}.tabs button{background:var(--panel2);color:var(--fg);min-width:120px}
 .tabs button.on{background:var(--acc);color:#fff}video{width:100%;border-radius:12px;background:#000;display:block}
 .pane{display:none}.pane.on{display:block}.dl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
 a.btn{display:inline-block;text-decoration:none;background:var(--acc);color:#fff;border-radius:8px;padding:10px 18px;font-weight:600}
 a.ghost{background:var(--panel2);color:var(--fg)}ol{padding-left:20px;line-height:1.8;color:var(--fg2)}</style></head><body><div class="wrap">
 <h1>Hướng dẫn cài đặt C-Cut</h1><div class="dim">Xem video hướng dẫn đúng máy của bạn, rồi tải file cài ngay bên dưới.</div>
-<div class="tabs"><button data-t="win">🪟 Windows</button><button data-t="m">🍎 Mac chip M (M1–M4)</button><button data-t="intel">🍎 Mac chip Intel</button></div>
+<div class="tabs"><button data-t="win">Windows</button><button data-t="mac">macOS</button></div>
 <div class="pane" id="p_win"><video controls preload="metadata" playsinline poster="/video/windows.jpg" src="/video/windows.mp4"></video>
 <div class="dl"><a class="btn" href="${DL}C-Cut-Setup.exe">⬇ Tải C-Cut cho Windows</a><span class="dim">Windows 10 / 11 · 64-bit</span></div></div>
-<div class="pane" id="p_m"><video controls preload="metadata" playsinline poster="/video/mac-m.jpg" src="/video/mac-m.mp4"></video>
-<div class="dl"><a class="btn" href="${DL}C-Cut-mac-arm64.dmg">⬇ Tải C-Cut cho Mac chip M</a><span class="dim">Apple M1 · M2 · M3 · M4</span></div></div>
-<div class="pane" id="p_intel"><video controls preload="metadata" playsinline poster="/video/mac-intel.jpg" src="/video/mac-intel.mp4"></video>
-<div class="dl"><a class="btn" href="${DL}C-Cut-mac-intel.dmg">⬇ Tải C-Cut cho Mac chip Intel</a><span class="dim">Mac dùng bộ xử lý Intel</span></div></div>
-<div class="card" style="margin-top:22px"><b>Chưa biết máy Mac dùng chip gì?</b><ol><li>Bấm biểu tượng quả táo ở góc trên bên trái.</li>
-<li>Chọn <b>Giới thiệu về máy Mac này</b>.</li><li>Thấy dòng <b>Chip Apple M…</b> → chọn bản chip M; thấy <b>Bộ xử lý … Intel</b> → chọn bản Intel.</li></ol></div>
+<div class="pane" id="p_mac"><video controls preload="metadata" playsinline poster="/video/macos.jpg" src="/video/macos.mp4"></video>
+<div class="dl"><a class="btn" href="${DL}C-Cut-mac-arm64.dmg">⬇ Tải cho Mac chip M</a><a class="btn" href="${DL}C-Cut-mac-intel.dmg">⬇ Tải cho Mac chip Intel</a></div>
+<div class="card" style="margin-top:14px"><b>Chưa biết máy Mac dùng chip gì?</b><ol><li>Bấm biểu tượng quả táo ở góc trên bên trái.</li>
+<li>Chọn <b>Giới thiệu về máy Mac này</b>.</li><li>Thấy dòng <b>Chip Apple M…</b> → tải bản <b>chip M</b>; thấy <b>Bộ xử lý … Intel</b> → tải bản <b>Intel</b>.</li></ol></div></div>
 <div class="card"><b>Cần chuẩn bị</b><ol><li>Ổ đĩa trống ít nhất 10 GB, nên có RAM từ 8 GB.</li><li>Tài khoản Claude gói Pro hoặc Max (trợ lý AI dựng video).</li>
 <li>Mỗi skill được dùng thử 2 video — mua thêm tại <a href="/mua" style="color:var(--acc)">trang mua skill</a>.</li></ol></div>
 <div class="dl"><a class="btn ghost" href="${DL}Huong.dan.su.dung.C-Cut.pdf">📄 Hướng dẫn sử dụng (PDF)</a>
@@ -125,5 +123,6 @@ a.ghost{background:var(--panel2);color:var(--fg)}ol{padding-left:20px;line-heigh
 const $$=s=>document.querySelectorAll(s);
 function show(t){$$('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$$('.pane').forEach(p=>{const on=p.id==='p_'+t;p.classList.toggle('on',on);if(!on)p.querySelector('video').pause()});history.replaceState(null,'','#'+t)}
 $$('.tabs button').forEach(b=>b.onclick=()=>show(b.dataset.t));
-const h=location.hash.slice(1);show(['win','m','intel'].includes(h)?h:(/Mac|iPhone|iPad/.test(navigator.userAgent)?'m':'win'));
+const h=location.hash.slice(1),hm={m:'mac',intel:'mac'};const t=hm[h]||h;
+show(['win','mac'].includes(t)?t:(/Mac|iPhone|iPad/.test(navigator.userAgent)?'mac':'win'));
 </script></body></html>`;
