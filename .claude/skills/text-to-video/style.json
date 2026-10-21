@@ -3,8 +3,21 @@
   "version": "1.0.0",
   "kind": "text",
   "summary": "Kịch bản hoặc yêu cầu → giọng đọc (6 giọng có sẵn / giọng nhân bản) → video kết hợp video minh hoạ thật + motion graphic; xuất cả dọc 9:16 lẫn ngang 16:9",
-  "output": {"formats": ["9x16", "16x9"], "fps": 30},
-  "input": {"text": ["txt", "md", "docx", "srt", "pdf"]},
-  "video": true,
-  "hidden": true
+  "output": {
+    "formats": [
+      "9x16",
+      "16x9"
+    ],
+    "fps": 30
+  },
+  "input": {
+    "text": [
+      "txt",
+      "md",
+      "docx",
+      "srt",
+      "pdf"
+    ]
+  },
+  "video": true
 }
