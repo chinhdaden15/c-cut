@@ -24,9 +24,9 @@ function ask(m){return new Promise(res=>{const d=document.createElement('div');d
   d.querySelector('.box>div').textContent=m;const b=d.querySelectorAll('button');const done=v=>{d.remove();res(v)};
   b[0].onclick=()=>done(false);b[1].onclick=()=>done(true);d.onclick=e=>{if(e.target===d)done(false)};document.body.append(d);b[1].focus()})}`;
 
-export const BUY_HTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+export const BUY_HTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><link rel="icon" href="/logo.png"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mua skill C-Cut</title><style>${BASE_CSS}</style></head><body><div class="wrap">
-<h1>Mua skill C-Cut</h1><div class="dim"><a href="/huong-dan" style="color:var(--acc)">▶ Xem video hướng dẫn cài đặt</a> · Mua một lần, dùng vĩnh viễn trên 1 máy. Mỗi skill được dùng thử 2 video trước khi mua.</div>
+<h1 style="display:flex;align-items:center;gap:10px"><img src="/logo.png" alt="" width="36" height="36">Mua skill C-Cut</h1><div class="dim"><a href="/huong-dan" style="color:var(--acc)">▶ Xem video hướng dẫn cài đặt</a> · Mua một lần, dùng vĩnh viễn trên 1 máy. Mỗi skill được dùng thử 2 video trước khi mua.</div>
 <div id="step1"><h2>Chọn skill</h2><div id="prods" class="dim">Đang tải…</div>
 <h2>Liên hệ nhận mã (email hoặc số Zalo)</h2><input id="contact" placeholder="vd: ban@gmail.com hoặc 09xx…">
 <div style="margin-top:14px"><button id="go" disabled>Tạo mã chuyển khoản</button></div></div>
@@ -56,7 +56,7 @@ async function poll(){const r=await fetch('/v1/order/'+order.id).then(r=>r.json(
 $('#copy').onclick=()=>navigator.clipboard.writeText($('#key').textContent);
 </script></body></html>`;
 
-export const ADMIN_HTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+export const ADMIN_HTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><link rel="icon" href="/logo.png"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Quản lý C-Cut</title><style>${BASE_CSS}.wrap{max-width:1100px}.card{overflow-x:auto}table{min-width:640px}</style></head><body><div class="wrap">
 <h1>Quản lý bản quyền C-Cut</h1>
 <div id="login" class="card"><div class="dim">Mật khẩu quản lý (ADMIN_TOKEN)</div><div class="row"><input id="tok" type="password"><button id="in" style="flex:0">Vào</button></div></div>
@@ -100,14 +100,14 @@ if(T)load().catch(()=>{});
 </script></body></html>`;
 
 const DL = "https://github.com/chinhdaden15/c-cut-releases/releases/latest/download/";
-export const GUIDE_HTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+export const GUIDE_HTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><link rel="icon" href="/logo.png"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hướng dẫn cài C-Cut</title><style>${BASE_CSS}
 .wrap{max-width:960px}.tabs{display:flex;gap:8px;margin:18px 0 12px;flex-wrap:wrap}.tabs button{background:var(--panel2);color:var(--fg);min-width:120px}
 .tabs button.on{background:var(--acc);color:#fff}video{width:100%;border-radius:12px;background:#000;display:block}
 .pane{display:none}.pane.on{display:block}.dl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
 a.btn{display:inline-block;text-decoration:none;background:var(--acc);color:#fff;border-radius:8px;padding:10px 18px;font-weight:600}
 a.ghost{background:var(--panel2);color:var(--fg)}ol{padding-left:20px;line-height:1.8;color:var(--fg2)}</style></head><body><div class="wrap">
-<h1>Hướng dẫn cài đặt C-Cut</h1><div class="dim">Xem video hướng dẫn đúng máy của bạn, rồi tải file cài ngay bên dưới.</div>
+<h1 style="display:flex;align-items:center;gap:10px"><img src="/logo.png" alt="" width="36" height="36">Hướng dẫn cài đặt C-Cut</h1><div class="dim">Xem video hướng dẫn đúng máy của bạn, rồi tải file cài ngay bên dưới.</div>
 <div class="tabs"><button data-t="intro">Giới thiệu C-Cut</button><button data-t="win">Windows</button><button data-t="mac">macOS</button></div>
 <div class="pane" id="p_intro"><video controls preload="metadata" playsinline poster="/video/gioithieu.jpg" src="/video/gioithieu.mp4"></video>
 <div class="dl"><span class="dim">Xem C-Cut dựng video thế nào, rồi chọn</span><a class="btn ghost" href="#win" data-go="win">Windows</a><a class="btn ghost" href="#mac" data-go="mac">macOS</a><span class="dim">để xem hướng dẫn cài và tải về.</span></div></div>
