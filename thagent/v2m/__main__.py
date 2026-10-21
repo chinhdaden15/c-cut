@@ -57,6 +57,9 @@ def init(src, pdir, progress=print):
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(voice), "-ac", "1", "-ar", "16000", str(wav16)], check=True)
     from ..transcribe import transcribe
     words, sents = transcribe(str(wav16), progress=progress)
+    from ..transcribe import LAST
+    from .. import fonts as FT
+    FT.set_language(pdir, LAST["language"])
     wav16.unlink(missing_ok=True)
     tr = {"voice": voice.name, "duration_s": round(dur, 3), "channels": auds[0].get("channels"),
           "codec": auds[0].get("codec_name"), "sample_rate": auds[0].get("sample_rate"),
@@ -99,6 +102,8 @@ def _timeline(pdir: Path) -> R.Timeline:
 
 def validate(pdir: Path) -> list[tuple[str, str]]:
     """lỗi chặn dựng (error) + cảnh báo (warn)."""
+    from .. import fonts as _FT
+    _FT.use_project(pdir)
     out = []
     try:
         tl = _timeline(pdir)
@@ -242,6 +247,8 @@ def sheet(tl: R.Timeline, times: list[float], out: Path, cols=6):
 
 
 def stills(pdir, *ts):
+    from .. import fonts as _FT
+    _FT.use_project(pdir)
     pdir = Path(pdir)
     FMT["value"] = next((f for f in ts if f in ("9x16", "16x9")), None)
     ts = [t for t in ts if t not in ("9x16", "16x9")]
@@ -269,6 +276,8 @@ def _skill(pdir) -> str:
 def render(pdir, *fmts, progress=print):
     """render <dự-án> [9x16|16x9|both] — mặc định: định dạng của timeline.json (dọc nếu không ghi).
     Mỗi định dạng dùng timeline bố cục riêng (timeline_<fmt>.json), dựng và kiểm tra RIÊNG."""
+    from .. import fonts as _FT
+    _FT.use_project(pdir)
     pdir = Path(pdir)
     from ..license import require
     require(_skill(pdir), pdir, progress)          # skill bán: đã mua hoặc còn lượt thử (1 lượt = 1 dự án)

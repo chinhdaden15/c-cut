@@ -4,6 +4,7 @@ sea-g2p
 soundfile
 soxr
 kaldi-native-fbank
+arabic-reshaper
 onnxruntime
 numpy
 pillow

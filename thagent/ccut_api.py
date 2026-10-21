@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "1.8.2"
+APP_VERSION = "1.8.3"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -86,6 +86,7 @@ def load_settings() -> dict:
     if SETTINGS.exists():
         s.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
     P.PROJECTS = Path(WS["dir"]) if WS else Path(s["project_dir"])
+    os.environ["CCUT_ASR_LANG"] = s.get("asr_language") or "auto"     # chép lời (app + lệnh Claude chạy) theo cài đặt
     return s
 
 
@@ -95,6 +96,7 @@ class SettingsIn(BaseModel):
     export_dir: str | None = None
     style: str | None = None
     build_model: str | None = None
+    asr_language: str | None = None        # ngôn ngữ nói trong clip: "auto" (Whisper tự nhận) hoặc mã ngôn ngữ
     notify_sound: bool | None = None
     notify_system: bool | None = None
     review: dict | None = None

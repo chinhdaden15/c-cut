@@ -38,10 +38,17 @@ def rgb(c) -> np.ndarray:
     return np.array([int(c[i:i + 2], 16) for i in (0, 2, 4)], np.float32) / 255.0
 
 
-@lru_cache(maxsize=128)
 def font(role: str, size: int) -> ImageFont.FreeTypeFont:
+    from .. import fonts as FT
+    return _font(role, size, FT.current())
+
+
+@lru_cache(maxsize=128)
+def _font(role: str, size: int, lang: str) -> ImageFont.FreeTypeFont:
+    from .. import fonts as FT
     fname, w = FONTS.get(role, FONTS["display"])
-    f = ImageFont.truetype(str(FONT_DIR / fname), max(int(size), 4))
+    path, w = FT.pick(FONT_DIR / fname, w)
+    f = ImageFont.truetype(path, max(int(size), 4))
     if w is not None:
         try:
             f.set_variation_by_axes([w])
@@ -93,13 +100,21 @@ def wrap(text: str, role: str, size: int, max_w: float | None, spacing: float = 
     return [ln for ln in lines if ln] or [[]]
 
 
-@lru_cache(maxsize=1024)
 def text_layout(text: str, role: str, size: int, max_w: float, align: str, line_h: float, spacing: float):
+    from .. import fonts as FT
+    return _text_layout(text, role, size, max_w, align, line_h, spacing, FT.current())
+
+
+@lru_cache(maxsize=1024)
+def _text_layout(text: str, role: str, size: int, max_w: float, align: str, line_h: float, spacing: float, lang: str):
     """vị trí từng từ (x, y, w) trong khối chữ + kích thước khối. Gốc (0,0) = góc trên trái khối."""
     text = unicodedata.normalize("NFC", text)
     f = font(role, size)
+    from .. import fonts as FT
     lines = wrap(text, role, size, max_w or None, spacing)
-    sp = f.getlength(" ")
+    sp = 0.0 if FT.current() in FT.NOSPACE else f.getlength(" ")      # Trung/Nhật/Thái: các từ viết liền
+    if FT.rtl():
+        lines = [list(reversed(ln)) for ln in lines]                  # phải sang trái: từ đầu câu nằm bên phải
     lh = size * line_h
     widths = [sum(f.getlength(w) + spacing * len(w) for w in ln) + sp * (len(ln) - 1) for ln in lines]
     W = max(widths) if widths else 0
@@ -113,10 +128,20 @@ def text_layout(text: str, role: str, size: int, max_w: float, align: str, line_
     return words, W, lh * len(lines)
 
 
-@lru_cache(maxsize=2048)
 def word_sprite(word: str, role: str, size: int, color: str, spacing: float, shadow: float,
                 stroke: int = 0, stroke_color: str = "#000000") -> tuple[np.ndarray, int, int]:
+    from .. import fonts as FT
+    return _word_sprite(word, role, size, color, spacing, shadow, stroke, stroke_color, FT.current())
+
+
+@lru_cache(maxsize=2048)
+def _word_sprite(word: str, role: str, size: int, color: str, spacing: float, shadow: float,
+                 stroke: int, stroke_color: str, lang: str) -> tuple[np.ndarray, int, int]:
     """sprite một từ + (ox, oy): độ lệch từ góc sprite tới gốc chữ (đỉnh dòng)."""
+    from .. import fonts as FT
+    word = FT.shape_word(word)
+    if FT.complex_script():
+        spacing = 0
     f = font(role, size)
     pad = int(size * 0.45) + stroke + 2
     asc, desc = f.getmetrics()

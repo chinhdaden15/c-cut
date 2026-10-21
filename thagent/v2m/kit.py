@@ -70,6 +70,8 @@ def _norm(s: str) -> str:
 
 class Kit:
     def __init__(self, pdir, fmt: str, theme="dark", project_id: str | None = None):
+        from .. import fonts as FT
+        FT.use_project(pdir)
         self.pdir = Path(pdir)
         self.F = Frame(fmt)
         self.fmt, self.V = fmt, self.F.portrait
@@ -625,7 +627,8 @@ class Scene:
         if source and "://" in str(source):
             source = re.sub(r"^https?://(www\.)?", "", str(source)).split("/")[0]   # chỉ tên miền cho gọn
         # trên video chỉ ghi loại ảnh; nguồn KHÔNG hiện (người dùng tự ghi khi đăng bài) — vẫn lưu ở assets_web/illus_sources.json
-        return src, ("Hình ảnh thực tế" if real else "Hình ảnh minh họa"), None
+        from .. import fonts as FT
+        return src, FT.label(real), None
 
     def photo(self, src, t, label=None, source=None, real=False, region="main", w=None, h=None, kb=True, style="scale",
               ry=0.5, **k) -> str:
@@ -703,7 +706,8 @@ class Scene:
             o["kb"] = {"z": [1.0, 1.06], "pan": [0, 0, 0, 0]}
         oid = self.add(o, self.t0 if t is None else t, "fade", 0.6)
         if True:
-            self.add({"type": "text", "text": "Hình ảnh minh họa", "font": "medium", "size": 22, "color": "#FFFFFF",
+            from .. import fonts as FT
+            self.add({"type": "text", "text": FT.label(), "font": "medium", "size": 22, "color": "#FFFFFF",
                       "space": "screen", "x": K.W / 2, "y": K.F.center("source")[1], "shadow": 0.6, "role": "source", "layer": 30},
                      self.t0 if t is None else t, "fade", 0.4)
         return oid

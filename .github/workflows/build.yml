@@ -19,23 +19,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: {python-version: "3.11"}
-      - name: ffmpeg tĩnh
+        with: {python-version: "3.11", cache: pip, cache-dependency-path: "requirements.lock.txt"}
+      - name: ffmpeg tĩnh (bản ghim ở release tools-ffmpeg-1 — không phụ thuộc trang ngoài)
         run: |
           mkdir -p build/ffmpeg && cd build/ffmpeg
-          ok=1
-          for b in ffmpeg ffprobe; do
-            curl -fsSL --retry 3 -o $b.zip "https://ffmpeg.martin-riedl.de/redirect/latest/macos/${{ matrix.ff }}/release/$b.zip" \
-              && unzip -o $b.zip && rm $b.zip && chmod +x $b || ok=0
-          done
-          if [ $ok = 0 ]; then   # nguồn ffmpeg sập → lấy ffmpeg/ffprobe từ bản cài C-Cut đã phát hành gần nhất (cùng chip)
-            echo "nguồn ffmpeg lỗi — lấy từ bản phát hành trước"
-            curl -fsSL -o prev.dmg "https://github.com/chinhdaden15/c-cut-releases/releases/latest/download/C-Cut-mac-${{ matrix.arch }}.dmg"
-            mnt=$(hdiutil attach -nobrowse -readonly prev.dmg | grep -o '/Volumes/.*' | head -1)
-            cp "$mnt/C-Cut.app/Contents/Frameworks/bin/ffmpeg" "$mnt/C-Cut.app/Contents/Frameworks/bin/ffprobe" .
-            hdiutil detach "$mnt" -quiet; rm prev.dmg; chmod +x ffmpeg ffprobe
-          fi
-          ./ffmpeg -hide_banner -filters | grep -E "zscale|loudnorm|ebur128" 
+          curl -fsSL --retry 3 -o ff.zip "https://github.com/chinhdaden15/c-cut/releases/download/tools-ffmpeg-1/ffmpeg-mac-${{ matrix.arch }}.zip"
+          unzip -o ff.zip && rm ff.zip && chmod +x ffmpeg ffprobe
+          ./ffmpeg -hide_banner -filters | grep -E "zscale|loudnorm|ebur128"
+      - uses: actions/cache@v4             # model chép lời / giọng đọc / Node của lần trước → không tải lại, tránh bị giới hạn lượt
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/hyperframes
+          key: models-mac-${{ matrix.arch }}-v1
       - run: pip install -r packaging/requirements-build.txt
       - run: pip install --no-deps vieneu==3.2.1
       - run: FFMPEG_DIR=build/ffmpeg PY=python ./packaging/build_mac.sh
@@ -69,10 +65,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: {python-version: "3.11"}
+        with: {python-version: "3.11", cache: pip, cache-dependency-path: "requirements.lock.txt"}
       - run: pip install -r packaging/requirements-build.txt
       - run: pip install --no-deps vieneu==3.2.1
       - run: choco install innosetup -y --no-progress
+      - name: ffmpeg tĩnh (bản ghim)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\ffmpeg | Out-Null
+          Invoke-WebRequest "https://github.com/chinhdaden15/c-cut/releases/download/tools-ffmpeg-1/ffmpeg-win64.zip" -OutFile build\ffw.zip
+          Expand-Archive build\ffw.zip -DestinationPath build\ffmpeg -Force; Remove-Item build\ffw.zip
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/hyperframes
+          key: models-win-v1
       - run: ./packaging/build_win.ps1
         shell: pwsh
       - name: kiểm tra bản đóng gói

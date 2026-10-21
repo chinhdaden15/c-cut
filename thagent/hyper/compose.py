@@ -45,8 +45,10 @@ def _css(d: dict) -> str:
 
 
 def _font(role: str) -> str:
+    from .. import fonts as FT
     fam, w = ROLE.get(role, ROLE["bold"])
-    return f"font-family:'{fam}';font-weight:{w}"
+    extra = "".join(f",'{x}'" for x in FT.css()[0])        # chữ ngoài Latin/Việt → font Noto của ngôn ngữ dự án
+    return f"font-family:'{fam}'{extra};font-weight:{w}"
 
 
 def _asset(proj: Path, src: str) -> str:
@@ -363,6 +365,16 @@ def build(s: dict, proj: Path) -> Path:
         if not dst.exists():
             shutil.copy2(p, dst)
         faces.append(f"@font-face{{font-family:'{f['family']}';src:url('assets/fonts/{p.name}');font-weight:{f.get('weight', '400')};font-display:block}}")
+    from .. import fonts as FT
+    if FT.current() in FT.SCRIPT:                              # font Noto của ngôn ngữ dự án (Trung, Nhật, Thái, Ả Rập…)
+        fam = FT.css()[0]
+        for (_, src), w in zip(FT._files(FT.current()), (400, 700)):
+            if src.exists():
+                dst = proj / "assets" / "fonts" / src.name
+                dst.parent.mkdir(exist_ok=True)
+                if not dst.exists():
+                    shutil.copy2(src, dst)
+                faces.append(f"@font-face{{font-family:'{fam[0]}';src:url('assets/fonts/{src.name}');font-weight:{w};font-display:block}}")
     for c in s["scenes"]:
         cs = float(c["start"])
         for L in c.get("layers", []):
@@ -378,7 +390,7 @@ def build(s: dict, proj: Path) -> Path:
     bg = "transparent" if s["background"] == "transparent" else s["background"]
     W, H, T = b.W, b.H, float(s["duration"])
     doc = f"""<!doctype html>
-<html lang="vi">
+<html lang="{FT.current()}" dir="{'rtl' if FT.rtl() else 'ltr'}">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width={W}, height={H}">
 <!-- job {_e(s['job_id'])} · dựng bởi thagent.hyper (C-Cut) -->
@@ -387,7 +399,7 @@ def build(s: dict, proj: Path) -> Path:
 {chr(10).join(faces)}
 *{{margin:0;padding:0;box-sizing:border-box}}
 html,body{{width:{W}px;height:{H}px;overflow:hidden;background:{bg}}}
-#root{{position:relative;width:{W}px;height:{H}px;overflow:hidden;isolation:isolate;font-family:'Montserrat'}}
+#root{{position:relative;width:{W}px;height:{H}px;overflow:hidden;isolation:isolate;font-family:'Montserrat'{"".join(f",'{x}'" for x in FT.css()[0])}}}
 {chr(10).join(b.css)}
 </style>
 </head>

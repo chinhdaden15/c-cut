@@ -10,7 +10,14 @@ from .schema import EditSegment, VideoFxEvent
 
 SENT_GAP, WORD_GAP = 0.30, 0.15     # khoảng lặng giữ lại
 TAIL = 0.40                         # dừng sau chữ cuối câu kết
-FILLERS = {"ừ", "à", "ờ", "ừm", "ờm", "ơ", "ầm", "ừa", "hử", "ưm", "um", "uh"}
+FILLERS = {"ừ", "à", "ờ", "ừm", "ờm", "ơ", "ầm", "ừa", "hử", "ưm", "um", "uh",
+           # từ đệm không thành lời của các ngôn ngữ khác (chỉ là tiếng ậm ừ — không đưa từ có nghĩa vào đây)
+           "umm", "uhh", "uhm", "erm", "er", "hmm", "mm", "ah", "eh",                    # Anh
+           "嗯", "呃", "啊", "额", "唔",                                                 # Trung
+           "えー", "えーと", "えっと", "あの", "あのー", "うーん",                          # Nhật
+           "음", "어", "그", "저기", "아",                                                # Hàn
+           "เอ่อ", "อืม", "เอิ่ม",                                                       # Thái
+           "eee", "ehm", "emm", "äh", "ähm", "euh", "bah", "pues", "ééé", "эм", "ээ", "ну"}  # Indonesia, Đức, Pháp, TBN, Nga
 NUM = {"một": "1", "hai": "2", "ba": "3"}
 CUE_RE = [r"(1 )?2 3 (diễn|nói|bắt đầu|quay)", r"3 2 1( (diễn|nói|bắt đầu))?", r"1 2 3"]
 END_PUNCT = ".?!…"

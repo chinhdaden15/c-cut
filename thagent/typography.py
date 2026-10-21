@@ -28,10 +28,17 @@ FONT_ROLES = {
 }
 
 
-@lru_cache(maxsize=256)
 def get_font(role: str, size: int) -> ImageFont.FreeTypeFont:
+    from . import fonts as FT
+    return _get_font(role, size, FT.current())
+
+
+@lru_cache(maxsize=256)
+def _get_font(role: str, size: int, lang: str) -> ImageFont.FreeTypeFont:
+    from . import fonts as FT
     fname, wght = FONT_ROLES[role]
-    f = ImageFont.truetype(str(FONT_DIR / fname), size)
+    path, wght = FT.pick(FONT_DIR / fname, wght)
+    f = ImageFont.truetype(path, size)
     if wght is not None:
         try:
             f.set_variation_by_axes([wght])
@@ -45,10 +52,18 @@ def hex_rgb(h: str) -> tuple[int, int, int]:
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
 
-@lru_cache(maxsize=512)
 def _sprite(text: str, role: str, size: int, color: str, spacing: float, shadow: float) -> np.ndarray:
+    from . import fonts as FT
+    return _sprite_l(text, role, size, color, spacing, shadow, FT.current())
+
+
+@lru_cache(maxsize=512)
+def _sprite_l(text: str, role: str, size: int, color: str, spacing: float, shadow: float, lang: str) -> np.ndarray:
     """RGBA float32 premultiplied, có padding cho dấu tiếng Việt và bóng mềm."""
-    text = unicodedata.normalize("NFC", text)
+    from . import fonts as FT
+    text = FT.shape_line(unicodedata.normalize("NFC", text))
+    if FT.complex_script():
+        spacing = 0.0                              # chữ ghép/dấu chồng (Thái, Ả Rập, Hindi…) phải vẽ nguyên cụm
     font = get_font(role, size)
     pad = int(size * 0.6)
     # đo theo từng ký tự để hỗ trợ letter-spacing

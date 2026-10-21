@@ -291,6 +291,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <div data-p="project">
           <div class="field"><label>Nơi lưu dữ liệu làm việc của dự án (mặc định khi tạo dự án mới)</label><div class="row"><input id="sProj"><button id="pickProj">Chọn</button></div></div>
           <div class="field"><label>Nơi xuất mặc định</label><div class="row"><input id="sOut"><button id="pickOut2">Chọn</button></div></div>
+          <div class="field"><label>Ngôn ngữ nói trong clip</label><select id="sLang"><option value="auto">Tự nhận (khuyên dùng)</option><option value="vi">Tiếng Việt</option><option value="en">English</option><option value="zh">中文</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="th">ไทย</option><option value="id">Bahasa Indonesia</option><option value="ms">Bahasa Melayu</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="es">Español</option><option value="pt">Português</option><option value="ru">Русский</option><option value="ar">العربية</option><option value="hi">हिन्दी</option><option value="km">ខ្មែរ</option><option value="lo">ລາວ</option></select></div>
           <div class="field"><label>Model Claude khi dựng</label><select id="sModel"><option value="sonnet">Sonnet 5.5 — nhanh (khuyên dùng)</option><option value="opus">Opus 5.5 — kỹ hơn, chậm hơn, tốn giới hạn hơn</option></select></div>
           <button class="primary" id="saveSettings" style="padding:8px 16px">Lưu</button>
         </div>
@@ -684,7 +685,7 @@ $('#pedit').onblur=()=>setTimeout(pdone,150);
 $('#newProj').onclick=()=>{if(S.job&&S.job.state==='running'){toast('Đang dựng — dừng trước khi tạo dự án mới');return}openWs()};
 /* cài đặt */
 function openSettings(tab='project'){
-  $('#sProj').value=S.settings.project_dir;$('#sOut').value=S.settings.export_dir;$('#sModel').value=S.settings.build_model||'sonnet';
+  $('#sProj').value=S.settings.project_dir;$('#sOut').value=S.settings.export_dir;$('#sModel').value=S.settings.build_model||'sonnet';$('#sLang').value=S.settings.asr_language||'auto';
   $('#nSound').checked=S.settings.notify_sound;$('#nSys').checked=S.settings.notify_system;
   $('#sysitems').innerHTML=(S.system.items||[]).map(i=>`<div class="sysitem"><span>${esc(i.item)}</span><span class="${i.status==='ok'||i.status==='installed'?'st-done':i.status==='missing'?'st-failed':'st-waiting_claude'}">${esc(i.status)}</span></div>`).join('')||'<div class="empty">Chưa có dữ liệu.</div>';
   selTab(tab);$('#settings').classList.add('show');
@@ -698,7 +699,7 @@ $('#gear').onclick=()=>openSettings();$('#sys').onclick=()=>openSettings('tools'
 $('#closeSettings').onclick=()=>$('#settings').classList.remove('show');
 $('#pickProj').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path)$('#sProj').value=r.path};
 $('#pickOut2').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path)$('#sOut').value=r.path};
-$('#saveSettings').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({project_dir:$('#sProj').value.trim(),export_dir:$('#sOut').value.trim(),build_model:$('#sModel').value})});toast('Đã lưu cài đặt');$('#settings').classList.remove('show');refresh()};
+$('#saveSettings').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({project_dir:$('#sProj').value.trim(),export_dir:$('#sOut').value.trim(),build_model:$('#sModel').value,asr_language:$('#sLang').value})});toast('Đã lưu cài đặt');$('#settings').classList.remove('show');refresh()};
 $('#saveNotify').onclick=async()=>{await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({notify_sound:$('#nSound').checked,notify_system:$('#nSys').checked})});toast('Đã lưu');refresh()};
 $('#openSetup')&&($('#openSetup').onclick=()=>{$('#settings').classList.remove('show');openSetup()});
 $('#recheck').onclick=async()=>{toast('Đang kiểm tra công cụ…');await post('/api/ccut/syscheck');await refresh();openSettings('tools')};

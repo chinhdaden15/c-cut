@@ -235,6 +235,9 @@ def _said(words, pl, kw: str, t: int, fps: int, win: float = 4.0) -> bool:
         if f is not None and abs(f - t) <= win * fps:
             near.append(w.text)
     txt = " ".join(_tok(" ".join(near)))
+    from . import fonts as FT
+    if FT.current() in FT.NOSPACE:                 # Trung/Nhật/Thái: so chuỗi liền, bỏ cách chữ
+        return any("".join(_tok(k)) in txt.replace(" ", "") for k in kw.split("|"))
     return any(" ".join(_tok(k)) in txt for k in kw.split("|"))
 
 

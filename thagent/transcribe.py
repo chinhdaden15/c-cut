@@ -20,18 +20,33 @@ def is_hallucination(text: str) -> bool:
     return bool(HALLU_RE.search(text or ""))
 
 
+LAST = {"language": "vi", "probability": 1.0}     # ngôn ngữ của lần chép lời gần nhất (app ghi vào language.json của dự án)
+
+
+def asr_language() -> str | None:
+    """ngôn ngữ chép lời: cài đặt app (CCUT_ASR_LANG = "auto" hoặc mã như "en", "zh") — mặc định tự nhận."""
+    import os
+    v = (os.environ.get("CCUT_ASR_LANG") or "auto").strip().lower()
+    return None if v in ("", "auto") else v
+
+
 def transcribe(wav_path: str, model_name: str = "large-v3", vocab: list[str] | None = None,
-               progress=None) -> tuple[list[TranscriptWord], list[Sentence]]:
+               progress=None, language: str | None = "") -> tuple[list[TranscriptWord], list[Sentence]]:
+    """language: "" = theo cài đặt (mặc định tự nhận), None = tự nhận, "vi"/"en"/… = cố định."""
     from faster_whisper import WhisperModel
     import os
     model_name = os.environ.get("CCUT_ASR_MODEL") or model_name      # chỉ dùng cho bộ kiểm tự động (model nhỏ, nhanh)
+    lang = asr_language() if language == "" else language
 
     model = WhisperModel(model_name, device="cpu", compute_type="int8")
     prompt = ", ".join(vocab) if vocab else None
     segs, info = model.transcribe(
-        wav_path, language="vi", word_timestamps=True, vad_filter=True,
+        wav_path, language=lang, word_timestamps=True, vad_filter=True,
         beam_size=5, initial_prompt=prompt, condition_on_previous_text=False,
     )
+    LAST.update(language=info.language or lang or "vi", probability=round(float(info.language_probability or 1.0), 3))
+    if progress and not lang:
+        progress(f"Ngôn ngữ: {LAST['language']} ({LAST['probability']:.0%})")
     words: list[TranscriptWord] = []
     sentences: list[Sentence] = []
     for si, seg in enumerate(segs):
@@ -69,6 +84,8 @@ NOT_AFTER = {"năm"}   # "năm" vừa là số vừa là danh từ → không đ
 
 
 def fix_numbers(words: list[TranscriptWord]) -> list[str]:
+    if LAST.get("language", "vi") != "vi":         # quy tắc đồng âm số đếm chỉ đúng với tiếng Việt
+        return []
     """Sửa tại chỗ; trả về danh sách mô tả các chỗ đã đổi (để báo người dùng)."""
     log = []
     for i, w in enumerate(words[:-1]):

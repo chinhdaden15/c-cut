@@ -37,10 +37,17 @@ PALETTES = {  # (trên, dưới, glow) — 3 tông cố định theo góp ý ng�
 PALETTES["orange"] = PALETTES["gold"]; PALETTES["cyan"] = PALETTES["blue"]; PALETTES["teal"] = PALETTES["blue"]
 
 
-@lru_cache(maxsize=64)
 def nfont(role: str, size: int):
+    from . import fonts as FT
+    return _nfont(role, size, FT.current())
+
+
+@lru_cache(maxsize=64)
+def _nfont(role: str, size: int, lang: str):
+    from . import fonts as FT
     f, w = NEON_FONTS[role]
-    font = ImageFont.truetype(str(FONT_DIR / f), size)
+    path, w = FT.pick(FONT_DIR / f, w)
+    font = ImageFont.truetype(path, size)
     if w is not None:
         try:
             font.set_variation_by_axes([w])
@@ -50,9 +57,15 @@ def nfont(role: str, size: int):
 
 
 def _mask(text: str, role: str, size: int, spacing: float = 0.0) -> np.ndarray:
-    text = unicodedata.normalize("NFC", text)
+    from . import fonts as FT
+    text = FT.shape_line(unicodedata.normalize("NFC", text))
     font = nfont(role, size)
     pad = int(size * 0.7)
+    if FT.complex_script():                        # vẽ nguyên cụm (dấu chồng, nối chữ)
+        asc, desc = font.getmetrics()
+        im = Image.new("L", (int(font.getlength(text)) + 2 * pad, asc + desc + 2 * pad), 0)
+        ImageDraw.Draw(im).text((pad, pad), text, font=font, fill=255)
+        return np.asarray(im, np.float32) / 255.0
     adv = [font.getlength(ch) + spacing for ch in text]
     w = int(sum(adv)) + 2 * pad
     asc, desc = font.getmetrics()

@@ -34,6 +34,8 @@ FORMATS = {"9x16": (1080, 1920), "16x9": (1920, 1080)}
 
 def load(pdir) -> dict:
     from .niche import apply
+    from .. import fonts as FT
+    FT.use_project(pdir)
     return apply(auto_zoom(json.loads((Path(pdir) / "review" / "edit.json").read_text(encoding="utf-8"))))
 
 

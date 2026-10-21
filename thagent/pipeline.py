@@ -28,6 +28,8 @@ PROJECTS = Path(os.environ.get("CCUT_PROJECTS") or ROOT / "projects")   # app đ
 class Ctx:
     def __init__(self, pid: str, log=print, cancel=None):
         self.dir = PROJECTS / pid
+        from . import fonts as FT
+        FT.use_project(self.dir)                  # font + cách vẽ chữ theo ngôn ngữ của dự án
         self.log = log
         self.cancel = cancel or (lambda: False)
         p = self.dir / "project.json"
@@ -105,6 +107,9 @@ def step_transcribe(c: Ctx, vocab=None, model="large-v3"):
                                    "sentences": [s.model_dump() for s in sents]}, ensure_ascii=False, indent=1),
                        encoding="utf-8")
         tmp.replace(tj)
+        from .transcribe import LAST
+        from . import fonts as FT
+        FT.set_language(c.path(), LAST["language"])
     if not c.project.words:
         from .transcribe import fix_numbers
         for m in fix_numbers(words):

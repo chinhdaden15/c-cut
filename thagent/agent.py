@@ -255,6 +255,10 @@ KHÔNG BỊA THÔNG TIN (mọi skill, bắt buộc):
 - Mốc thời gian của câu ảo giác không đáng tin: KHÔNG cắt đuôi video theo mốc chữ đó — app cắt theo lúc giọng thật dứt.
 - Khoanh/đánh dấu vật (highlight, label, spotlight) CHỈ khi người trong clip thật sự chỉ vào một vật NHÌN THẤY RÕ trong khung (xem ảnh để chắc)
   và lời nói gọi đúng vật đó; nhãn = tên vật nhìn thấy. Giơ tay/khua tay khi nói không phải chỉ vật → không khoanh. Không chắc → không khoanh.
+- NGÔN NGỮ: đọc language.json trong thư mục dự án ({"language": "vi" | "en" | "zh" | …} — app ghi khi chép lời). Không phải "vi" →
+  MỌI chữ trên video (hook, chữ nhấn, CTA, nhãn, thẻ số, Motion Graphics, tiêu đề cảnh) viết bằng ĐÚNG ngôn ngữ đó, giọng văn tự nhiên của
+  người bản xứ; phụ đề giữ nguyên lời nói. Trao đổi với người dùng trong khung chat vẫn bằng tiếng Việt. Các quy tắc tiếng Việt
+  (từ đệm “ừ, à”, chữ số đồng âm…) áp dụng tương ứng cho ngôn ngữ của clip (“um, uh, like”, “那个, 就是”, “えーと”…).
 """
 
 

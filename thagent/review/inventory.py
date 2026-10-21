@@ -189,6 +189,10 @@ def _words(path: Path, info: dict, d: Path, log) -> list[dict]:
     _run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-vn", "-ar", "16000", "-ac", "1", str(wav)])
     try:
         ws, _ = transcribe(str(wav), progress=log)
+        from ..transcribe import LAST
+        from .. import fonts as FT
+        if ws:
+            FT.set_language(d.parent if d.name in ("review", "media", "work") else d, LAST["language"])
     finally:
         wav.unlink(missing_ok=True)
     out = []

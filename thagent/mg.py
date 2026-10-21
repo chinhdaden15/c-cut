@@ -132,7 +132,8 @@ def photo_card(path: str, w: int, h: int, label: str = "") -> np.ndarray:
         _blend(out, box, pad + 18, pad + 18)
         _blend(out, lab, pad + 30, pad + 26)
     if os.path.basename(path).startswith("i_"):   # ảnh minh họa ngoài dự án → ghi rõ, chữ nghiêng góc dưới phải
-        t = ink_text("Hình ảnh minh họa", "semi", 24, "#FFFFFF")
+        from . import fonts as FT
+        t = ink_text(FT.label(), "semi", 24, "#FFFFFF")
         th, tw = t.shape[:2]
         t = cv2.warpAffine(t, np.float32([[1, -0.22, 0.22 * th], [0, 1, 0]]), (tw + int(0.22 * th) + 2, th))
         th, tw = t.shape[:2]

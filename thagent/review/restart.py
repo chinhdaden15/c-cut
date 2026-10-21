@@ -31,7 +31,7 @@ def _asr(path: str, a: float, b: float) -> list[dict]:
         wav = Path(d) / "w.wav"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", path, "-vn", "-ar", "16000", "-ac", "1",
                         str(wav)], check=True)
-        segs, _ = _MODEL["m"].transcribe(str(wav), language="vi", word_timestamps=True, vad_filter=False, beam_size=5,
+        segs, _ = _MODEL["m"].transcribe(str(wav), language=__import__("thagent.fonts", fromlist=["x"]).current(), word_timestamps=True, vad_filter=False, beam_size=5,
                                          condition_on_previous_text=False)
         return [{"text": w.word.strip(), "start": round(a + w.start, 3), "end": round(a + w.end, 3), "conf": round(w.probability, 3)}
                 for s in segs for w in (s.words or []) if w.word.strip()]

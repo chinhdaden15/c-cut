@@ -380,6 +380,40 @@ def _t2v():
     return f"{len(vids)} video tách đúng · giọng {m['duration_s']:.1f}s · chống lặp hình đúng ngữ cảnh"
 
 
+@case("common", "đa ngôn ngữ: tự nhận tiếng Anh/Trung khi chép lời, ghi language.json, font Noto + vẽ chữ Trung/Ả Rập/Thái, nhãn ảnh đúng ngôn ngữ")
+def _multilang():
+    import numpy as np
+    from thagent import fonts as FT, transcribe as TR, typography as TY
+    from thagent.v2m import draw as D
+    got = {}
+    for lang in ("en", "zh"):
+        wav = WORK / f"speech_{lang}.wav"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(FIX / f"speech_{lang}.mp3"), "-ac", "1", "-ar", "16000", str(wav)], check=True)
+        ws, _ = TR.transcribe(str(wav), language=None)
+        assert ws and TR.LAST["language"] == lang, f"không nhận ra {lang}: {TR.LAST}"
+        p = WORK / f"ml_{lang}"
+        FT.set_language(p, TR.LAST["language"])
+        assert json.loads((p / "language.json").read_text())["language"] == lang
+        got[lang] = len(ws)
+    old = os.environ.get("CCUT_LANG")
+    try:
+        for lang, text in (("zh", "房地产 价格 太高"), ("ar", "أسعار العقارات"), ("th", "ราคา บ้าน")):
+            os.environ["CCUT_LANG"] = lang
+            path, _ = FT.pick("Montserrat-VF.ttf", 700)
+            assert "Noto" in path and Path(path).exists(), f"{lang}: chưa có font Noto ({path})"
+            spr = TY._sprite(text, list(TY.FONT_ROLES)[0], 48, "#ffffff", 0.0, 0.0)
+            assert spr[..., 3].max() > 0.5, f"{lang}: vẽ chữ rỗng"
+            w, _, _ = D.word_sprite(text.split()[0], "display", 48, "#ffffff", 0, 0)
+            assert w[..., 3].max() > 0.5, f"{lang}: vẽ từ rỗng"
+        os.environ["CCUT_LANG"] = "zh"
+        assert FT.clean("房 地 产 价格") == "房地产价格" and FT.label() == "示意图"
+        os.environ["CCUT_LANG"] = "en"
+        assert FT.label(True) == "Actual image" and FT.clean("a b") == "a b"
+    finally:
+        os.environ["CCUT_LANG"] = old or "vi"
+    return f"en {got['en']} từ · zh {got['zh']} từ · vẽ chữ Trung/Ả Rập/Thái"
+
+
 @case("common", "API app (FastAPI): trang chính, thiết lập, trạng thái, kênh")
 def _api():
     from thagent.server import app

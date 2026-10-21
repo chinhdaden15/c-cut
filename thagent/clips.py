@@ -154,6 +154,10 @@ def analyze(pid: str, clips: list[str], log=print) -> dict:
             wav = d / f"{_stem(name)}.16k.wav"
             run(["ffmpeg", "-v", "error", "-y", "-i", path, "-vn", "-ar", "16000", "-ac", "1", str(wav)])
             ws, _ = transcribe(str(wav), progress=lambda m: log(f"[{n}/{len(clips)}] {m}"))
+            from .transcribe import LAST
+            from . import fonts as FT
+            if ws:
+                FT.set_language(P.PROJECTS / pid, LAST["language"])
             words = [w.model_dump() for w in ws]
             wav.unlink(missing_ok=True)
         gaze = _gaze(path, info, log)
