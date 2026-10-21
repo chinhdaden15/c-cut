@@ -597,13 +597,17 @@ class Scene:
         self.hide(ids[0], t_b + 0.95, "fade", 0.1)     # ảnh sau đã phủ kín → bỏ ảnh trước
         return ids
 
-    def photo_bg(self, src, t=None, dim=0.55, source=None) -> str:
-        """ảnh làm nền cả khung (tối đi để chữ lớn đè lên đọc rõ) — cho câu mở đầu / câu kết / chuyển chương."""
+    def photo_bg(self, src, t=None, dim=0.55, source=None, **k) -> str:
+        """ảnh / video (.mp4) làm nền cả khung (tối đi để chữ lớn đè lên đọc rõ) — câu mở đầu, câu kết, chuyển chương;
+        Text to Video: video minh hoạ phủ kín khung (dim 0.3–0.4, in=giây bắt đầu trong clip)."""
         K = self.K
         s_, _, srcn = self._img_meta(src, None, source, False)
-        oid = self.add({"type": "image", "src": s_, "w": K.W, "h": K.H, "r": 0, "space": "screen", "x": K.W / 2, "y": K.H / 2,
-                        "dim": dim, "shadow": 0, "layer": -40, "role": "backdrop", "kb": {"z": [1.04, 1.16], "pan": [0, 0.2, 0, -0.2]}},
-                       self.t0 if t is None else t, "fade", 0.6)
+        o = {"type": "image", "src": s_, "w": K.W, "h": K.H, "r": 0, "space": "screen", "x": K.W / 2, "y": K.H / 2,
+             "dim": dim, "shadow": 0, "layer": -40, "role": "backdrop", "kb": {"z": [1.04, 1.16], "pan": [0, 0.2, 0, -0.2]}}
+        if _is_video(s_):             # b-roll phủ kín khung (Text to Video): video nền tối nhẹ, chữ / thẻ số đè lên
+            o.update(type="video", **{"in": k.get("in", 0.0), "rate": k.get("rate", 1.0)})
+            o["kb"] = {"z": [1.0, 1.06], "pan": [0, 0, 0, 0]}
+        oid = self.add(o, self.t0 if t is None else t, "fade", 0.6)
         if True:
             self.add({"type": "text", "text": "Hình ảnh minh họa", "font": "medium", "size": 22, "color": "#FFFFFF",
                       "space": "screen", "x": K.W / 2, "y": K.F.center("source")[1], "shadow": 0.6, "role": "source", "layer": 30},

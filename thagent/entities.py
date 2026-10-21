@@ -238,4 +238,4 @@ def _has_tag(said: str, tag: str) -> bool:
         return True
     t = [x for x in tag.split() if len(x) > 1]
     hit = sum(1 for x in t if f" {x} " in f" {said} ")
-    return bool(t) and hit >= max(1, round(len(t) * 2 / 3))
+    return bool(t) and hit >= (len(t) if len(t) <= 2 else round(len(t) * 2 / 3))     # nhãn ngắn phải khớp đủ

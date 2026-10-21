@@ -22,7 +22,9 @@ Bộ dựng dùng chung với Voice to Motion: ĐỌC `.claude/skills/voice-to-m
 | quy trình, liệt kê, nguyên nhân–kết quả | sơ đồ / steps / checklist hiện dần |
 | địa điểm, kết nối | bản đồ (region/pin/route) |
 | ý trừu tượng, câu chuyển | chữ động + icon |
-Một cảnh có thể là video nền + thẻ số/chữ nhấn phía trên. Chủ đề cụ thể (sản phẩm, BĐS, du lịch, ẩm thực, sức khoẻ) → ≥ 40% cảnh có video/ảnh thật.
+VIDEO MINH HOẠ LÀ HÌNH CHÍNH: `s.photo_bg("assets_web/v_x.mp4", dim=0.35, in=<giây>)` phủ kín khung, chữ nhấn / thẻ số / nhãn đè lên.
+Không đặt clip nhỏ giữa nền trống. Chủ đề cụ thể (sản phẩm, BĐS, du lịch, ẩm thực, sức khoẻ) → motion-only ≤ 40% thời lượng.
+MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son mịn”, “giữ màu”, “bảng màu” = 4 clip khác nhau).
 
 ## 3. Tìm hình KỸ, đúng ngữ cảnh
 - Từ khoá tạo từ CẢ câu + chủ đề video, tiếng Anh cụ thể (vd video son, câu “đầu cọ mềm” → "lipstick applicator close up", không phải "brush").
@@ -34,7 +36,7 @@ Một cảnh có thể là video nền + thẻ số/chữ nhấn phía trên. Ch
 ## 4. Mô tả + nhãn vật (bắt buộc, app kiểm)
 `assets_web/illus_check.json` cho MỌI ảnh/video web: `{"v_dau_co.mp4": {"noi_dung_anh": "cận cảnh đầu cọ son đang tán lên môi", "vat": "đầu cọ son", "cau_noi": "…", "khop": true}}`
 - `noi_dung_anh`: THẬT những gì thấy (sau khi Read ảnh/ảnh xem trước).
-- `vat`: tên vật/cảnh chính, ngắn, đúng cách kịch bản gọi.
+- `vat`: 2–4 từ, CỤ THỂ đúng ý của clip, đúng cách kịch bản gọi (vd “đầu cọ son”, “bảng màu son”) — không nhãn chung kiểu “son”.
 - DÙNG LẠI một ảnh/clip CHỈ khi câu ở cảnh sau cũng nói đúng `vat` đó (vd nhắc “đầu cọ” 3 lần → dùng lại clip đầu cọ, ưu tiên khúc khác của clip).
   Nói ý khác mà chèn lại → LỖI. Không lặp cùng một loại motion quá 2 cảnh liên tiếp.
 

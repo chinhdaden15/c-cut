@@ -266,6 +266,11 @@ TEXT TO VIDEO (skill text-to-video — ĐỌC .claude/skills/text-to-video/SKILL
   chủ thể có tên → ảnh/video thật (entities.json); số liệu → thẻ số/biểu đồ; quy trình → sơ đồ/steps; địa điểm → bản đồ; ý trừu tượng → chữ động + icon.
 - MỌI ảnh/clip web: Read ảnh xem trước rồi ghi assets_web/illus_check.json {{"v_x.mp4": {{"noi_dung_anh": "…", "vat": "tên vật", "cau_noi": "…", "khop": true}}}}.
   Dùng lại ảnh/clip CHỈ khi câu sau nói đúng “vat” đó (app kiểm); nói ý khác → tìm hình khác.
+- VIDEO MINH HOẠ LÀ HÌNH CHÍNH (không thu nhỏ giữa nền trống): cảnh nói vật/cảnh cụ thể → s.photo_bg("assets_web/v_x.mp4", dim=0.35, in=<giây đẹp>)
+  phủ kín khung, rồi chữ nhấn / thẻ số / nhãn đè lên. Motion-only (icon, sơ đồ trên nền trơn) chỉ cho số liệu / quy trình / ý trừu tượng, ≤ 40% thời lượng
+  với chủ đề sản phẩm, BĐS, du lịch, ẩm thực, sức khoẻ.
+- MỖI Ý CỤ THỂ MỘT CLIP RIÊNG: câu nói ý mới (vd “mịn như nhung”, “giữ màu 8 tiếng”, “bảng màu 6 tông”) → tìm clip đúng ý đó, không mượn clip của ý khác.
+  “vat” phải cụ thể 2–4 từ đúng ý của clip (vd “đầu cọ son”, “chất son mịn”, “bảng màu son”) — không đặt nhãn chung kiểu “son”, “thỏi son”.
 - Hook trong 1s đầu; ~5s cuối là CTA chữ lớn. Không ghi nguồn trên video.
 """
 
