@@ -1051,7 +1051,7 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
         item["status"] = "running"
     job["done"].append("script"); job["stage"] = "voice"
     if not (pdir / "transcript.json").exists() or not (pdir / "script.json").exists():
-        TV.prepare(pdir, str(script), item.get("voice") or "nu_bac", float(item.get("speed") or TV.SPEED), progress=log)
+        TV.prepare(pdir, str(script), item.get("voice") or "nam_huong_dan", float(item.get("speed") or TV.SPEED), progress=log)
     meta = json.loads((pdir / "script.json").read_text(encoding="utf-8"))
     job["done"].append("voice"); job["stage"] = "plan"
     if not sess.plan_ready():
@@ -1069,7 +1069,7 @@ class T2VIn(BaseModel):
     path: str | None = None          # file kịch bản
     request: str | None = None       # yêu cầu sơ sài
     seconds: int = 60
-    voice: str = "nu_bac"
+    voice: str = "nam_huong_dan"
     speed: float = 1.1
 
 

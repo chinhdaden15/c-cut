@@ -311,7 +311,7 @@ def _entities():
     return f"{len(errs)} lỗi đúng chỗ"
 
 
-@case("voice", "giọng đọc: tải model ghim phiên bản → 6 giọng có sẵn đọc Việt + Anh → nhân bản giọng từ video (bắt buộc xác nhận quyền) → đọc bằng giọng nhân bản")
+@case("voice", "giọng đọc: tải model ghim phiên bản → giọng có sẵn đọc Việt + Anh → nhân bản giọng từ video (bắt buộc xác nhận quyền) → đọc bằng giọng nhân bản")
 def _voice():
     import soundfile as sf
     from thagent import voice as V
@@ -325,9 +325,9 @@ def _voice():
             time.sleep(30 * (k + 1))
     assert V.ready(), "chưa tải xong bộ giọng đọc"
     ids = [v["id"] for v in V.voices()]
-    assert len(set(ids) & set(V.PRESETS)) == 6, ids
+    assert V.DEFAULT in ids, ids
     out = WORK / "voice"
-    w = V.say("Giá căn hộ 3,5 tỷ đồng. Welcome to C-Cut.", "nu_nam", out / "preset.wav", 1.1)
+    w = V.say("Giá căn hộ 3,5 tỷ đồng. Welcome to C-Cut.", V.DEFAULT, out / "preset.wav", 1.1)
     x, sr = sf.read(str(w))
     assert sr == V.SR and 1.0 < len(x) / sr < 15, f"giọng có sẵn đọc sai độ dài {len(x) / sr:.1f}s"
     try:
@@ -343,10 +343,10 @@ def _voice():
     cos = lambda a, b: float(a @ b / (abs(a @ a) ** 0.5 * abs(b @ b) ** 0.5))
     src = enc.embed(V._load_audio(FIX / "presenter.mp4")[: V.SR * 30], V.SR)
     sim = cos(emb(V.say(text, c["id"], out / "clone.wav")), src)
-    other = max(cos(emb(V.say(text, k, out / f"{k}.wav")), src) for k in ("nam_bac", "nu_bac"))
+    other = cos(emb(V.say(text, V.DEFAULT, out / "default.wav")), src)
     V.remove(c["id"])
     assert sim > other + 0.1, f"giọng nhân bản không giống giọng gốc hơn giọng có sẵn (nhân bản {sim:.2f} · giọng có sẵn {other:.2f})"
-    return f"6 giọng có sẵn + nhân bản (độ giống {sim:.2f}, giọng khác {other:.2f})"
+    return f"giọng có sẵn + nhân bản (độ giống {sim:.2f}, giọng khác {other:.2f})"
 
 
 @case("voice", "Text to Video: tách file nhiều kịch bản → đọc thành giọng tốc độ 1.1 → mốc từng từ đúng chữ kịch bản; dùng lại hình chỉ khi nói đúng vật")
@@ -358,7 +358,7 @@ def _t2v():
     assert [v["title"] for v in vids] == ["Video 1: Son", "Video 2: Nhà"] and "Thời lượng" not in vids[1]["text"], vids
     p = WORK / "t2v"
     shutil.rmtree(p, ignore_errors=True)
-    m = TV.prepare(p, vids[0]["text"], "nu_nam", progress=lambda x: None)
+    m = TV.prepare(p, vids[0]["text"], "nam_huong_dan", progress=lambda x: None)
     tr = json.loads((p / "transcript.json").read_text(encoding="utf-8"))
     x, sr = sf.read(str(p / "voice.wav"))
     assert abs(len(x) / sr - tr["duration_s"]) < 0.1 and m["speed"] == 1.1, m

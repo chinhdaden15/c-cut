@@ -1,4 +1,4 @@
-"""Giọng đọc của C-Cut (dùng chung mọi skill, trước hết là Text to Video): 6 giọng có sẵn + giọng người dùng tự nhân bản.
+"""Giọng đọc của C-Cut (dùng chung mọi skill, trước hết là Text to Video): giọng có sẵn (assets/voices) + giọng người dùng tự nhân bản.
 
 Công cụ: VieNeu-TTS v3 Turbo (Apache-2.0, dùng thương mại được; giọng có sẵn đã được người nói đồng ý) chạy ONNX trên CPU —
 không cần card đồ hoạ, chạy được cả Mac Intel. Đọc được tiếng Việt lẫn tiếng Anh trong cùng câu.
@@ -35,15 +35,23 @@ VOICES = ROOT / "voices"
 SR = 48_000
 SIZE_MB = 320
 
-# id → (tên giọng có sẵn trong model, nhãn hiển thị, giới tính, miền)
-PRESETS = {
-    "nam_bac": ("Phạm Tuyên", "Nam · miền Bắc", "nam", "bac"),
-    "nam_trung": ("Quang Sơn", "Nam · miền Trung", "nam", "trung"),
-    "nam_nam": ("Xuân Vĩnh", "Nam · miền Nam", "nam", "nam"),
-    "nu_bac": ("Trúc Ly", "Nữ · miền Bắc", "nu", "bac"),
-    "nu_trung": ("Ngọc Trân", "Nữ · miền Trung", "nu", "trung"),
-    "nu_nam": ("Thục Đoan", "Nữ · miền Nam", "nu", "nam"),
-}
+# giọng có sẵn của app = giọng chủ app tự chọn, đóng gói ở assets/voices/<id>.json
+#   {"name", "gender", "speaker_emb", "codes", "temperature", "eq": [[Hz, dB], …]}  (eq: cân âm sắc sau khi đọc, cho giống giọng gốc)
+BUILTIN = ROOT / "assets" / "voices"
+DEFAULT = "nam_huong_dan"
+
+
+def _builtin() -> dict:
+    out = {}
+    for f in sorted(BUILTIN.glob("*.json")):
+        try:
+            out[f.stem] = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+    return out
+
+
+PRESETS = _builtin()
 SAMPLE_TEXT = ("Xin chào, đây là giọng đọc của C-Cut. Chỉ cần dán kịch bản, app sẽ tự dựng thành video hoàn chỉnh. "
                "Welcome to C-Cut, the easiest way to turn your script into a video.")
 
@@ -166,7 +174,7 @@ def _slug(s: str) -> str:
 
 
 def voices() -> list[dict]:
-    out = [{"id": k, "name": lab, "gender": g, "region": r, "kind": "preset"} for k, (_, lab, g, r) in PRESETS.items()]
+    out = [{"id": k, "name": d["name"], "gender": d.get("gender", ""), "kind": "preset"} for k, d in PRESETS.items()]
     for f in sorted(VOICES.glob("*/voice.json")):
         try:
             d = json.loads(f.read_text(encoding="utf-8"))
@@ -176,14 +184,23 @@ def voices() -> list[dict]:
     return out
 
 
-def _voice_ref(voice_id: str):
+def _voice_data(voice_id: str) -> dict:
     if voice_id in PRESETS:
-        return PRESETS[voice_id][0]
+        return PRESETS[voice_id]
     f = VOICES / voice_id / "voice.json"
     if not re.fullmatch(r"[a-z0-9_]+", voice_id or "") or not f.exists():
         raise VoiceError(f"không có giọng “{voice_id}”")
-    d = json.loads(f.read_text(encoding="utf-8"))
-    return {"speaker_emb": np.asarray(d["speaker_emb"], dtype=np.float32), "codes": np.asarray(d["codes"], dtype=np.int64)}
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
+def _eq(wav: np.ndarray, pts) -> np.ndarray:
+    """cân âm sắc theo đường cong [[Hz, dB], …] (giữ nguyên độ to)."""
+    from scipy.signal import firwin2, fftconvolve
+    fx, gx = [p[0] for p in pts], [p[1] for p in pts]
+    F = np.linspace(0, SR / 2, 2049)
+    h = firwin2(2049, F / (SR / 2), 10 ** (np.interp(F, fx, gx, right=gx[-1]) / 20))
+    y = fftconvolve(wav, h, mode="same")
+    return (y * np.sqrt((wav ** 2).mean() / ((y ** 2).mean() + 1e-12))).astype(np.float32)
 
 
 def _ffmpeg() -> str:
@@ -196,13 +213,16 @@ def say(text: str, voice_id: str, out: Path | str, speed: float = 1.0) -> Path:
     text = re.sub(r"\s+", " ", str(text or "")).strip()
     if not text:
         raise VoiceError("chưa có chữ để đọc")
-    ref = _voice_ref(voice_id)
+    d = _voice_data(voice_id)
+    ref = {"speaker_emb": np.asarray(d["speaker_emb"], dtype=np.float32), "codes": np.asarray(d["codes"], dtype=np.int64)}
     with _LOCK:
         tts = engine()
-        wav = tts.infer(text, voice=ref, temperature=0.7)
+        wav = np.asarray(tts.infer(text, voice=ref, temperature=float(d.get("temperature", 0.7))), dtype=np.float32)
+    if d.get("eq"):
+        wav = _eq(wav, d["eq"])
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(str(out), np.asarray(wav, dtype=np.float32), SR)
+    sf.write(str(out), wav, SR)
     speed = max(0.8, min(1.3, float(speed or 1.0)))
     if abs(speed - 1.0) > 0.01:
         tmp = out.with_suffix(".tmp.wav")
