@@ -4,7 +4,10 @@
   python -m thagent.tools fix    <pid> '<json>'                sửa chữ: [{"t":32.73,"to":"chính"}, {"t":40.1,"to":"insulin","n":2}]
                                                                (từ gần giây t nhất; n = gộp n từ liên tiếp thành 1)
   python -m thagent.tools frames <pid> t1 t2 ...               ảnh ghép các khung ở giây nguồn → work/frames.jpg (Read để xem)
-  python -m thagent.tools img    <pid> <url> <tên_file> [nguồn] tải ảnh vào assets_web/, ghi nguồn vào illus_sources.json
+  python -m thagent.tools imgsearch <pid> "<từ khoá>" [n]      tìm ảnh web → ảnh ghép đánh số work/imgsearch.jpg (Read để chọn)
+  python -m thagent.tools imgpage <pid> <link trang>            mọi ảnh lớn trong một bài báo / trang dự án → ảnh ghép đánh số như trên
+  python -m thagent.tools img    <pid> <url|#số> <tên_file> [nguồn] tải ảnh vào assets_web/, ghi nguồn vào illus_sources.json
+                                                               (#số = ảnh số đó của lần imgsearch gần nhất, nguồn tự ghi)
   python -m thagent.tools speed  <pid> 1.1                     tốc độ cả video lúc xuất (0.8–1.5; 1 = gốc), giọng giữ cao độ
   python -m thagent.tools channel <pid> <kênh>                 gán kênh: bat-dong-san|suc-khoe|giao-duc|chia-se|lam-dep|fnb|none
   python -m thagent.tools hfwords <pid> <frame_đầu> <frame_cuối>  lớp phụ đề HyperFrames (chữ + word_times theo timeline ĐÃ cắt)
@@ -72,8 +75,22 @@ def frames(pid, *ts):
     print(out, f"({cols}x{rows}, mỗi ô 270px, trái→phải, trên→dưới: " + ", ".join(f"{float(t):.1f}s" for t in ts) + ")")
 
 
+def imgsearch(pid, query, n=12):
+    from . import imgsearch as IS
+    IS.print_results(*IS.search(P.Ctx(pid).path("work"), query, int(n)))
+
+
+def imgpage(pid, page_url, n=16):
+    from . import imgsearch as IS
+    IS.print_results(*IS.from_page(P.Ctx(pid).path("work"), page_url, int(n)))
+
+
 def img(pid, url, name, source=""):
     c = P.Ctx(pid)
+    if url.startswith("#"):
+        from .imgsearch import resolve
+        url, page = resolve(c.path("work"), url)
+        source = source or page
     d = c.path("assets_web")
     d.mkdir(parents=True, exist_ok=True)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -129,7 +146,7 @@ def hfwords(pid, f0, f1):
                       "start": 0, "duration": round((int(f1) - int(f0)) / 30, 3)}, ensure_ascii=False))
 
 
-CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img, "speed": speed, "channel": channel, "hfwords": hfwords}
+CMDS = {"where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords}
 
 if __name__ == "__main__":
     main()

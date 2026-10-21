@@ -141,7 +141,8 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
         ws = [(w["text"], float(w["start"])) for w in tr.get("words", [])]
         scs = [{"id": sc["id"], "t0": sc["start_s"], "t1": sc["end_s"],
                 "images": [{"file": Path(str(o["src"])).name, "label": o.get("label", ""), "real": o.get("label") == "Hình ảnh thực tế"}
-                           for o in tl.objs.values() if o["type"] in ("image", "video") and o.get("_scene") == sc["id"] and "assets_web/" in str(o.get("src", ""))]}
+                           for o in tl.objs.values() if o["type"] in ("image", "video") and o.get("_scene") == sc["id"] and "assets_web/" in str(o.get("src", ""))],
+                "text": " · ".join(str(o.get("text", "")) for o in tl.objs.values() if o["type"] == "text" and o.get("_scene") == sc["id"])}
                for sc in tl.scenes]
         out += E.check(pdir, ws, scs, lambda im: im["real"])
     except FileNotFoundError:

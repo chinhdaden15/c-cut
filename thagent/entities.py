@@ -1,13 +1,21 @@
-"""Chủ thể có tên trong lời nói (dự án, khu đô thị, toà nhà, thương hiệu, địa danh, người…) → ảnh PHẢI là ảnh thật của đúng chủ thể.
+"""Chủ thể có tên trong lời nói / chữ trên hình (dự án, khu đô thị, toà nhà, thương hiệu, địa danh, người…) → ảnh PHẢI là ảnh thật của đúng chủ thể.
 
 Claude ghi {pdir}/entities.json (bắt buộc khi video có ảnh tải từ mạng; không có chủ thể nào → []):
-[{"name": "Vinhomes Central Park", "aka": ["Vinhomes Tân Cảng", "Tân Cảng"],      tên + cách gọi khác đúng như người nói
+[{"name": "Vinhomes Central Park", "aka": ["Vinhomes Tân Cảng", "Tân Cảng"],      tên + cách gọi khác đúng như người nói (cả cách chép lời nghe sai)
   "photos": ["w_vhcp_1.jpg", "w_vhcp_2.jpg"],                                     ảnh THẬT của chính chủ thể (assets_web/, có URL nguồn)
-  "no_photo": null}]                                                              tìm kỹ không có ảnh thật → ghi lý do (chuỗi)
+  "no_photo": null},                                                              tìm kỹ không có ảnh thật → ghi lý do (chuỗi)
+ {"name": "Global City", "not_entity": "tên hệ sinh thái nói chung, cảnh không có ảnh"}]   tên riêng KHÔNG cần ảnh → ghi lý do
+Tìm ảnh thật: python -m thagent.tools imgsearch <dự-án> "<tên dự án + chủ đầu tư>" → Read ảnh ghép → tools img <dự-án> #số w_ten.jpg
+Mô tả ảnh (bắt buộc với mọi ảnh web, sau khi Read ảnh): assets_web/illus_check.json
+  {"i_ten.jpg": {"noi_dung_anh": "sân bay, nhà ga, máy bay đậu", "cau_noi": "…", "khop": true}}   ghi THẬT những gì thấy trong ảnh
 Kiểm (dùng chung Talking Head + Voice to Motion):
-- lời nhắc chủ thể trong một cảnh có ảnh → cảnh đó phải có ≥1 ảnh trong photos của chủ thể (no_photo → cảnh báo, không giả ảnh nơi khác);
+- cảnh có ảnh mà lời nói (trong cảnh hoặc ≤2s trước khi cảnh hiện) hay CHỮ TRÊN HÌNH gọi tên chủ thể → cảnh phải có ≥1 ảnh trong photos
+  của chủ thể (no_photo → cảnh báo, không giả ảnh nơi khác);
 - ảnh trong photos: có trong assets_web, nguồn là URL, được dựng như ảnh thật (Talking Head: tên w_*; Voice to Motion: real=True);
-- ảnh minh hoạ chung không được gắn nhãn tên chủ thể; tên riêng nghe thấy trong cảnh có ảnh mà chưa khai → cảnh báo.
+- ảnh minh hoạ chung không được gắn nhãn tên chủ thể; tên riêng nghe thấy quanh cảnh có ảnh mà chưa khai → LỖI (khai chủ thể hoặc not_entity);
+- lời/chữ của cảnh nói vật cụ thể (sân bay, sông, biển, hồ bơi, công viên, metro, cầu, trường học, bệnh viện…) → phải có ảnh mà
+  noi_dung_anh có đúng vật đó; ảnh web chưa mô tả → lỗi;
+- một ảnh web chỉ dùng ở MỘT cảnh trong cả video.
 Ảnh nội thất / tiện ích / khái niệm nói chung chung (không gọi tên chủ thể) vẫn dùng ảnh minh hoạ như cũ.
 """
 from __future__ import annotations
@@ -80,8 +88,44 @@ def _proper_names(words: list[tuple[str, float]]) -> list[tuple[str, float]]:
 IGNORE = {"tp hcm", "hồ chí minh", "việt nam", "hà nội", "sài gòn"}     # tên chung, ảnh minh hoạ thành phố vẫn được
 
 
+LEAD = 2.0          # giây: lời nói ngay trước khi cảnh ảnh hiện vẫn tính cho cảnh đó (cảnh thường vào sau câu nói)
+# vật cụ thể → (cách nói trong lời/chữ, từ phải có trong mô tả ảnh); cụm loại trừ để khỏi bắt nhầm
+THINGS = [
+    ("sân bay", [r"sân bay", r"phi trường", r"airport"], ["sân bay", "máy bay", "nhà ga", "airport", "phi trường"]),
+    ("sông", [r"(?<!\w)sông(?!\w)", r"ven sông", r"bờ sông"], ["sông", "river", "kênh", "bến"]),
+    ("biển", [r"(?<!\w)biển(?! (số|quảng|báo|hiệu|tên))"], ["biển", "bãi biển", "sea", "beach", "ocean"]),
+    ("hồ bơi", [r"hồ bơi", r"bể bơi"], ["hồ bơi", "bể bơi", "pool"]),
+    ("công viên", [r"công viên"], ["công viên", "park", "cây xanh"]),
+    ("metro", [r"metro", r"tàu điện"], ["metro", "tàu điện", "nhà ga", "đường ray"]),
+    ("cầu", [r"cây cầu", r"(?<!\w)cầu (thủ thiêm|ba son|phú mỹ|sài gòn|rồng|vượt|cạn|bắc qua)"],
+     ["cầu", "bridge"]),
+    ("trường học", [r"trường học", r"trường quốc tế", r"trường mầm non", r"trường đại học"], ["trường", "lớp học", "học sinh", "school", "campus"]),
+    ("bệnh viện", [r"bệnh viện"], ["bệnh viện", "hospital", "phòng khám", "y tế"]),
+    ("cao tốc", [r"cao tốc"], ["cao tốc", "đường", "highway", "xa lộ"]),
+]
+
+
+def _things(text: str) -> list[tuple[str, list[str]]]:
+    t = " ".join(norm(text))
+    return [(k, need) for k, pats, need in THINGS if any(re.search(p, t) for p in pats)]
+
+
+def descriptions(pdir) -> dict:
+    f = Path(pdir) / "assets_web" / "illus_check.json"
+    try:
+        d = json.loads(f.read_text(encoding="utf-8"))
+        return {k: (v.get("noi_dung_anh") if isinstance(v, dict) else v) or "" for k, v in d.items()}
+    except Exception:
+        return {}
+
+
+def _scene_at(img_scenes: list[dict], t: float, lead: float) -> dict | None:
+    return next((s for s in img_scenes if s["t0"] <= t < s["t1"]), None) or \
+        next((s for s in img_scenes if s["t0"] - lead <= t < s["t0"]), None)
+
+
 def check(pdir, words: list[tuple[str, float]], scenes: list[dict], real_ok, unit: str = "s") -> list[tuple[str, str]]:
-    """scenes: [{"id", "t0", "t1", "images": [{"file": basename, "real": bool, "label": str}]}] — t cùng đơn vị với words.
+    """scenes: [{"id", "t0", "t1", "text": chữ trên hình, "images": [{"file": basename, "real": bool, "label": str}]}] — t cùng đơn vị với words.
     real_ok(img) → ảnh được dựng như ảnh thật (Talking Head: w_*; V2M: real=True)."""
     img_scenes = [s for s in scenes if s["images"]]
     web = [i for s in img_scenes for i in s["images"] if (Path(pdir) / "assets_web" / i["file"]).exists()]
@@ -92,6 +136,9 @@ def check(pdir, words: list[tuple[str, float]], scenes: list[dict], real_ok, uni
         return [("error", f"chưa có {FILE} — liệt kê mọi dự án/khu đô thị/toà nhà/thương hiệu/địa danh có tên được nói trong video "
                           "kèm ảnh THẬT của từng chủ thể (không có chủ thể nào → ghi [])")]
     out, src = [], sources(pdir)
+    lead = LEAD if unit == "s" else LEAD * 30
+    dismissed = [e for e in ents if e.get("not_entity")]
+    ents = [e for e in ents if not e.get("not_entity")]
     names = {n: e for e in ents for n in [e.get("name", ""), *(e.get("aka") or [])] if n}
     for e in ents:
         for f in e.get("photos") or []:
@@ -112,10 +159,17 @@ def check(pdir, words: list[tuple[str, float]], scenes: list[dict], real_ok, uni
                     if " ".join(norm(n)) and " ".join(norm(n)) in lab:
                         out.append(("error", f"{s['id']}: ảnh minh hoạ chung {im['file']} gắn nhãn “{im['label']}” — ảnh không phải {n}, "
                                              "dùng ảnh thật của chủ thể hoặc bỏ tên khỏi nhãn"))
-    seen = set()
+    hits = []
     for e, t, said in mentions(ents, words):
-        s = next((s for s in img_scenes if s["t0"] <= t < s["t1"]), None)
-        if not s or (e["name"], s["id"]) in seen:
+        s = _scene_at(img_scenes, t, lead)
+        if s:
+            hits.append((e, t, said, s))
+    for s in img_scenes:                                         # tên chủ thể nằm trong CHỮ trên hình của cảnh
+        for e, _, said in mentions(ents, [(s.get("text") or "", s["t0"])]):
+            hits.append((e, s["t0"], said, s))
+    seen = set()
+    for e, t, said, s in hits:
+        if (e["name"], s["id"]) in seen:
             continue
         seen.add((e["name"], s["id"]))
         if any(im["file"] in (e.get("photos") or []) and real_ok(im) for im in s["images"]):
@@ -126,13 +180,36 @@ def check(pdir, words: list[tuple[str, float]], scenes: list[dict], real_ok, uni
         else:
             out.append(("error", f"{s['id']}: đang nói “{said}” ({t:.1f}{unit}) mà cảnh không có ảnh THẬT của {e['name']} — "
                                  "tìm ảnh đúng dự án (web chủ đầu tư/báo), không dùng ảnh minh hoạ chung"))
-    known = {" ".join(norm(n)) for n in names} | IGNORE
+    known = {" ".join(norm(n)) for e in [*ents, *dismissed] for n in [e.get("name", ""), *(e.get("aka") or [])] if n} | IGNORE
     for nm, t in _proper_names(words):
         k = " ".join(norm(nm))
         if k in known or any(k in n or n in k for n in known if n):
             continue
-        s = next((s for s in img_scenes if s["t0"] <= t < s["t1"]), None)
+        s = _scene_at(img_scenes, t, lead)
         if s:
-            out.append(("warn", f"{s['id']}: nghe có tên riêng “{nm}” ({t:.1f}{unit}) chưa khai trong {FILE} — nếu là dự án/địa danh/"
-                                "thương hiệu thì thêm vào và dùng ảnh thật"))
+            out.append(("error", f"{s['id']}: nghe có tên riêng “{nm}” ({t:.1f}{unit}) chưa khai trong {FILE} — dự án/địa danh/thương hiệu → "
+                                 "sửa chép lời cho đúng tên, thêm vào kèm ảnh thật (tools imgsearch); không phải chủ thể → "
+                                 '{"name": …, "not_entity": "lý do"}'))
+    # vật cụ thể được nói / ghi trên hình → phải có ảnh đúng vật đó (theo mô tả sau khi Read ảnh)
+    desc = descriptions(pdir)
+    for s in img_scenes:
+        files = [im["file"] for im in s["images"] if (Path(pdir) / "assets_web" / im["file"]).exists()]
+        for fl in files:
+            if not desc.get(fl):
+                out.append(("error", f"{s['id']}: ảnh {fl} chưa mô tả trong assets_web/illus_check.json — Read ảnh rồi ghi "
+                                     '{"' + fl + '": {"noi_dung_anh": "những gì THẬT SỰ thấy trong ảnh", "cau_noi": "…", "khop": true}}'))
+        said = " ".join(w for w, x in words if s["t0"] - lead <= x < s["t1"])
+        th = _things(said + " " + (s.get("text") or ""))        # liệt kê nhiều tiện ích → ảnh có ít nhất một thứ trong đó
+        if th and files and not any(any(n in " ".join(norm(desc.get(fl, ""))) for _, need in th for n in need) for fl in files):
+            k = " / ".join(k for k, _ in th)
+            out.append(("error", f"{s['id']}: lời/chữ nói “{k}” nhưng không ảnh nào trong cảnh có {k} ("
+                                 + "; ".join(f"{fl}: {desc.get(fl) or 'chưa mô tả'}" for fl in files)
+                                 + f") — tìm ảnh đúng {k} (tools imgsearch / imgpage), có tên riêng thì ảnh thật của đúng nơi đó"))
+    # một ảnh web chỉ dùng ở một cảnh
+    first = {}
+    for s in img_scenes:
+        for fl in dict.fromkeys(im["file"] for im in s["images"]):
+            if fl in first and first[fl] != s["id"]:
+                out.append(("error", f"{s['id']}: ảnh {fl} đã dùng ở {first[fl]} — mỗi ảnh chỉ dùng một lần trong video, tìm ảnh khác đúng nội dung"))
+            first.setdefault(fl, s["id"])
     return out

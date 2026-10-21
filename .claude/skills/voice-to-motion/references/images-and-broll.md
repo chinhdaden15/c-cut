@@ -14,7 +14,7 @@ không để nhiều cảnh liền nhau chỉ toàn icon. Mức gợi ý: mỗi 
 - **Không chắc đúng → không dùng ảnh**; dùng sơ đồ/icon/số liệu thay thế.
 
 **Bắt buộc tự kiểm từng ảnh**: tải xong → Read ảnh → mô tả ngắn ảnh thật sự thể hiện gì → đối chiếu câu đang nói. Ghi vào
-`assets_web/illus_check.json`: `{"i_ten.jpg": {"noi_dung_anh": "…", "cau_noi": "…", "khop": true}}`. `khop: false` → thay ảnh khác.
+`assets_web/illus_check.json`: `{"i_ten.jpg": {"noi_dung_anh": "…", "cau_noi": "…", "khop": true}}`. `khop: false` → thay ảnh khác. App kiểm: ảnh web chưa mô tả → lỗi; lời/chữ nói sân bay, sông, biển, hồ bơi, công viên, metro, cầu, trường, bệnh viện, cao tốc mà `noi_dung_anh` không có vật đó → lỗi; một ảnh chỉ dùng ở một cảnh. Tên riêng quanh cảnh có ảnh chưa khai `entities.json` → lỗi (không phải chủ thể → `{"name": …, "not_entity": "lý do"}`).
 
 ## 2. Ảnh đúng chủ thể vs ảnh minh họa
 
@@ -38,6 +38,8 @@ không để nhiều cảnh liền nhau chỉ toàn icon. Mức gợi ý: mỗi 
 2. **Ảnh thật của chủ thể** (khi nói về chủ thể có thật).
 3. **Kho ảnh có giấy phép**: Openverse (`https://api.openverse.org/v1/images/?q=…&license_type=commercial`), Unsplash, Pexels, Wikimedia Commons.
    Tải: `.venv/bin/python -m thagent.tools img <dự-án> <url> i_ten.jpg "<tác giả / nguồn (giấy phép)>"`.
+   Tìm ảnh: `.venv/bin/python -m thagent.tools imgsearch <dự-án> "<từ khoá>"` hoặc WebSearch tìm trang rồi `tools imgpage <dự-án> <link trang>`
+   → Read `work/imgsearch.jpg` (ảnh ghép đánh số) → `tools img <dự-án> #số w_ten.jpg` (nguồn = trang chứa ảnh, tự ghi).
 4. **Video b-roll ngoài — ƯU TIÊN Pinterest, không được thì Pexels** (người dùng đã chọn cả hai, Pinterest trước):
    - Tìm: WebSearch “<từ khóa tiếng Anh/Việt> video” giới hạn `pinterest.com` → lấy link pin video; không có/không tải được → `pexels.com` (link `pexels.com/video/…`).
    - Tải: `.venv/bin/python -m thagent.v2m broll <dự-án> <url> v_ten.mp4 "<nguồn>"` — chuẩn hoá H.264, bỏ tiếng, ≤1080p, ≤30s,

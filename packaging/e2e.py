@@ -240,6 +240,41 @@ def _niches():
     return "3 ngành"
 
 
+@case("common", "ảnh đúng chủ thể: tên riêng chưa khai, chữ trên hình gọi tên dự án, ảnh sai vật (sân bay/sông), ảnh lặp")
+def _entities():
+    from PIL import Image
+    from thagent import entities as E
+    from thagent.imgsearch import page_results
+    p = WORK / "entities"
+    shutil.rmtree(p, ignore_errors=True)
+    (p / "assets_web").mkdir(parents=True)
+    fs = ["i_doanhnhan.jpg", "i_phongkhach.jpg", "i_bietthu.jpg"]
+    for n in fs:
+        Image.new("RGB", (64, 64)).save(p / "assets_web" / n)
+    (p / "assets_web" / "illus_sources.json").write_text(json.dumps({n: "https://x.vn/a" for n in fs}))
+    (p / "assets_web" / "illus_check.json").write_text(json.dumps({"i_doanhnhan.jpg": {"noi_dung_anh": "doanh nhân trong văn phòng"},
+        "i_phongkhach.jpg": {"noi_dung_anh": "phòng khách nhìn ra biển"}, "i_bietthu.jpg": {"noi_dung_anh": "biệt thự hồ bơi"}}, ensure_ascii=False), encoding="utf-8")
+    (p / "entities.json").write_text(json.dumps([{"name": "The Victoria", "aka": ["Vinhomes Tân Cảng"], "photos": []}], ensure_ascii=False), encoding="utf-8")
+    ws = [(w, 20 + i * 0.3) for i, w in enumerate("Ví dụ khu biệt thự Ba Son tại trung tâm".split())]
+    ws += [(w, 60 + i * 0.3) for i, w in enumerate("căn nhà 3 mặt view sông".split())]
+    ws += [(w, 70 + i * 0.3) for i, w in enumerate("rất gần sân bay quốc tế".split())]
+    im = lambda f: {"file": f, "label": "", "real": False}
+    scenes = [{"id": "A", "t0": 23, "t1": 28, "text": "70 TỶ LÊN 300 TỶ", "images": [im("i_doanhnhan.jpg")]},
+              {"id": "B", "t0": 33, "t1": 37, "text": "THE VICTORIA", "images": [im("i_bietthu.jpg")]},
+              {"id": "C", "t0": 60.5, "t1": 65, "text": "3 MẶT VIEW SÔNG", "images": [im("i_phongkhach.jpg")]},
+              {"id": "D", "t0": 71, "t1": 75, "text": "ĐIỀU 4", "images": [im("i_doanhnhan.jpg")]}]
+    errs = [m for sev, m in E.check(p, ws, scenes, lambda i: i["real"]) if sev == "error"]
+    need = {"A": "Ba Son", "B": "The Victoria", "C": "sông", "D": "sân bay"}
+    for sid, key in need.items():
+        assert any(m.startswith(sid + ":") and key in m for m in errs), f"không bắt lỗi cảnh {sid} ({key}): {errs}"
+    assert any("đã dùng ở A" in m for m in errs), "không bắt ảnh lặp"
+    page = WORK / "entities" / "page.html"
+    page.write_text('<title>T</title><meta property="og:image" content="/a.jpg"><img src="logo.png"><img data-src="https://cdn.x/b.jpg">')
+    rs = [r["url"] for r in page_results(page.as_uri())]
+    assert rs == ["https://cdn.x/b.jpg"], f"lấy ảnh trong trang sai: {rs}"     # bỏ logo; ảnh không phải http(s) bị loại
+    return f"{len(errs)} lỗi đúng chỗ"
+
+
 @case("common", "API app (FastAPI): trang chính, thiết lập, trạng thái, kênh")
 def _api():
     from thagent.server import app

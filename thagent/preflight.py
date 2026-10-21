@@ -431,7 +431,8 @@ def entity_rules(pl, words, pdir, fps: int) -> list[tuple[str, str]]:
             for e in M.layout_scene(sc)["elements"]:
                 for it in (e["items"] if e["type"] == "photos" else [e] if e["type"] == "photo" else []):
                     ims.append({"file": Path(it["file"]).name, "label": it.get("label", ""), "real": Path(it["file"]).name.startswith(("w_", "c_"))})
-            scenes.append({"id": f"{seg['id']}/cảnh {k + 1}", "t0": sc["start"] / fps, "t1": sc["end"] / fps, "images": ims})
+            txt = " · ".join(str(e.get("text", "")) for e in M.layout_scene(sc)["elements"] if e["type"] in ("big", "words", "tag") and e.get("text"))
+            scenes.append({"id": f"{seg['id']}/cảnh {k + 1}", "t0": sc["start"] / fps, "t1": sc["end"] / fps, "images": ims, "text": txt})
     return E.check(pdir, ws, scenes, lambda im: im["real"])
 
 
