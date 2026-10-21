@@ -52,8 +52,7 @@ def _builtin() -> dict:
 
 
 PRESETS = _builtin()
-SAMPLE_TEXT = ("Xin chào, đây là giọng đọc của C-Cut. Chỉ cần dán kịch bản, app sẽ tự dựng thành video hoàn chỉnh. "
-               "Welcome to C-Cut, the easiest way to turn your script into a video.")
+SAMPLE_TEXT = "Xin chào, đây là giọng đọc có sẵn của See Cut. Bạn chỉ cần dán kịch bản vào, app sẽ tự tạo thành video hoàn chỉnh cho bạn!"
 
 _LOCK = threading.Lock()
 _ENGINE = None

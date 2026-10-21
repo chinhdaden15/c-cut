@@ -109,11 +109,11 @@ a.btn{display:inline-block;text-decoration:none;background:var(--acc);color:#fff
 a.ghost{background:var(--panel2);color:var(--fg)}ol{padding-left:20px;line-height:1.8;color:var(--fg2)}</style></head><body><div class="wrap">
 <h1 style="display:flex;align-items:center;gap:10px"><img src="/logo.png" alt="" width="36" height="36">Hướng dẫn cài đặt C-Cut</h1><div class="dim">Xem video hướng dẫn đúng máy của bạn, rồi tải file cài ngay bên dưới.</div>
 <div class="tabs"><button data-t="intro">Giới thiệu C-Cut</button><button data-t="win">Windows</button><button data-t="mac">macOS</button></div>
-<div class="pane" id="p_intro"><video controls preload="metadata" playsinline poster="/video/gioithieu.jpg" src="/video/gioithieu.mp4"></video>
+<div class="pane" id="p_intro"><video controls preload="metadata" playsinline poster="/video/gioithieu.jpg?v=3" src="/video/gioithieu.mp4?v=4"></video>
 <div class="dl"><span class="dim">Xem C-Cut dựng video thế nào, rồi chọn</span><a class="btn ghost" href="#win" data-go="win">Windows</a><a class="btn ghost" href="#mac" data-go="mac">macOS</a><span class="dim">để xem hướng dẫn cài và tải về.</span></div></div>
-<div class="pane" id="p_win"><video controls preload="metadata" playsinline poster="/video/windows.jpg" src="/video/windows.mp4"></video>
+<div class="pane" id="p_win"><video controls preload="metadata" playsinline poster="/video/windows.jpg?v=3" src="/video/windows.mp4?v=3"></video>
 <div class="dl"><a class="btn" href="${DL}C-Cut-Setup.exe">⬇ Tải C-Cut cho Windows</a><span class="dim">Windows 10 / 11 · 64-bit</span></div></div>
-<div class="pane" id="p_mac"><video controls preload="metadata" playsinline poster="/video/macos.jpg" src="/video/macos.mp4"></video>
+<div class="pane" id="p_mac"><video controls preload="metadata" playsinline poster="/video/macos.jpg?v=3" src="/video/macos.mp4?v=3"></video>
 <div class="dl"><a class="btn" href="${DL}C-Cut-mac-arm64.dmg">⬇ Tải cho Mac chip M</a><a class="btn" href="${DL}C-Cut-mac-intel.dmg">⬇ Tải cho Mac chip Intel</a></div>
 <div class="card" style="margin-top:14px"><b>Chưa biết máy Mac dùng chip gì?</b><ol><li>Bấm biểu tượng quả táo ở góc trên bên trái.</li>
 <li>Chọn <b>Giới thiệu về máy Mac này</b>.</li><li>Thấy dòng <b>Chip Apple M…</b> → tải bản <b>chip M</b>; thấy <b>Bộ xử lý … Intel</b> → tải bản <b>Intel</b>.</li></ol></div></div>
