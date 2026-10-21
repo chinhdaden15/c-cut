@@ -258,10 +258,24 @@ KHÔNG BỊA THÔNG TIN (mọi skill, bắt buộc):
 """
 
 
+T2V_RULES = """
+TEXT TO VIDEO (skill text-to-video — ĐỌC .claude/skills/text-to-video/SKILL.md trước; bộ dựng là kit Voice to Motion ở trên):
+- Giọng đọc do app tạo từ kịch bản (voice.wav, tốc độ 1.1; transcript.json = đúng chữ kịch bản; script.json = từng câu + mốc giây).
+  KHÔNG chạy v2m clean/restore/speed. Bỏ qua mọi chỗ ở trên nói về “làm sạch voice”.
+- Mỗi câu một nhịp hình, kiểu KẾT HỢP: vật/cảnh cụ thể → VIDEO minh hoạ đúng vật (Pexels → Pinterest → Pixabay nếu tải được; ảnh khi không có video);
+  chủ thể có tên → ảnh/video thật (entities.json); số liệu → thẻ số/biểu đồ; quy trình → sơ đồ/steps; địa điểm → bản đồ; ý trừu tượng → chữ động + icon.
+- MỌI ảnh/clip web: Read ảnh xem trước rồi ghi assets_web/illus_check.json {{"v_x.mp4": {{"noi_dung_anh": "…", "vat": "tên vật", "cau_noi": "…", "khop": true}}}}.
+  Dùng lại ảnh/clip CHỈ khi câu sau nói đúng “vat” đó (app kiểm); nói ý khác → tìm hình khác.
+- Hook trong 1s đầu; ~5s cuối là CTA chữ lớn. Không ghi nguồn trên video.
+"""
+
+
 def system_prompt(style: str, pid: str, pdir: str) -> str:
     """prompt riêng của style (nếu có) — skill mới chưa có prompt riêng dùng SYSTEM_GENERIC (đọc SKILL.md của chính nó);
     + khối CÔNG CỤ DỰNG DÙNG CHUNG (thagent.capabilities) cho MỌI skill video → skill thêm sau tự kế thừa, không sửa từng skill."""
     from .capabilities import prompt_block
+    if style == "text-to-video":            # dựng bằng kit Voice to Motion + quy tắc riêng
+        return SYSTEM_V2M.format(pid=pid, pdir=pdir, style="voice-to-motion") + T2V_RULES + FACT_RULES + prompt_block("voice-to-motion")
     base = STYLE_PROMPTS.get(style)
     if base is None:
         base = SYSTEM_GENERIC if (ROOT / ".claude" / "skills" / style / "SKILL.md").exists() else SYSTEM

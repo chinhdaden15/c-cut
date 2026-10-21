@@ -44,6 +44,22 @@
     "8767"
    ],
    "port": 8767
+  },
+  {
+   "name": "c-cut-t2v",
+   "runtimeExecutable": "/usr/bin/env",
+   "runtimeArgs": [
+    "CCUT_SHOW_HIDDEN=1",
+    ".venv/bin/python",
+    "-m",
+    "uvicorn",
+    "thagent.server:app",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8768"
+   ],
+   "port": 8768
   }
  ]
 }

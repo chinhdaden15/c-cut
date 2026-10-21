@@ -205,11 +205,37 @@ def check(pdir, words: list[tuple[str, float]], scenes: list[dict], real_ok, uni
             out.append(("error", f"{s['id']}: lời/chữ nói “{k}” nhưng không ảnh nào trong cảnh có {k} ("
                                  + "; ".join(f"{fl}: {desc.get(fl) or 'chưa mô tả'}" for fl in files)
                                  + f") — tìm ảnh đúng {k} (tools imgsearch / imgpage), có tên riêng thì ảnh thật của đúng nơi đó"))
-    # một ảnh web chỉ dùng ở một cảnh
-    first = {}
+    # dùng lại ảnh/clip: chỉ khi cảnh sau nói ĐÚNG vật của hình đó (nhãn "vat" trong illus_check.json); không nhãn → mỗi hình một cảnh
+    first, tags = {}, labels(pdir)
     for s in img_scenes:
+        said = " ".join(norm(" ".join(w for w, x in words if s["t0"] - lead <= x < s["t1"]) + " " + (s.get("text") or "")))
         for fl in dict.fromkeys(im["file"] for im in s["images"]):
             if fl in first and first[fl] != s["id"]:
-                out.append(("error", f"{s['id']}: ảnh {fl} đã dùng ở {first[fl]} — mỗi ảnh chỉ dùng một lần trong video, tìm ảnh khác đúng nội dung"))
+                tag = " ".join(norm(tags.get(fl, "")))
+                if not tag:
+                    out.append(("error", f"{s['id']}: ảnh {fl} đã dùng ở {first[fl]} — mỗi ảnh chỉ dùng một lần; muốn dùng lại khi nói lại "
+                                         "đúng vật đó thì ghi \"vat\" cho ảnh trong illus_check.json"))
+                elif not _has_tag(said, tag):
+                    out.append(("error", f"{s['id']}: dùng lại {fl} (“{tags[fl]}”) nhưng cảnh này không nói tới “{tags[fl]}” — "
+                                         "lặp hình sai ngữ cảnh, tìm hình khác đúng câu đang nói"))
             first.setdefault(fl, s["id"])
     return out
+
+
+def labels(pdir) -> dict:
+    """nhãn vật của từng ảnh/clip web (illus_check.json → "vat")."""
+    f = Path(pdir) / "assets_web" / "illus_check.json"
+    try:
+        d = json.loads(f.read_text(encoding="utf-8"))
+        return {k: v.get("vat", "") for k, v in d.items() if isinstance(v, dict) and v.get("vat")}
+    except Exception:
+        return {}
+
+
+def _has_tag(said: str, tag: str) -> bool:
+    """cảnh nói tới vật: đủ cụm, hoặc ≥ 2/3 số từ của nhãn (nhãn dài kiểu “đầu cọ son” vẫn khớp khi chỉ nói “đầu cọ”)."""
+    if f" {tag} " in f" {said} ":
+        return True
+    t = [x for x in tag.split() if len(x) > 1]
+    hit = sum(1 for x in t if f" {x} " in f" {said} ")
+    return bool(t) and hit >= max(1, round(len(t) * 2 / 3))

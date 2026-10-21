@@ -349,6 +349,37 @@ def _voice():
     return f"6 giọng có sẵn + nhân bản (độ giống {sim:.2f}, giọng khác {other:.2f})"
 
 
+@case("voice", "Text to Video: tách file nhiều kịch bản → đọc thành giọng tốc độ 1.1 → mốc từng từ đúng chữ kịch bản; dùng lại hình chỉ khi nói đúng vật")
+def _t2v():
+    import soundfile as sf
+    from thagent import t2v as TV, entities as E
+    vids = TV.split("Video 1: Son\nBạn đã thử cây son kem lì này chưa? Đầu cọ mềm, tán đều chỉ một lần quẹt.\n\n"
+                    "Video 2: Nhà\nThời lượng: 30s\nCăn hộ hai phòng ngủ rộng bảy mươi lăm mét vuông, cách trung tâm mười lăm phút đi xe.")
+    assert [v["title"] for v in vids] == ["Video 1: Son", "Video 2: Nhà"] and "Thời lượng" not in vids[1]["text"], vids
+    p = WORK / "t2v"
+    shutil.rmtree(p, ignore_errors=True)
+    m = TV.prepare(p, vids[0]["text"], "nu_nam", progress=lambda x: None)
+    tr = json.loads((p / "transcript.json").read_text(encoding="utf-8"))
+    x, sr = sf.read(str(p / "voice.wav"))
+    assert abs(len(x) / sr - tr["duration_s"]) < 0.1 and m["speed"] == 1.1, m
+    assert " ".join(w["text"] for w in tr["words"]) == " ".join(s["text"] for s in TV.sentences(vids[0]["text"])), "phụ đề không đúng chữ kịch bản"
+    assert all(a["start"] <= b["start"] + 0.01 for a, b in zip(tr["words"], tr["words"][1:])), "mốc từ không tăng dần"
+    # dùng lại clip: được khi cảnh nói lại đúng vật, lỗi khi nói ý khác
+    (p / "assets_web").mkdir(exist_ok=True)
+    import numpy as np
+    from PIL import Image
+    Image.fromarray(np.zeros((8, 8, 3), np.uint8)).save(p / "assets_web" / "i_dau_co.jpg")
+    (p / "assets_web" / "illus_sources.json").write_text(json.dumps({"i_dau_co.jpg": "https://x.vn/a"}))
+    (p / "assets_web" / "illus_check.json").write_text(json.dumps({"i_dau_co.jpg": {"noi_dung_anh": "cận cảnh đầu cọ son", "vat": "đầu cọ son"}}, ensure_ascii=False), encoding="utf-8")
+    (p / "entities.json").write_text("[]")
+    ws = [("đầu", 1.0), ("cọ", 1.2), ("mềm", 1.4), ("đầu", 5.0), ("cọ", 5.2), ("vát", 5.4), ("giá", 9.0), ("rẻ", 9.2)]
+    sc = lambda i, a, b: {"id": i, "t0": a, "t1": b, "text": "", "images": [{"file": "i_dau_co.jpg", "label": "", "real": False}]}
+    errs = lambda scenes: [m for sv, m in E.check(p, ws, scenes, lambda im: im["real"]) if sv == "error" and "dùng lại" in m]
+    assert not errs([sc("A", 0.5, 3), sc("B", 4.6, 7)]), "nói lại đầu cọ mà không cho dùng lại clip"
+    assert errs([sc("A", 0.5, 3), sc("C", 8.6, 10)]), "nói ý khác mà vẫn cho chèn lại clip đầu cọ"
+    return f"{len(vids)} video tách đúng · giọng {m['duration_s']:.1f}s · chống lặp hình đúng ngữ cảnh"
+
+
 @case("common", "API app (FastAPI): trang chính, thiết lập, trạng thái, kênh")
 def _api():
     from thagent.server import app

@@ -148,7 +148,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
 .overlay.show{display:flex}
-#voiceBox .modal{max-height:92vh;overflow:auto}#voiceBox input[type=checkbox]{width:auto;flex:none}#vSel{min-width:200px}#vSay,#vClone{white-space:nowrap}#vSpeed{flex:none;width:auto}
+#voiceBox .modal{max-height:92vh;overflow:auto}.tvm.on{background:var(--acc);color:#fff}#t2vBox [hidden]{display:none!important}#tvVoice{min-width:0;width:100%}#t2vBox .row>select{flex:1 1 auto}#voiceBox input[type=checkbox]{width:auto;flex:none}#vSel{min-width:200px}#vSay,#vClone{white-space:nowrap}#vSpeed{flex:none;width:auto}
 .modal{width:min(640px,92vw);background:var(--bg);border:0.5px solid var(--line2);border-radius:12px;padding:16px}
 .lic-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:0.5px solid var(--line2);font-size:14px}.lic-row .n{flex:1}
 .ltag{font-size:12px;padding:2px 8px;border-radius:6px;white-space:nowrap}.ltag.free,.ltag.own{background:var(--ok-bg);color:var(--ok)}.ltag.trial{background:var(--acc-bg);color:var(--acc-fg)}.ltag.out{background:var(--err-bg);color:var(--err)}
@@ -191,9 +191,17 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 <main>
   <section class="col">
     <div class="card">
-      <h3><span class="step">1</span>Video gốc</h3>
-      <div class="drop" id="vdrop">Kéo thả file hoặc thư mục vào đây</div>
-      <div class="row" style="margin-top:8px"><button id="pickVideo" class="small">Chọn file</button><button id="pickFolder" class="small">Chọn thư mục</button></div>
+      <h3><span class="step">1</span><span id="srcTitle">Video gốc</span></h3>
+      <div id="srcBox"><div class="drop" id="vdrop">Kéo thả file hoặc thư mục vào đây</div>
+      <div class="row" style="margin-top:8px"><button id="pickVideo" class="small">Chọn file</button><button id="pickFolder" class="small">Chọn thư mục</button></div></div>
+      <div id="t2vBox" hidden>
+        <div class="row" style="gap:6px"><button class="small tvm on" data-m="script">Có kịch bản</button><button class="small tvm" data-m="request">Chỉ có ý tưởng</button></div>
+        <textarea id="tvText" rows="5" style="width:100%;margin-top:6px" placeholder="Dán kịch bản (một hoặc nhiều video — mỗi video bắt đầu bằng “Video 1:”, “Video 2:”…)"></textarea>
+        <div class="row" style="gap:8px;margin-top:6px" id="tvFileRow"><button id="tvFile" class="small">Chọn file kịch bản</button><span class="small dim" id="tvFileName"></span></div>
+        <div class="row" style="gap:8px;margin-top:6px" id="tvSecRow" hidden><label class="small" style="flex:1">Độ dài video (giây)</label><input id="tvSec" type="number" min="15" max="600" value="60" style="width:90px"></div>
+        <div class="row" style="gap:6px;margin-top:8px"><select id="tvVoice" style="flex:1"></select><button class="small" id="tvPlay" title="Nghe thử giọng">▶</button><button class="small" id="tvClone">Nhân bản giọng</button></div>
+        <button class="primary" id="tvAdd" style="margin-top:8px;width:100%">Thêm vào hàng chờ</button>
+      </div>
       <div id="queue" style="margin-top:8px"></div>
     </div>
     <div class="card">
@@ -410,7 +418,7 @@ async function refresh(){
   if(!S.workspace&&!wsShown)openWs();
   const sy=S.system;$('#sys').className='badge '+sy.level;$('#sys').textContent=sy.label;
   $('#outdir').textContent=S.settings.export_dir;
-  renderQueue();renderStyles();renderReview();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
+  renderQueue();renderStyles();renderReview();renderT2V();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
 }
 let CHS=null;   // danh sách kênh (nền MG theo kênh)
 api('/api/ccut/channels').then(d=>{CHS=d.channels;renderQueue()}).catch(()=>{});
@@ -440,6 +448,22 @@ $('#scriptClear').onclick=()=>{$('#scriptText').value=''};
 $('#scriptFile').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'script'});if(r.path){try{const a=await post(`/api/ccut/queue/${scriptIdx}/script`,{path:r.path});await refresh();$('#scriptText').value=S.queue[scriptIdx].script||'';toast(`Đã nhập kịch bản (${a.chars} ký tự)`)}catch(e){toast('Không đọc được file: '+e.message)}}};
 $('#scriptSave').onclick=async()=>{const a=await post(`/api/ccut/queue/${scriptIdx}/script`,{text:$('#scriptText').value});$('#scriptBox').classList.remove('show');toast(a.chars?'Đã lưu kịch bản':'Đã xoá kịch bản');refresh()};
 let styleFilter='';
+/* Text to Video */
+var tvMode='script',tvPath=null,tvVoicesAt=0;
+function renderT2V(){const on=S.settings.style==='text-to-video';$('#t2vBox').hidden=!on;$('#srcBox').hidden=on;$('#srcTitle').textContent=on?'Kịch bản':'Video gốc';
+  if(on&&Date.now()-tvVoicesAt>15000){tvVoicesAt=Date.now();api('/api/ccut/voices').then(v=>{const cur=$('#tvVoice').value;
+    $('#tvVoice').innerHTML=v.voices.map(x=>`<option value="${x.id}">${esc(x.name)}${x.kind==='clone'?' (giọng của bạn)':''}</option>`).join('');if(cur)$('#tvVoice').value=cur;
+    if(!v.ready){$('#tvVoice').innerHTML='<option value="">Chưa tải bộ giọng đọc</option>'}}).catch(()=>{})}}
+document.querySelectorAll('.tvm').forEach(b=>b.onclick=()=>{tvMode=b.dataset.m;document.querySelectorAll('.tvm').forEach(x=>x.classList.toggle('on',x===b));
+  $('#tvSecRow').hidden=tvMode!=='request';$('#tvFileRow').hidden=tvMode==='request';
+  $('#tvText').placeholder=tvMode==='request'?'Mô tả video bạn muốn, vd: “Video giới thiệu cây son kem lì mới, nhấn mạnh đầu cọ mềm và giữ màu 8 tiếng”':'Dán kịch bản (một hoặc nhiều video — mỗi video bắt đầu bằng “Video 1:”, “Video 2:”…)'});
+$('#tvFile').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'script'});if(r.path){tvPath=r.path;$('#tvFileName').textContent=r.path.split(/[\\/]/).pop();$('#tvText').value=''}};
+$('#tvPlay').onclick=()=>{const v=$('#tvVoice').value;if(!v){openVoice();return}vPlay('/api/ccut/voices/sample/'+v,$('#tvPlay'))};
+$('#tvClone').onclick=()=>openVoice();
+$('#tvAdd').onclick=async()=>{const voice=$('#tvVoice').value,t=$('#tvText').value.trim();if(!voice){openVoice();toast('Tải bộ giọng đọc trước');return}
+  const b=tvMode==='request'?{request:t,seconds:Number($('#tvSec').value)||60,voice}:{text:tvPath?null:t,path:tvPath,voice};
+  if(!(b.request||b.text||b.path)){toast(tvMode==='request'?'Nhập ý tưởng video':'Dán kịch bản hoặc chọn file');return}
+  try{const r=await post('/api/ccut/t2v/add',b);toast('Đã thêm '+r.added.length+' video');$('#tvText').value='';tvPath=null;$('#tvFileName').textContent='';refresh()}catch(e){toast(e.message)}};
 function renderReview(){
   const on=S.settings.style==='review-editor';$('#reviewCard').hidden=!on;if(!on)return;
   const r=S.settings.review||{};if(document.activeElement&&$('#reviewCard').contains(document.activeElement))return;

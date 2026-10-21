@@ -27,6 +27,7 @@ SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
 AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}   # style Voice to Motion nhận cả file âm thanh
 V2M = "voice-to-motion"
+T2V = "text-to-video"
 REVIEW = "review-editor"
 REF_DIRS = {"tham_khao", "tham khao", "thamkhao", "reference", "references", "ref", "refs"}   # thư mục con = video tham khảo phong cách
 router = APIRouter(prefix="/api/ccut")
@@ -38,6 +39,7 @@ STAGES = [("ingest", "Nhập", 8), ("transcribe", "Chép lời", 22), ("matting"
 # Voice to Motion: voice (âm thanh, hoặc tiếng tách từ video) → motion graphic, xuất cả dọc lẫn ngang
 STAGES_REVIEW = [("analyze", "Phân tích", 22), ("select", "Chọn cảnh", 28), ("build", "Dựng", 22), ("finish", "Hoàn thiện", 20),
                  ("check", "Kiểm tra", 4), ("export", "Xuất", 4)]
+STAGES_T2V = [("script", "Kịch bản", 8), ("voice", "Giọng đọc", 15), ("plan", "Kế hoạch", 32), ("render", "Xuất dọc + ngang", 45)]
 STAGES_V2M = [("ingest", "Nhập", 3), ("transcribe", "Chép lời", 20), ("clean", "Làm sạch voice", 5),
               ("plan", "Kế hoạch", 25), ("render", "Xuất dọc + ngang", 47)]
 # TH2 (nhiều đoạn → 1 video): thêm 2 bước đầu
@@ -378,6 +380,8 @@ def list_styles() -> list[dict]:
     for skill in sorted((ROOT / ".claude" / "skills").glob("*/style.json")):
         st = json.loads(skill.read_text(encoding="utf-8"))
         slug = skill.parent.name
+        if st.get("hidden") and not os.environ.get("CCUT_SHOW_HIDDEN"):      # skill đang làm, chưa phát hành
+            continue
         md = (skill.parent / "SKILL.md").read_text(encoding="utf-8")
         desc = re.search(r"description:\s*(.+)", md)
         out.append({"slug": slug, "name": reg.get(slug, {}).get("name", st.get("name", slug)),
@@ -1002,6 +1006,108 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
                      "(video: 4 khung cách 2s), ưu tiên dùng khi ĐÚNG nội dung đang nói. " if mats else "")
                   + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
         _wait_plan(sess, item, job)
+    _v2m_render(item, pid, job, settings, log, sess)
+
+
+def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
+    """Text to Video: (yêu cầu → Claude viết kịch bản) → app đọc thành giọng (tốc độ 1.1, mốc từng từ) → Claude dựng bằng kit
+    Voice to Motion (video minh hoạ thật + motion graphic) → xuất dọc + ngang."""
+    from . import agent as A, t2v as TV
+    L.can_start(T2V, pid)
+    pdir = P.PROJECTS / pid
+    pdir.mkdir(parents=True, exist_ok=True)
+    sess = A.get(pid, T2V)
+    try:
+        sess.warm()
+    except Exception as e:
+        log(f"Không mở được Claude: {e}")
+    job["stage"] = "script"
+    script = pdir / "script.txt"
+    if item.get("script"):
+        script.write_text(item["script"], encoding="utf-8")
+    if not script.exists():                 # chỉ có yêu cầu → Claude viết kịch bản đúng độ dài
+        secs = int(item.get("seconds") or 60)
+        flag = pdir / "script_ready.json"
+        if not sess.messages:
+            sess._add("claude", f"Đã nhận yêu cầu “{item['name']}”. Mình viết kịch bản khoảng {secs} giây trước rồi dựng video.", kind="text")
+        sess.send(f"Viết KỊCH BẢN lời đọc cho video theo yêu cầu: “{item['request']}”. Độ dài khoảng {secs} giây "
+                  f"(≈ {int(secs * TV.WPS)} từ ở tốc độ đọc 1.1). Câu đầu là hook (nỗi đau / mong muốn / con số gây tò mò), "
+                  "câu cuối là lời kêu gọi hành động. Số liệu, sự kiện có thật → tra web, không bịa; không chắc thì nói chung, không nêu số. "
+                  f"Ghi {script} CHỈ lời đọc (không tiêu đề, không ghi chú, không emoji, mỗi ý một đoạn), rồi ghi {flag} = {{\"ready\": true}}. "
+                  "CHƯA dựng video — app sẽ đọc kịch bản thành giọng rồi giao tiếp.", show=False)
+        item["status"] = "claude"
+        while not (flag.exists() and script.exists()):
+            if job["cancel"]:
+                sess.stop(); raise RuntimeError("cancelled")
+            job["activity"] = sess.activity
+            if not sess.busy:
+                time.sleep(5)
+                if not sess.busy and not flag.exists():
+                    if sess.restarts >= 3:
+                        raise RuntimeError("Claude chưa viết xong kịch bản — xem khung chat")
+                    sess.restarts += 1
+                    sess.send(f"Viết tiếp kịch bản vào {script} rồi ghi {flag}.", show=False)
+            time.sleep(2)
+        item["status"] = "running"
+    job["done"].append("script"); job["stage"] = "voice"
+    if not (pdir / "transcript.json").exists() or not (pdir / "script.json").exists():
+        TV.prepare(pdir, str(script), item.get("voice") or "nu_bac", float(item.get("speed") or TV.SPEED), progress=log)
+    meta = json.loads((pdir / "script.json").read_text(encoding="utf-8"))
+    job["done"].append("voice"); job["stage"] = "plan"
+    if not sess.plan_ready():
+        weak = [m["i"] + 1 for m in meta["sentences"] if m.get("match", 1) < 0.6 and len(m["text"].split()) >= 3]
+        sess.send(f"Dựng video Text to Video cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill text-to-video. "
+                  f"Giọng đọc đã xong: voice.wav {meta['duration_s']:.1f}s, {len(meta['sentences'])} câu (script.json, transcript.json). "
+                  + (f"Câu {weak} khớp kém — nghe lại trước khi dựng. " if weak else "")
+                  + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
+        _wait_plan(sess, item, job)
+    _v2m_render(item, pid, job, settings, log, sess)
+
+
+class T2VIn(BaseModel):
+    text: str | None = None          # kịch bản dán vào (có thể nhiều video)
+    path: str | None = None          # file kịch bản
+    request: str | None = None       # yêu cầu sơ sài
+    seconds: int = 60
+    voice: str = "nu_bac"
+    speed: float = 1.1
+
+
+@router.post("/t2v/add")
+def t2v_add(b: T2VIn):
+    """thêm việc Text to Video: kịch bản (1 hoặc nhiều video) hoặc yêu cầu + số giây."""
+    from . import t2v as TV
+    from . import voice as V
+    if b.voice not in [v["id"] for v in V.voices()]:
+        raise HTTPException(400, "chọn giọng đọc")
+    items = []
+    if b.request and b.request.strip() and not (b.text or b.path):
+        name = re.sub(r"\s+", " ", b.request.strip())[:60]
+        items.append({"name": name, "request": b.request.strip(), "seconds": max(15, min(600, int(b.seconds)))})
+    else:
+        try:
+            raw = TV.read_text(b.path) if b.path else (b.text or "")
+        except TV.T2VError as e:
+            raise HTTPException(400, str(e))
+        if not raw.strip():
+            raise HTTPException(400, "chưa có kịch bản")
+        for v in TV.split(raw):
+            items.append({"name": v["title"][:60], "script": v["text"]})
+    for it in items:
+        words = len((it.get("script") or "").split())
+        it.update(kind="t2v", path=f"t2v:{int(time.time() * 1000)}:{len(STATE['queue'])}", status="wait", project=None,
+                  voice=b.voice, speed=b.speed,
+                  meta=(f"kịch bản {words} từ · ~{words / TV.WPS:.0f}s" if words else f"yêu cầu · ~{it.get('seconds')}s") + " · giọng " +
+                  next(v["name"] for v in V.voices() if v["id"] == b.voice))
+        STATE["queue"].append(it)
+    save_queue()
+    return {"added": [i["name"] for i in items], "queue": STATE["queue"]}
+
+
+def _v2m_render(item: dict, pid: str, job: dict, settings: dict, log, sess):
+    """xuất timeline dọc/ngang Claude đã viết (Voice to Motion, Text to Video dùng chung)."""
+    from .v2m import __main__ as V
+    pdir = P.PROJECTS / pid
     job["done"].append("plan"); job["stage"] = "render"
     out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
     fmts = [f for f in ("9x16", "16x9") if (pdir / f"timeline_{f}.json").exists()]
@@ -1052,6 +1158,8 @@ def _run_queue(settings: dict):
             break
         multi = item.get("kind") == "multi"
         pid = _slug(Path(item["path"]).stem if not multi else Path(item["path"]).name)
+        if item.get("kind") == "t2v":       # việc từ kịch bản: tên dự án theo tiêu đề + mã việc (không trùng)
+            pid = item.get("project") or (_slug(item["name"])[:40] + "_" + item["path"].split(":")[1][-6:])
         item.update(status="running", project=pid); save_queue()
         _apply_channel(item)
         job.update(project=pid, video=item["name"], stage="analyze" if multi else "ingest", done=[], t0=time.time(),
@@ -1060,6 +1168,19 @@ def _run_queue(settings: dict):
             job["stages"] = STAGES_REVIEW
             try:
                 _run_review(item, pid, job, settings, log)
+            except Exception as e:
+                cancelled = str(e) == "cancelled" or job["cancel"]
+                item["status"] = "cancelled" if cancelled else "failed"
+                item["error"] = None if cancelled else str(e)[:300]
+                job["log"].append(traceback.format_exc()[-1200:])
+                notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
+                if cancelled:
+                    break
+            continue
+        if item.get("kind") == "t2v":
+            job["stages"] = STAGES_T2V
+            try:
+                _run_t2v(item, pid, job, settings, log)
             except Exception as e:
                 cancelled = str(e) == "cancelled" or job["cancel"]
                 item["status"] = "cancelled" if cancelled else "failed"
