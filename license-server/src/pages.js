@@ -108,7 +108,9 @@ export const GUIDE_HTML = `<!doctype html><html lang="vi"><head><meta charset="u
 a.btn{display:inline-block;text-decoration:none;background:var(--acc);color:#fff;border-radius:8px;padding:10px 18px;font-weight:600}
 a.ghost{background:var(--panel2);color:var(--fg)}ol{padding-left:20px;line-height:1.8;color:var(--fg2)}</style></head><body><div class="wrap">
 <h1>Hướng dẫn cài đặt C-Cut</h1><div class="dim">Xem video hướng dẫn đúng máy của bạn, rồi tải file cài ngay bên dưới.</div>
-<div class="tabs"><button data-t="win">Windows</button><button data-t="mac">macOS</button></div>
+<div class="tabs"><button data-t="intro">Giới thiệu C-Cut</button><button data-t="win">Windows</button><button data-t="mac">macOS</button></div>
+<div class="pane" id="p_intro"><video controls preload="metadata" playsinline poster="/video/gioithieu.jpg" src="/video/gioithieu.mp4"></video>
+<div class="dl"><span class="dim">Xem C-Cut dựng video thế nào, rồi chọn</span><a class="btn ghost" href="#win" data-go="win">Windows</a><a class="btn ghost" href="#mac" data-go="mac">macOS</a><span class="dim">để xem hướng dẫn cài và tải về.</span></div></div>
 <div class="pane" id="p_win"><video controls preload="metadata" playsinline poster="/video/windows.jpg" src="/video/windows.mp4"></video>
 <div class="dl"><a class="btn" href="${DL}C-Cut-Setup.exe">⬇ Tải C-Cut cho Windows</a><span class="dim">Windows 10 / 11 · 64-bit</span></div></div>
 <div class="pane" id="p_mac"><video controls preload="metadata" playsinline poster="/video/macos.jpg" src="/video/macos.mp4"></video>
@@ -123,6 +125,7 @@ a.ghost{background:var(--panel2);color:var(--fg)}ol{padding-left:20px;line-heigh
 const $$=s=>document.querySelectorAll(s);
 function show(t){$$('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$$('.pane').forEach(p=>{const on=p.id==='p_'+t;p.classList.toggle('on',on);if(!on)p.querySelector('video').pause()});history.replaceState(null,'','#'+t)}
 $$('.tabs button').forEach(b=>b.onclick=()=>show(b.dataset.t));
+$$('[data-go]').forEach(a=>a.onclick=e=>{e.preventDefault();show(a.dataset.go)});
 const h=location.hash.slice(1),hm={m:'mac',intel:'mac'};const t=hm[h]||h;
-show(['win','mac'].includes(t)?t:(/Mac|iPhone|iPad/.test(navigator.userAgent)?'mac':'win'));
+show(['intro','win','mac'].includes(t)?t:'intro');
 </script></body></html>`;
