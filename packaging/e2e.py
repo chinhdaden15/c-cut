@@ -311,6 +311,44 @@ def _entities():
     return f"{len(errs)} lỗi đúng chỗ"
 
 
+@case("voice", "giọng đọc: tải model ghim phiên bản → 6 giọng có sẵn đọc Việt + Anh → nhân bản giọng từ video (bắt buộc xác nhận quyền) → đọc bằng giọng nhân bản")
+def _voice():
+    import soundfile as sf
+    from thagent import voice as V
+    for k in range(3):                                   # máy chủ tải model đôi khi giới hạn lượt → thử lại
+        try:
+            V.download()
+            break
+        except V.VoiceError:
+            if k == 2:
+                raise
+            time.sleep(30 * (k + 1))
+    assert V.ready(), "chưa tải xong bộ giọng đọc"
+    ids = [v["id"] for v in V.voices()]
+    assert len(set(ids) & set(V.PRESETS)) == 6, ids
+    out = WORK / "voice"
+    w = V.say("Giá căn hộ 3,5 tỷ đồng. Welcome to C-Cut.", "nu_nam", out / "preset.wav", 1.1)
+    x, sr = sf.read(str(w))
+    assert sr == V.SR and 1.0 < len(x) / sr < 15, f"giọng có sẵn đọc sai độ dài {len(x) / sr:.1f}s"
+    try:
+        V.clone(FIX / "presenter.mp4", "Giọng kiểm thử", consent=False)
+        raise AssertionError("nhân bản không cần xác nhận quyền")
+    except V.VoiceError:
+        pass
+    c = V.clone(FIX / "presenter.mp4", "Giọng kiểm thử", consent=True)
+    assert c["id"] in [v["id"] for v in V.voices()] and 4.0 <= c["ref_seconds"] <= 8.0, c
+    text = "Đây là giọng được nhân bản từ đoạn video mẫu, đọc một câu đủ dài để so sánh chất giọng với người nói gốc."
+    enc = V.engine().engine.speaker_encoder
+    emb = lambda f: enc.embed(*sf.read(str(f)))
+    cos = lambda a, b: float(a @ b / (abs(a @ a) ** 0.5 * abs(b @ b) ** 0.5))
+    src = enc.embed(V._load_audio(FIX / "presenter.mp4")[: V.SR * 30], V.SR)
+    sim = cos(emb(V.say(text, c["id"], out / "clone.wav")), src)
+    other = max(cos(emb(V.say(text, k, out / f"{k}.wav")), src) for k in ("nam_bac", "nu_bac"))
+    V.remove(c["id"])
+    assert sim > other + 0.1, f"giọng nhân bản không giống giọng gốc hơn giọng có sẵn (nhân bản {sim:.2f} · giọng có sẵn {other:.2f})"
+    return f"6 giọng có sẵn + nhân bản (độ giống {sim:.2f}, giọng khác {other:.2f})"
+
+
 @case("common", "API app (FastAPI): trang chính, thiết lập, trạng thái, kênh")
 def _api():
     from thagent.server import app

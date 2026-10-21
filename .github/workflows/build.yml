@@ -29,6 +29,7 @@ jobs:
           done
           ./ffmpeg -hide_banner -filters | grep -E "zscale|loudnorm|ebur128" 
       - run: pip install -r packaging/requirements-build.txt
+      - run: pip install --no-deps vieneu==3.2.1
       - run: FFMPEG_DIR=build/ffmpeg PY=python ./packaging/build_mac.sh
       - name: kiểm tra bản đóng gói
         env: {PYTHONUTF8: "0", CCUT_HOME: build/res/seed}
@@ -62,6 +63,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.11"}
       - run: pip install -r packaging/requirements-build.txt
+      - run: pip install --no-deps vieneu==3.2.1
       - run: choco install innosetup -y --no-progress
       - run: ./packaging/build_win.ps1
         shell: pwsh

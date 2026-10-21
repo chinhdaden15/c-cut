@@ -148,6 +148,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
 .overlay.show{display:flex}
+#voiceBox .modal{max-height:92vh;overflow:auto}#voiceBox input[type=checkbox]{width:auto;flex:none}#vSel{min-width:200px}#vSay,#vClone{white-space:nowrap}#vSpeed{flex:none;width:auto}
 .modal{width:min(640px,92vw);background:var(--bg);border:0.5px solid var(--line2);border-radius:12px;padding:16px}
 .lic-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:0.5px solid var(--line2);font-size:14px}.lic-row .n{flex:1}
 .ltag{font-size:12px;padding:2px 8px;border-radius:6px;white-space:nowrap}.ltag.free,.ltag.own{background:var(--ok-bg);color:var(--ok)}.ltag.trial{background:var(--acc-bg);color:var(--acc-fg)}.ltag.out{background:var(--err-bg);color:var(--err)}
@@ -180,6 +181,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div class="right">
     <button class="newproj" id="newProj" title="Tạo dự án mới">＋ Dự án mới</button>
     <span class="badge warn" id="sys">Đang kiểm tra…</span>
+    <button class="iconbtn" id="voiceBtn" aria-label="Giọng đọc" title="Giọng đọc">🎙</button>
     <button class="iconbtn" id="licBtn" aria-label="Bản quyền skill" title="Bản quyền skill">🔑</button>
     <button class="iconbtn" id="bell" aria-label="Thông báo">🔔<span class="dot" id="belldot" hidden></span></button>
     <button class="iconbtn" id="gear" aria-label="Cài đặt">⚙</button>
@@ -366,6 +368,27 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
       <div class="row" style="margin-top:10px"><button id="licBack">← Quay lại</button></div>
     </div>
     <div class="small dim" style="margin-top:14px;display:flex;gap:8px;align-items:center"><span id="licDev" style="flex:1"></span><button class="link" id="licSync">Đồng bộ lại</button></div>
+  </div>
+</div>
+<div class="overlay" id="voiceBox">
+  <div class="modal">
+    <div class="mhead"><b>Giọng đọc</b><button id="closeVoice" aria-label="Đóng">✕</button></div>
+    <div id="vDl" hidden><div class="small dim" id="vDlTxt"></div><div style="margin-top:8px"><button class="primary" id="vDlBtn" style="padding:8px 16px">Tải bộ giọng đọc</button></div></div>
+    <div id="vMain">
+      <div class="small dim">6 giọng có sẵn đọc được tiếng Việt và tiếng Anh, chạy ngay trên máy (không cần mạng sau khi tải).</div>
+      <div id="vRows" style="margin-top:8px"></div>
+      <div class="small" style="margin-top:14px;font-weight:500">Đọc thử câu của bạn</div>
+      <textarea id="vText" rows="2" style="width:100%;margin-top:6px" placeholder="Nhập câu bất kỳ, tiếng Việt hoặc tiếng Anh…"></textarea>
+      <div class="row" style="gap:8px;margin-top:6px"><select id="vSel" style="flex:1"></select>
+        <select id="vSpeed"><option value="0.9">Chậm</option><option value="1" selected>Vừa</option><option value="1.1">Nhanh</option><option value="1.2">Rất nhanh</option></select>
+        <button class="primary" id="vSay" style="padding:8px 16px">Đọc thử</button></div>
+      <div class="small" style="margin-top:16px;font-weight:500">Nhân bản giọng của bạn</div>
+      <div class="small dim" style="margin-top:2px">Chọn file thu âm hoặc video có tiếng (10–30 giây nói tự nhiên, nơi yên tĩnh là tốt nhất).</div>
+      <div class="row" style="gap:8px;margin-top:6px"><input type="file" id="vFile" accept="audio/*,video/*" style="flex:1"><input id="vName" placeholder="Tên giọng (vd: Giọng của tôi)" style="flex:1"></div>
+      <label class="small" style="display:flex;gap:8px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="vConsent" style="margin-top:2px">Đây là giọng của tôi, hoặc tôi được người có giọng này cho phép dùng. Tôi không dùng giọng nhân bản để mạo danh hay lừa dối người khác.</label>
+      <div style="margin-top:8px"><button class="primary" id="vClone" style="padding:8px 16px">Nhân bản giọng</button></div>
+    </div>
+    <audio id="vAudio" hidden></audio>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -667,6 +690,31 @@ function renderLic(){const L=LIC;$('#licDev').textContent='Mã máy: '+L.device+
   $('#licProds').innerHTML=ps.length?ps.map(p=>`<div class="lic-opt${p.id===licSel?' on':''}" data-p="${p.id}">${esc(p.name)}<b>${vnd(p.price)}</b></div>`).join(''):`<div class="small dim" style="margin-top:6px">${L.combo||Object.values(L.skills).every(k=>k.owned)?'Bạn đã sở hữu toàn bộ skill.':'Chưa mở bán hoặc chưa kết nối được máy chủ — thử “Đồng bộ lại”.'}</div>`;
   $('#licBuy').hidden=!ps.length;
   document.querySelectorAll('.lic-opt').forEach(o=>o.onclick=()=>{licSel=o.dataset.p;renderLic()})}
+/* giọng đọc */
+var VO=null,vPoll=null;
+async function openVoice(){$('#voiceBox').classList.add('show');await loadVoice()}
+async function loadVoice(){try{VO=await api('/api/ccut/voices')}catch(e){toast(e.message);return}
+  $('#vDl').hidden=VO.ready;$('#vMain').hidden=!VO.ready;
+  $('#vDlTxt').textContent=VO.downloading?'Đang tải bộ giọng đọc… (khoảng '+VO.size_mb+' MB, chỉ tải 1 lần)':(VO.error||'Bộ giọng đọc chưa được tải (khoảng '+VO.size_mb+' MB, chỉ tải 1 lần).');
+  $('#vDlBtn').hidden=VO.downloading;clearTimeout(vPoll);if(VO.downloading)vPoll=setTimeout(loadVoice,3000);
+  $('#vRows').innerHTML=VO.voices.map(v=>`<div class="lic-row"><span class="n">${esc(v.name)}</span>${v.kind==='clone'?'<span class="ltag trial">Giọng của bạn</span>':''}<button class="link" data-play="${v.id}">▶ Nghe thử</button>${v.kind==='clone'?`<button class="link" data-del="${v.id}">Xoá</button>`:''}</div>`).join('');
+  const cur=$('#vSel').value;$('#vSel').innerHTML=VO.voices.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');if(cur)$('#vSel').value=cur;
+  document.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>vPlay('/api/ccut/voices/sample/'+b.dataset.play,b));
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{if(!confirm('Xoá giọng này?'))return;try{await api('/api/ccut/voices/'+b.dataset.del,{method:'DELETE'});loadVoice()}catch(e){toast(e.message)}})}
+async function vPlay(url,btn,opt){const t=btn.textContent;btn.disabled=true;btn.textContent='Đang tạo…';
+  try{const r=await fetch(url,opt);if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.detail||r.statusText)}
+    const a=$('#vAudio');a.src=URL.createObjectURL(await r.blob());await a.play()}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent=t}}
+$('#voiceBtn').onclick=openVoice;$('#closeVoice').onclick=()=>{$('#voiceBox').classList.remove('show');$('#vAudio').pause();clearTimeout(vPoll)};
+$('#vDlBtn').onclick=async()=>{try{await post('/api/ccut/voices/download');loadVoice()}catch(e){toast(e.message)}};
+$('#vSay').onclick=()=>{const text=$('#vText').value.trim();if(!text){toast('Nhập câu cần đọc');return}
+  vPlay('/api/ccut/voices/say',$('#vSay'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({voice:$('#vSel').value,text,speed:Number($('#vSpeed').value)})})};
+$('#vClone').onclick=async()=>{const f=$('#vFile').files[0],name=$('#vName').value.trim();
+  if(!f){toast('Chọn file thu âm');return}if(!name){toast('Đặt tên cho giọng');return}if(!$('#vConsent').checked){toast('Cần xác nhận quyền dùng giọng');return}
+  const fd=new FormData();fd.append('file',f);fd.append('name',name);fd.append('consent','true');
+  const b=$('#vClone');b.disabled=true;b.textContent='Đang nhân bản…';
+  try{const r=await fetch('/api/ccut/voices/clone',{method:'POST',body:fd});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.detail||r.statusText);
+    toast('Đã thêm giọng “'+j.name+'”');$('#vFile').value='';$('#vName').value='';$('#vConsent').checked=false;await loadVoice();$('#vSel').value=j.id}
+  catch(e){toast(e.message)}finally{b.disabled=false;b.textContent='Nhân bản giọng'}};
 $('#licBtn').onclick=()=>openLic();$('#closeLic').onclick=()=>{$('#licBox').classList.remove('show');licOrder=null};
 $('#licSync').onclick=async()=>{try{LIC=await post('/api/ccut/license/sync');renderLic();toast('Đã đồng bộ');refresh()}catch(e){toast(e.message)}};
 $('#licAct').onclick=async()=>{const k=$('#licKey').value.trim();if(!k)return;$('#licAct').disabled=true;

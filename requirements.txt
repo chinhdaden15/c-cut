@@ -1,4 +1,9 @@
 faster-whisper
+# giọng đọc (thagent/voice.py): vieneu cài riêng --no-deps (bỏ gradio/librosa/torch không cần)
+sea-g2p
+soundfile
+soxr
+kaldi-native-fbank
 onnxruntime
 numpy
 pillow

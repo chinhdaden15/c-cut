@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "1.8.1"
+APP_VERSION = "1.8.2"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1501,3 +1501,68 @@ def _ensure_watcher():
                     start()
                     break
     threading.Thread(target=loop, daemon=True).start()
+
+
+# ---------------- giọng đọc (6 giọng có sẵn + giọng nhân bản) — thagent/voice.py ----------------
+from fastapi import Form  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
+
+
+def _voice_call(fn, *a, **k):
+    from . import voice as V
+    try:
+        return fn(V, *a, **k)
+    except V.VoiceError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/voices")
+def voices_get():
+    return _voice_call(lambda V: {**V.status(), "voices": V.voices()})
+
+
+@router.post("/voices/download")
+def voices_download():
+    return _voice_call(lambda V: V.download_bg())
+
+
+@router.get("/voices/sample/{vid}")
+def voices_sample(vid: str):
+    return FileResponse(_voice_call(lambda V: V.sample(vid)), media_type="audio/wav")
+
+
+class SayIn(BaseModel):
+    voice: str
+    text: str
+    speed: float = 1.0
+
+
+@router.post("/voices/say")
+def voices_say(b: SayIn):
+    import hashlib
+    from . import voice as V
+    key = hashlib.sha1(f"{b.voice}|{b.speed}|{b.text}".encode()).hexdigest()[:16]
+    out = V.VOICES / "_cache" / f"say_{key}.wav"
+    if not out.exists():
+        _voice_call(lambda V: V.say(b.text[:2000], b.voice, out, b.speed))
+    return FileResponse(out, media_type="audio/wav")
+
+
+@router.post("/voices/clone")
+async def voices_clone(file: UploadFile = File(...), name: str = Form(...), consent: bool = Form(False)):
+    from . import voice as V
+    tmp = V.VOICES / "_cache" / ("up_" + re.sub(r"[^\w.-]", "_", Path(file.filename or "rec").name)[-60:])
+    tmp.parent.mkdir(parents=True, exist_ok=True)
+    with tmp.open("wb") as f:
+        shutil.copyfileobj(file.file, f, length=8 << 20)
+    try:
+        import anyio
+        return await anyio.to_thread.run_sync(lambda: _voice_call(lambda V: V.clone(tmp, name, consent)))
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+@router.delete("/voices/{vid}")
+def voices_delete(vid: str):
+    _voice_call(lambda V: V.remove(vid))
+    return voices_get()
