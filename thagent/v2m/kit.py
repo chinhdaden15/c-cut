@@ -250,9 +250,12 @@ class Kit:
                 "canvas": self.F.canvas(30), "theme": th, "scenes": out, "assets": [], "limitations": []}
 
     def _captions(self, scenes):
-        """phụ đề chạy theo lời (từng từ hiện đúng lúc nói) ở vùng dưới — cảnh đã có câu dẫn (s.lead) thì bỏ qua."""
+        """phụ đề chạy theo lời (từng từ hiện đúng lúc nói) ở vùng dưới — cảnh đã có câu dẫn (s.lead) thì bỏ qua.
+        Text to Video (giọng đọc từ kịch bản): hiện CẢ CỤM câu cùng lúc, ngắt dòng gọn (_cap_chunks) — không nhảy từng chữ."""
         if not self.captions:
             return
+        if self.tr.get("source") == "t2v":
+            return self._captions_block(scenes)
         x0, y0, x1, y1 = self.F.zone("caption")
         x, align, anchor = ((x0 + x1) / 2, "center", "center") if self.V else (x0, "left", "left")
         for s in scenes:
@@ -267,6 +270,97 @@ class Kit:
                              "max_w": x1 - x0, "align": align, "anchor": anchor, "shadow": 0.35, "line_h": 1.15,
                              "word_times": [round(w["start"], 3) for w in ws], "layer": 20}, a - 0.04, "fade", 0.12)
                 s.hide(cid, end, "fade", 0.12)
+
+    CONNECT = {"và", "nhưng", "rồi", "để", "vì", "mà", "khi", "nếu", "thì", "hay", "hoặc", "nên", "còn", "với", "cho", "từ", "tới",
+               "chỉ", "vẫn", "đã", "sẽ", "đang", "hãy", "đừng", "bởi", "do", "dù", "trong", "ngay", "chẳng", "không"}
+
+    def _cap_chunks(self, line_c: int, lines: int = 2) -> list[tuple[float, float, str]]:
+        """cụm phụ đề theo CÂU kịch bản: ≤ lines dòng × line_c ký tự; cắt ở dấu phẩy / trước từ nối, không để cụm/dòng 1–2 từ lẻ."""
+        maxc = line_c * lines
+        sents, cur = [], []
+        for w in self.words:
+            cur.append(w)
+            if re.search(r"[.!?…]$", w["text"]):
+                sents.append(cur); cur = []
+        if cur:
+            sents.append(cur)
+        L = lambda ws: len(" ".join(w["text"] for w in ws))
+
+        def cut(ws):
+            if L(ws) <= maxc or len(ws) < 6:
+                return [ws]
+            best, bi = 1e9, len(ws) // 2
+            for i in range(3, len(ws) - 2):                     # mỗi phía ≥ 3 từ
+                score = abs(L(ws[:i]) - L(ws) / 2)
+                if ws[i - 1]["text"].endswith((",", ";", ":")):
+                    score -= maxc * 0.6
+                elif _norm(ws[i]["text"]) in self.CONNECT:
+                    score -= maxc * 0.3
+                if score < best:
+                    best, bi = score, i
+            return cut(ws[:bi]) + cut(ws[bi:])
+
+        def wrap(ws):
+            t = " ".join(w["text"] for w in ws)
+            if len(t) <= line_c or len(ws) < 5:
+                return t
+            best, bi = 1e9, len(ws) // 2
+            for i in range(2, len(ws) - 1):                     # dòng dưới ≥ 2 từ, hai dòng gần bằng nhau
+                a = L(ws[:i])
+                score = abs(a - L(ws[i:])) + (0 if a <= line_c and L(ws[i:]) <= line_c else 200)
+                if ws[i - 1]["text"].endswith((",", ";", ":")):
+                    score -= 12
+                elif _norm(ws[i]["text"]) in self.CONNECT:
+                    score -= 6
+                if score < best:
+                    best, bi = score, i
+            return " ".join(w["text"] for w in ws[:bi]) + "\n" + " ".join(w["text"] for w in ws[bi:])
+
+        out = []
+        for st in sents:
+            for ws in cut(st):
+                out.append((ws[0]["start"], ws[-1]["end"], wrap(ws)))
+        return out
+
+    def claude_captions(self) -> list[tuple[float, float, str]] | None:
+        """captions.json (Claude chia): ["cụm 1 dòng", "dòng trên\\ndòng dưới", …] theo đúng thứ tự lời → gắn mốc từ.
+        Sai chữ / thiếu / thừa so với lời → None (dùng cách chia tự động)."""
+        f = self.pdir / "captions.json"
+        if not f.exists():
+            return None
+        try:
+            items = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+        out, k = [], 0
+        for it in items:
+            n = len(str(it).split())
+            ws = self.words[k:k + n]
+            if n == 0 or len(ws) < n or [_norm(w["text"]) for w in ws] != [_norm(x) for x in str(it).split()]:
+                return None
+            out.append((ws[0]["start"], ws[-1]["end"], str(it)))
+            k += n
+        return out if k == len(self.words) else None
+
+    def _captions_block(self, scenes):
+        x0, y0, x1, y1 = self.F.zone("caption")
+        x, align, anchor = ((x0 + x1) / 2, "center", "center") if self.V else ((x0 + x1) / 2, "center", "center")
+        size = 48 if self.V else 42
+        line_c = max(16, int((x1 - x0) / (size * 0.52)))
+        ch = self.claude_captions() or self._cap_chunks(line_c)
+        for j, (a, b, text) in enumerate(ch):
+            nxt = ch[j + 1][0] if j + 1 < len(ch) else self.T
+            end = max(min(b + 0.5, nxt - 0.05), a + 0.4)
+            for s in scenes:                                     # cụm vắt qua chỗ chuyển cảnh → hiện tiếp ở cảnh sau (cùng chữ)
+                if s.captions is False or end <= s.t0 or a >= s.t1:
+                    continue
+                t_in, t_out = max(a, s.t0), min(end, s.t1)
+                cid = s.add({"type": "text", "role": "caption", "text": text, "font": "semi", "size": size,
+                             "color": self.th["text"], "space": "screen", "x": x, "y": (y0 + y1) / 2, "max_w": x1 - x0,
+                             "align": align, "anchor": anchor, "shadow": 0.45, "line_h": 1.18, "layer": 20},
+                            t_in - (0.04 if t_in == a else 0), "fade", 0.12 if t_in == a else 0.01)
+                if t_out < s.t1 - 0.05:
+                    s.hide(cid, t_out, "fade", 0.1)
 
     def _camera_explain(self, scenes):
         """nhịp Explain: cảnh bản đồ mà camera đứng yên > 2,2s → đẩy vào rất nhẹ (+6%) và xoay nhẹ ±2° quanh chủ thể

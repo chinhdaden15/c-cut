@@ -199,7 +199,8 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <textarea id="tvText" rows="5" style="width:100%;margin-top:6px" placeholder="Dán kịch bản (một hoặc nhiều video — mỗi video bắt đầu bằng “Video 1:”, “Video 2:”…)"></textarea>
         <div class="row" style="gap:8px;margin-top:6px" id="tvFileRow"><button id="tvFile" class="small">Chọn file kịch bản</button><span class="small dim" id="tvFileName"></span></div>
         <div class="row" style="gap:8px;margin-top:6px" id="tvSecRow" hidden><label class="small" style="flex:1">Độ dài video (giây)</label><input id="tvSec" type="number" min="15" max="600" value="60" style="width:90px"></div>
-        <div class="row" style="gap:6px;margin-top:8px"><select id="tvVoice" style="flex:1"></select><button class="small" id="tvPlay" title="Nghe thử giọng">▶</button><button class="small" id="tvClone">Nhân bản giọng</button></div>
+        <div class="row" style="gap:6px;margin-top:8px"><select id="tvFmt" style="flex:1"><option value="both">Cả dọc lẫn ngang</option><option value="9x16">Dọc 9:16</option><option value="16x9">Ngang 16:9</option></select></div>
+        <div class="row" style="gap:6px;margin-top:6px"><select id="tvVoice" style="flex:1"></select><button class="small" id="tvPlay" title="Nghe thử giọng">▶</button><button class="small" id="tvClone">Nhân bản giọng</button></div>
         <button class="primary" id="tvAdd" style="margin-top:8px;width:100%">Thêm vào hàng chờ</button>
       </div>
       <div id="queue" style="margin-top:8px"></div>
@@ -461,7 +462,8 @@ $('#tvFile').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'script
 $('#tvPlay').onclick=()=>{const v=$('#tvVoice').value;if(!v){openVoice();return}vPlay('/api/ccut/voices/sample/'+v,$('#tvPlay'))};
 $('#tvClone').onclick=()=>openVoice();
 $('#tvAdd').onclick=async()=>{const voice=$('#tvVoice').value,t=$('#tvText').value.trim();if(!voice){openVoice();toast('Tải bộ giọng đọc trước');return}
-  const b=tvMode==='request'?{request:t,seconds:Number($('#tvSec').value)||60,voice}:{text:tvPath?null:t,path:tvPath,voice};
+  const fm=$('#tvFmt').value,formats=fm==='both'?['9x16','16x9']:[fm];
+  const b=tvMode==='request'?{request:t,seconds:Number($('#tvSec').value)||60,voice,formats}:{text:tvPath?null:t,path:tvPath,voice,formats};
   if(!(b.request||b.text||b.path)){toast(tvMode==='request'?'Nhập ý tưởng video':'Dán kịch bản hoặc chọn file');return}
   try{const r=await post('/api/ccut/t2v/add',b);toast('Đã thêm '+r.added.length+' video');$('#tvText').value='';tvPath=null;$('#tvFileName').textContent='';refresh()}catch(e){toast(e.message)}};
 function renderReview(){

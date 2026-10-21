@@ -52,9 +52,21 @@ _RULE = re.compile(r"^\s*(?:-{3,}|={3,}|\*{3,}|_{3,})\s*$")
 _META = re.compile(r"^\s*(?:tiêu đề|tieu de|title|chủ đề|chu de|thời lượng|thoi luong|ghi chú|ghi chu|hashtag|caption|mô tả|mo ta)\s*:", re.I)
 
 
+def _title_line(ln: str, nxt: str) -> bool:
+    """dòng tiêu đề tự do: ngắn, không dấu kết câu, theo sau là đoạn lời dài (vd “Bất động sản ngáo giá”)."""
+    t = ln.strip()
+    return bool(t) and len(t.split()) <= 12 and not re.search(r"[.!?…,;]$", t) and len(nxt.split()) >= 12
+
+
 def split(text: str) -> list[dict]:
-    """1 file nhiều kịch bản → [{"title", "text"}]. Tách theo dòng tiêu đề (Video 1…, Kịch bản 2…, # …) hoặc dòng kẻ ---."""
+    """1 file nhiều kịch bản → [{"title", "text"}]. Tách theo dòng tiêu đề (Video 1…, Kịch bản 2…, # …) hoặc dòng kẻ ---.
+    Dòng đầu ngắn kiểu tiêu đề (không dấu câu, sau đó là lời) cũng là tiêu đề — không đọc thành lời."""
     lines = text.replace("\r", "").split("\n")
+    first = next((i for i, l in enumerate(lines) if l.strip()), None)
+    if first is not None and not (_RULE.match(lines[first]) or _HEAD.match(lines[first])):
+        nxt = next((l for l in lines[first + 1:] if l.strip()), "")
+        if _title_line(lines[first], nxt):
+            lines[first] = "# " + lines[first].strip()
     blocks, cur, title = [], [], None
     for ln in lines:
         if _RULE.match(ln) or _HEAD.match(ln):

@@ -1059,6 +1059,7 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
         sess.send(f"Dựng video Text to Video cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill text-to-video. "
                   f"Giọng đọc đã xong: voice.wav {meta['duration_s']:.1f}s, {len(meta['sentences'])} câu (script.json, transcript.json). "
                   + (f"Câu {weak} khớp kém — nghe lại trước khi dựng. " if weak else "")
+                  + f"Khổ cần xuất: {', '.join(item.get('formats') or ['9x16', '16x9'])} (plan_ready.json → \"formats\"). "
                   + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
         _wait_plan(sess, item, job)
     _v2m_render(item, pid, job, settings, log, sess)
@@ -1071,6 +1072,7 @@ class T2VIn(BaseModel):
     seconds: int = 60
     voice: str = "nam_huong_dan"
     speed: float = 1.1
+    formats: list[str] = ["9x16", "16x9"]
 
 
 @router.post("/t2v/add")
@@ -1096,7 +1098,7 @@ def t2v_add(b: T2VIn):
     for it in items:
         words = len((it.get("script") or "").split())
         it.update(kind="t2v", path=f"t2v:{int(time.time() * 1000)}:{len(STATE['queue'])}", status="wait", project=None,
-                  voice=b.voice, speed=b.speed,
+                  voice=b.voice, speed=b.speed, formats=[f for f in b.formats if f in ("9x16", "16x9")] or ["9x16", "16x9"],
                   meta=(f"kịch bản {words} từ · ~{words / TV.WPS:.0f}s" if words else f"yêu cầu · ~{it.get('seconds')}s") + " · giọng " +
                   next(v["name"] for v in V.voices() if v["id"] == b.voice))
         STATE["queue"].append(it)
@@ -1111,7 +1113,7 @@ def _v2m_render(item: dict, pid: str, job: dict, settings: dict, log, sess):
     job["done"].append("plan"); job["stage"] = "render"
     out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
     fmts = [f for f in ("9x16", "16x9") if (pdir / f"timeline_{f}.json").exists()]
-    want = (sess.plan_ready() or {}).get("formats")       # người dùng dặn “chỉ dọc”/“chỉ ngang” → Claude ghi vào plan_ready.json
+    want = (sess.plan_ready() or {}).get("formats") or item.get("formats")   # người dùng dặn “chỉ dọc”/“chỉ ngang” → Claude ghi vào plan_ready.json
     if want:
         fmts = [f for f in fmts if f in want]
     if not fmts:

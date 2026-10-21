@@ -271,6 +271,11 @@ TEXT TO VIDEO (skill text-to-video — ĐỌC .claude/skills/text-to-video/SKILL
   với chủ đề sản phẩm, BĐS, du lịch, ẩm thực, sức khoẻ.
 - MỖI Ý CỤ THỂ MỘT CLIP RIÊNG: câu nói ý mới (vd “mịn như nhung”, “giữ màu 8 tiếng”, “bảng màu 6 tông”) → tìm clip đúng ý đó, không mượn clip của ý khác.
   “vat” phải cụ thể 2–4 từ đúng ý của clip (vd “đầu cọ son”, “chất son mịn”, “bảng màu son”) — không đặt nhãn chung kiểu “son”, “thỏi son”.
+- BỐI CẢNH VIỆT NAM: chủ đề trong nước (BĐS, đời sống, kinh doanh, giao thông…) → hình/clip Việt Nam (nhà phố, chung cư, đường phố,
+  người Việt); từ khoá tìm thêm “Vietnam”, “Saigon”, “Hanoi”. Không dùng nhà kiểu Âu Mỹ, phố nước ngoài khi nói chuyện trong nước.
+- PHỤ ĐỀ: ghi {pdir}/captions.json = danh sách cụm phụ đề theo ĐÚNG thứ tự và ĐÚNG chữ của transcript (không thêm/bớt/đổi chữ):
+  mỗi cụm hiện nguyên khối, ≤ 2 dòng, mỗi dòng ≤ 28 ký tự, xuống dòng bằng "\\n"; ngắt ở dấu phẩy / trước từ nối,
+  KHÔNG tách từ ghép (giao dịch, quy hoạch, bất động sản…), không để dòng/cụm 1–2 từ lẻ. Ví dụ ["Căn nhà rao bán\\ngấp đôi giá trị thật,", "vậy mà vẫn có người\\nsẵn sàng xuống tiền?"].
 - Hook trong 1s đầu; ~5s cuối là CTA chữ lớn. Không ghi nguồn trên video.
 """
 
@@ -280,7 +285,7 @@ def system_prompt(style: str, pid: str, pdir: str) -> str:
     + khối CÔNG CỤ DỰNG DÙNG CHUNG (thagent.capabilities) cho MỌI skill video → skill thêm sau tự kế thừa, không sửa từng skill."""
     from .capabilities import prompt_block
     if style == "text-to-video":            # dựng bằng kit Voice to Motion + quy tắc riêng
-        return SYSTEM_V2M.format(pid=pid, pdir=pdir, style="voice-to-motion") + T2V_RULES + FACT_RULES + prompt_block("voice-to-motion")
+        return SYSTEM_V2M.format(pid=pid, pdir=pdir, style="voice-to-motion") + T2V_RULES.format(pdir=pdir) + FACT_RULES + prompt_block("voice-to-motion")
     base = STYLE_PROMPTS.get(style)
     if base is None:
         base = SYSTEM_GENERIC if (ROOT / ".claude" / "skills" / style / "SKILL.md").exists() else SYSTEM

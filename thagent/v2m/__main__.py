@@ -134,6 +134,24 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
                 out.append(("error", f"{sc['id']}: {ex}"))
     if prev < tl.duration - 0.05:
         out.append(("error", f"cảnh cuối dừng ở {prev:.2f}s, voice dài {tl.duration:.2f}s"))
+    # Text to Video: phụ đề do Claude chia (captions.json) — đúng chữ, đúng thứ tự, ≤ 2 dòng × 30 ký tự, không cụm 1 từ
+    try:
+        tr0 = json.loads((pdir / "transcript.json").read_text(encoding="utf-8"))
+    except Exception:
+        tr0 = {}
+    if tr0.get("source") == "t2v":
+        from .kit import Kit
+        cap = Kit(pdir, "9x16").claude_captions()
+        if cap is None:
+            out.append(("error", "thiếu/sai captions.json — ghi danh sách cụm phụ đề theo ĐÚNG chữ và thứ tự của transcript (≤ 2 dòng × 28 ký tự, "
+                                 "xuống dòng bằng \\n, không tách từ ghép)"))
+        else:
+            for a, b, t in cap:
+                ls = t.split("\n")
+                if len(ls) > 2 or any(len(x) > 30 for x in ls):
+                    out.append(("error", f"phụ đề “{t[:40]}…” quá dài (≤ 2 dòng × 28 ký tự) — chia lại cụm"))
+                elif len(t.split()) <= 1 and b - a < 1.0:
+                    out.append(("warn", f"cụm phụ đề “{t}” chỉ 1 từ — gộp vào cụm bên cạnh"))
     # nói tên dự án/địa danh/thương hiệu trong cảnh có ảnh → ảnh THẬT của đúng chủ thể (real=True) — thagent/entities.py
     try:
         from .. import entities as E
