@@ -184,6 +184,21 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     elif not clean.exists():
         denoise_voice(c.project.proxy, str(clean), c.log)
     rc = R.rough_cut(plan, c.project.proxy, str(c.path("work", "alpha.mp4")), vdir, str(clean))
+    fmts = list(c.project.style.get("formats") or ["9x16"])
+    wide = "16x9" in fmts
+    if wide and c.project.source and c.project.source.width > c.project.source.height:
+        # clip quay ngang: proxy ngang 1920x1080 từ nguồn (proxy dọc là bản kéo dãn của chính khung này) → ghép theo cùng các đoạn giữ
+        pw = c.path("proxy", "proxy_wide.mov")
+        if not pw.exists():
+            c.log("Tạo proxy ngang 1920x1080 cho bản 16:9")
+            R.run(["ffmpeg", "-v", "error", "-y", "-i", c.project.source.path, "-map", "0:v:0", "-vf",
+                   "scale=1920:1080:flags=lanczos,fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "16",
+                   "-g", "30", "-an", str(pw) + ".part.mov"])
+            Path(str(pw) + ".part.mov").replace(pw)
+        wd = vdir / "wide"
+        wd.mkdir(exist_ok=True)
+        rcw = R.rough_cut(plan, str(pw), str(c.path("work", "alpha.mp4")), wd, str(clean))
+        rc["video_wide"] = rcw["video"]
     if c.project.style.get("hf_denoise"):
         from .declean import reduce_hf_noise
         c.log("Giảm tiếng máy/nhiễu tần cao trong giọng (giữ nguyên dải < 3.5 kHz)")
@@ -200,24 +215,34 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
         hf_items = prerender(plan, c.path("work", "x").parent, c.log)
     c.log(f"Compositing frame {fr[0]}–{fr[1]}")
     layout = R.composite(plan, rc, anchors, str(vdir / "video_noaudio.mp4"), fr, progress=c.log,
-                         snapshots=snaps, snap_dir=vdir, cancel=c.cancel, hf_items=hf_items)
+                         snapshots=snaps, snap_dir=vdir, cancel=c.cancel, hf_items=hf_items,
+                         wide_out=str(vdir / "video_wide_noaudio.mp4") if wide else None)
     c.log("Phối âm voice + SFX, chuẩn loudness")
     rep = R.mix_audio(plan, rc["voice"], SFX_DIR, man, str(vdir / "mix.wav"), fr)
     out = vdir / f"{c.project.id}_{label}.mp4"
     R.mux(str(vdir / "video_noaudio.mp4"), str(vdir / "mix.wav"), str(out), (fr[1] - fr[0]) / plan.fps)
     issues, meta = check_output(plan, str(out), fr[1] - fr[0], rep, layout)
+    out_w = None
+    if wide:
+        out_w = vdir / f"{c.project.id}_{label}_16x9.mp4"
+        R.mux(str(vdir / "video_wide_noaudio.mp4"), str(vdir / "mix.wav"), str(out_w), (fr[1] - fr[0]) / plan.fps)
     sp = min(1.5, max(0.8, plan.speed or 1.0))
     if abs(sp - 1) > 0.005:
         c.log(f"Đổi tốc độ video ×{sp:g} (giọng giữ cao độ)")
         R.change_speed(str(out), sp, plan.fps)
-    for f in ("rc_video.mp4", "rc_alpha.mp4", "video_noaudio.mp4"):
+        if out_w:
+            R.change_speed(str(out_w), sp, plan.fps)
+    for f in ("rc_video.mp4", "rc_alpha.mp4", "video_noaudio.mp4", "video_wide_noaudio.mp4"):
         (vdir / f).unlink(missing_ok=True)
+    shutil.rmtree(vdir / "wide", ignore_errors=True)
     (vdir / "plan.json").write_text(plan.model_dump_json(indent=1))
     (vdir / "qa.json").write_text(json.dumps({"issues": [i.model_dump() for i in issues], "sound_report": rep,
                                               "layout_px": layout, **meta}, ensure_ascii=False, indent=1))
     rec = {"version": n, "label": label, "file": str(out.relative_to(ROOT)) if out.is_relative_to(ROOT) else str(out), "frames": list(fr),
            "seconds": round(time.time() - t0, 1), "status": "rendered_preview" if label != "final" else "exported",
-           "approved": False, "issues": len([i for i in issues if i.severity != "info"])}
+           "approved": False, "issues": len([i for i in issues if i.severity != "info"]),
+           "formats": ["9x16"] + (["16x9"] if out_w else []),
+           "file_16x9": (str(out_w.relative_to(ROOT)) if out_w.is_relative_to(ROOT) else str(out_w)) if out_w else None}
     c.project.renders.append(rec)
     c.project.status = "ready"
     c.save()

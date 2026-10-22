@@ -31,14 +31,16 @@ Source: "..\build\pyi\C-Cut\*"; DestDir: "{app}"; Flags: ignoreversion recursesu
 Source: "guide\Huong dan su dung C-Cut.pdf"; DestDir: "{app}"
 
 [Icons]
-Name: "{group}\C-Cut"; Filename: "{app}\C-Cut.exe"
+Name: "{group}\C-Cut"; Filename: "{app}\C-Cut.exe"; IconFilename: "{app}\C-Cut.exe"
 Name: "{group}\Hướng dẫn sử dụng"; Filename: "{app}\Huong dan su dung C-Cut.pdf"
-Name: "{userdesktop}\C-Cut"; Filename: "{app}\C-Cut.exe"; Tasks: desktopicon
+Name: "{userdesktop}\C-Cut"; Filename: "{app}\C-Cut.exe"; IconFilename: "{app}\C-Cut.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Tạo biểu tượng ngoài màn hình"
 
 [Run]
+; làm mới bộ nhớ đệm biểu tượng của Windows → thanh taskbar / lối tắt đã ghim hiện biểu tượng mới ngay sau khi cập nhật
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; Flags: runhidden waituntilterminated skipifdoesntexist
 Filename: "{app}\C-Cut.exe"; Description: "Mở C-Cut"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\C-Cut.exe"; Flags: nowait skipifnotsilent
 

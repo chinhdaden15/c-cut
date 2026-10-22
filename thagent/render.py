@@ -277,9 +277,88 @@ def overlay_mg(out: np.ndarray, plan: Plan, f: int) -> np.ndarray:
     return out
 
 
+WW, WH = 1920, 1080          # khổ ngang
+TXT_K = 0.62                 # chữ / thẻ / lớp HyperFrames khi chuyển sang khổ ngang (giữ vị trí so với người)
+
+
+class Wide:
+    """khổ ngang 16:9 dựng CÙNG LÚC với khổ dọc (một lượt đọc khung hình).
+    Clip quay dọc: người ở giữa (khung dọc thu 0,5625), hai bên là bản mờ của chính khung hình.
+    Clip quay ngang: khung gốc (rc_wide — proxy ngang ghép theo cùng các đoạn giữ), người đúng chỗ quay.
+    Chữ / thẻ / HyperFrames: lớp vẽ ở khổ dọc thu TXT_K quanh tâm, cùng tâm với người → giữ tương quan (chữ sau đầu vẫn sau đầu).
+    Cảnh Motion Graphics che toàn khung: đặt giữa, nền là bản mờ của chính cảnh đó."""
+
+    def __init__(self, out_video: str, fps: int, W: int, H: int, wide_video: str | None):
+        self.W, self.H = W, H
+        self.k = WH / H                                         # khung dọc → cột giữa khung ngang
+        self.cw = int(round(W * self.k))
+        self.x0 = (WW - self.cw) // 2
+        self.src = _frames(wide_video, WW, WH) if wide_video else None
+        self.enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{WW}x{WH}",
+                                     "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "17",
+                                     "-pix_fmt", "yuv420p", "-movflags", "+faststart", out_video], stdin=subprocess.PIPE)
+        self.M = np.float32([[TXT_K, 0, WW / 2 - TXT_K * W / 2], [0, TXT_K, WH / 2 - TXT_K * H / 2]])
+        self.last = None
+
+    def _fill(self, img):
+        """nền mờ: phủ kín khung ngang từ một khung dọc."""
+        small = cv2.resize(img, (WW // 8, int(WW / 8 * img.shape[0] / img.shape[1])), interpolation=cv2.INTER_AREA)
+        y0 = (small.shape[0] - WH // 8) // 2
+        small = cv2.GaussianBlur(small[y0:y0 + WH // 8], (0, 0), 6)
+        return cv2.resize(small, (WW, WH), interpolation=cv2.INTER_LINEAR) * 0.55
+
+    def _col(self, img, interp=cv2.INTER_AREA):
+        return cv2.resize(img, (self.cw, WH), interpolation=interp)
+
+    def frame(self, base, alpha, behind, front, mg_out, mg_mask, flash, z, zcx, zcy):
+        if self.src is not None:                                 # quay ngang: khung gốc + alpha kéo về đúng tỉ lệ
+            try:
+                wb = next(self.src).astype(np.float32) / 255.0
+            except StopIteration:
+                wb = self.last if self.last is not None else np.zeros((WH, WW, 3), np.float32)
+            if z > 1.0005:
+                Mz = np.float32([[z, 0, (1 - z) * zcx * WW], [0, z, (1 - z) * zcy * WH]])
+                wb = cv2.warpAffine(wb, Mz, (WW, WH), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+            wa = cv2.resize(alpha, (WW, WH), interpolation=cv2.INTER_LINEAR)
+        else:                                                    # quay dọc: cột giữa + nền mờ
+            wb = self._fill(base)
+            wb[:, self.x0:self.x0 + self.cw] = self._col(base)
+            wa = np.zeros((WH, WW), np.float32)
+            wa[:, self.x0:self.x0 + self.cw] = self._col(alpha, cv2.INTER_LINEAR)
+        self.last = wb
+        bh = cv2.warpAffine(behind, self.M, (WW, WH), flags=cv2.INTER_LINEAR)
+        fr = cv2.warpAffine(front, self.M, (WW, WH), flags=cv2.INTER_LINEAR)
+        out = wb * (1 - bh[..., 3:4]) + bh[..., :3]
+        if bh[..., 3].any():
+            am = wa[..., None]
+            out = out * (1 - am) + wb * am
+        out = out * (1 - fr[..., 3:4]) + fr[..., :3]
+        if mg_mask is not None:                                  # cảnh MG: đặt giữa, nền mờ của chính cảnh (đang trượt vào → che theo mép)
+            cov = float(mg_mask.mean())
+            col = self._col(mg_out)
+            if cov > 0.98:
+                out = self._fill(mg_out)
+                out[:, self.x0:self.x0 + self.cw] = col
+            else:
+                m = self._col(mg_mask.astype(np.float32), cv2.INTER_LINEAR)[..., None]
+                seg = out[:, self.x0:self.x0 + self.cw]
+                out[:, self.x0:self.x0 + self.cw] = seg * (1 - m) + col * m
+        if flash > 0:
+            out = out + (1 - out) * flash
+        fr8 = (np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)
+        self.enc.stdin.write(fr8.tobytes())
+        return fr8
+
+    def close(self):
+        self.enc.stdin.close()
+        self.enc.wait()
+        if self.src is not None:
+            self.src.close()
+
+
 def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, frame_range=None,
               progress=None, snapshots: list[int] | None = None, snap_dir: Path | None = None,
-              cancel=None, hf_items: list[dict] | None = None):
+              cancel=None, hf_items: list[dict] | None = None, wide_out: str | None = None):
     W, H, fps = plan.width, plan.height, plan.fps
     anchors_tl = timeline_anchors(plan, anchors_src)
     pos = resolve_layout(plan, anchors_tl, W, H)
@@ -297,6 +376,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
     alp = _frames(rc["alpha"], W, H, gray=True)
     from .hyper.overlay import Overlays
     OV = Overlays(hf_items or [], W, H, fps)          # lớp HyperFrames (alpha) đã render sẵn — th_hf.prerender
+    WD = Wide(wide_out, fps, W, H, rc.get("video_wide")) if wide_out else None
+    wlast = None
     for f, (img, a) in enumerate(zip(vid, alp)):
         if f < a0:
             continue
@@ -332,8 +413,15 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             out = out * (1 - am) + base * am          # nhân vật đè lên chữ phía sau
         out = draw_highlights(out, plan, f, z, zcx, zcy)
         out = out * (1 - front[..., 3:4]) + front[..., :3]
+        pre = out
         out = overlay_mg(out, plan, f)
         fl = flash_at(plan, f)
+        if WD and f >= a0:
+            mgm = None
+            if out is not pre:
+                mgm = np.abs(out - pre).max(axis=2) > 0.004
+                mgm = cv2.dilate(mgm.astype(np.uint8), np.ones((9, 9), np.uint8)).astype(bool) if mgm.any() else None
+            wlast = WD.frame(base, alpha, behind, front, out, mgm, fl, z, zcx, zcy)
         if fl > 0:
             out = out + (1 - out) * fl                 # light wash: sáng dần về trắng, không cháy
         frame = (np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)
@@ -344,8 +432,12 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             progress(f"render frame {f - a0}/{a1 - a0}")
     while last_frame is not None and written < a1 - a0:   # nguồn đọc thiếu frame → giữ frame cuối để khớp độ dài tiếng
         enc.stdin.write(last_frame.tobytes()); written += 1
+        if WD and wlast is not None:
+            WD.enc.stdin.write(wlast.tobytes())
     enc.stdin.close()
     enc.wait()
+    if WD:
+        WD.close()
     OV.close()
     vid.close(); alp.close()
     return pos

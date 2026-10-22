@@ -727,12 +727,16 @@ def _th():
         c.save()
     errs = [m for lv, m in check(pid) if lv == "error"]
     assert not errs, "preflight lỗi: " + "; ".join(errs)
+    c.project.style["formats"] = ["9x16", "16x9"]          # dựng cả dọc lẫn ngang trong một lượt
     r = Pp.step_render(c, frame_range=(0, min(pl.duration_frames, 150)), label="e2e")
     f = Path(c.project.renders[-1]["file"])
     f = f if f.is_absolute() else Pp.PROJECTS.parent / f
     if not f.exists():
-        f = next((Pp.PROJECTS / pid / "renders").glob("*e2e*/*.mp4"))
+        f = next(x for x in (Pp.PROJECTS / pid / "renders").glob("*e2e*/*.mp4") if "16x9" not in x.name)
     expect_video(f, 1080, 1920, min(pl.duration_frames, 150) / 30, tol=0.2)
+    fw = next((Pp.PROJECTS / pid / "renders").glob("*e2e*/*_16x9.mp4"), None)
+    assert fw, "chưa xuất bản ngang 16:9"
+    expect_video(fw, 1920, 1080, min(pl.duration_frames, 150) / 30, tol=0.2)
     out = run("thagent.tools", "where", pid)
     assert "duration" in out
     run("thagent.tools", "words", pid)

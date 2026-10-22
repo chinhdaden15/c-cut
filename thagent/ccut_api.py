@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "1.8.3"
+APP_VERSION = "1.9.0"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -59,6 +59,9 @@ WS: dict = {}     # dự án đang mở trong lần chạy app này: {"name", "d
 
 
 def _qfile() -> Path:
+    """hàng chờ lưu TRONG thư mục dự án → mở lại dự án cũ là có lại đủ video + trạng thái."""
+    if WS:
+        return Path(WS["dir"]) / "queue.json"
     return Path(load_settings()["project_dir"]).expanduser() / "queue.json"
 
 
@@ -96,6 +99,7 @@ class SettingsIn(BaseModel):
     export_dir: str | None = None
     style: str | None = None
     build_model: str | None = None
+    th_formats: list[str] | None = None     # Talking Head: ["9x16"], ["16x9"] hoặc cả hai
     asr_language: str | None = None        # ngôn ngữ nói trong clip: "auto" (Whisper tự nhận) hoặc mã ngôn ngữ
     notify_sound: bool | None = None
     notify_system: bool | None = None
@@ -165,6 +169,63 @@ def ws_create(body: WsIn):
                                                      "app": APP_VERSION}, ensure_ascii=False, indent=1), encoding="utf-8")
     save_queue()
     return {"current": WS}
+
+
+@router.get("/workspace/list")
+def ws_list(parent: str | None = None):
+    """dự án đã có trong thư mục lưu dữ liệu (mới nhất trước): tên, ngày, số video, đã xong."""
+    par = Path(parent or load_settings()["project_dir"]).expanduser()
+    out = []
+    for d in (x for x in par.iterdir() if x.is_dir()) if par.exists() else []:
+        if not (d / "project_info.json").exists():
+            continue
+        try:
+            q = json.loads((d / "queue.json").read_text(encoding="utf-8")) if (d / "queue.json").exists() else []
+        except Exception:
+            q = []
+        mt = max([d.stat().st_mtime] + [p.stat().st_mtime for p in d.glob("*/chat.json")] + [p.stat().st_mtime for p in d.glob("queue.json")])
+        out.append({"name": d.name, "dir": str(d), "modified": int(mt), "videos": len(q),
+                    "done": sum(1 for x in q if x.get("status") == "done"), "current": bool(WS) and Path(WS["dir"]) == d})
+    return {"parent": str(par), "projects": sorted(out, key=lambda x: -x["modified"])[:50]}
+
+
+class WsOpenIn(BaseModel):
+    dir: str
+
+
+@router.post("/workspace/open")
+def ws_open(body: WsOpenIn):
+    """mở lại dự án cũ: hàng chờ, trạng thái từng video, chat với Claude, video đã xuất."""
+    from . import agent as A
+    if STATE["job"] and STATE["job"]["state"] in ("running", "paused"):
+        raise HTTPException(409, "Đang dựng — dừng trước khi đổi dự án")
+    d = Path(body.dir).expanduser()
+    if not d.is_dir():
+        raise HTTPException(400, "Không thấy thư mục dự án")
+    A.reset_all()
+    WS.update(name=d.name, dir=str(d))
+    os.environ["CCUT_PROJECTS"] = str(d)
+    STATE.update(job=None, notifications=[])
+    s = load_settings()
+    s.update(project_dir=str(d.parent), project_name=d.name)
+    SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
+    load_settings()
+    if not (d / "project_info.json").exists():
+        (d / "project_info.json").write_text(json.dumps({"name": d.name, "created": time.strftime("%Y-%m-%d %H:%M"), "app": APP_VERSION},
+                                                        ensure_ascii=False, indent=1), encoding="utf-8")
+    load_queue()
+    if not (d / "queue.json").exists():           # dự án tạo trước bản 1.8.4: hàng chờ lưu chung ở thư mục cha → lấy phần thuộc dự án này
+        try:
+            old = json.loads((d.parent / "queue.json").read_text(encoding="utf-8"))
+            subs = {x.name for x in d.iterdir() if x.is_dir()}
+            STATE["queue"] = [q for q in old if q.get("project") in subs]
+            for q in STATE["queue"]:
+                if q["status"] == "running":
+                    q["status"] = "wait"
+            save_queue()
+        except Exception:
+            pass
+    return {"current": WS, "videos": len(STATE["queue"])}
 
 
 class RenameIn(BaseModel):
@@ -795,6 +856,7 @@ def _run_multi(item: dict, pid: str, job: dict, settings: dict, log) -> Path:
     while True:
         item["status"] = "claude"
         while (edl := CL.load_edl(pid)) is None:
+            _pause_wait(job)
             if job["cancel"]:
                 sess.stop(); raise RuntimeError("cancelled")
             job["activity"] = sess.activity
@@ -838,6 +900,7 @@ def _final_path(item: dict, out_dir: Path, multi: bool) -> Path:
 def _wait_plan(sess, item, job):
     item["status"] = "claude"
     while not sess.plan_ready():
+        _pause_wait(job)
         if job["cancel"]:
             sess.stop(); raise RuntimeError("cancelled")
         job["activity"] = sess.activity
@@ -1039,6 +1102,7 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
                   "CHƯA dựng video — app sẽ đọc kịch bản thành giọng rồi giao tiếp.", show=False)
         item["status"] = "claude"
         while not (flag.exists() and script.exists()):
+            _pause_wait(job)
             if job["cancel"]:
                 sess.stop(); raise RuntimeError("cancelled")
             job["activity"] = sess.activity
@@ -1151,6 +1215,7 @@ def _run_queue(settings: dict):
     job = STATE["job"]
 
     def log(m):
+        _pause_wait(job)
         job["log"].append(str(m)); job["log"] = job["log"][-300:]; _progress(job)
         if job["cancel"]:
             raise RuntimeError("cancelled")
@@ -1244,6 +1309,7 @@ def _run_queue(settings: dict):
                     sess._add("claude", f"Đã nhận video {item['name']}. Mình bắt đầu lập kế hoạch theo style.", kind="text")
                 item["status"] = "claude"
                 while not sess.plan_ready():          # chờ Claude; người dùng vẫn chat/góp ý trong lúc này
+                    _pause_wait(job)
                     if job["cancel"]:
                         sess.stop(); raise RuntimeError("cancelled")
                     job["activity"] = sess.activity
@@ -1288,12 +1354,20 @@ def _run_queue(settings: dict):
             item["pf_tries"] = 0
             job["done"].append("preflight")
             job["stage"] = "render"
+            c.project.style["formats"] = list(settings.get("th_formats") or ["9x16"])     # khổ xuất Talking Head: dọc / ngang / cả hai
+            c.save()
             rec = P.step_render(c, None, "ccut")
             out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
             final = _final_path(item, out_dir, multi)
-            shutil.copy2(ROOT / rec["file"], final)
+            outs = []
+            if "9x16" in c.project.style["formats"]:
+                shutil.copy2(ROOT / rec["file"], final); outs.append(final)
+            if rec.get("file_16x9"):
+                fw = final.with_name(f"{final.stem}_16x9{final.suffix}")
+                shutil.copy2(ROOT / rec["file_16x9"], fw); outs.append(fw)
             job["done"].append("render"); job["percent"] = 100
-            item.update(status="done", output=str(final))
+            final = outs[0]
+            item.update(status="done", output=str(final), outputs=[str(o) for o in outs])
             from . import channels as CH
             CH.exported(c.dir)             # lần xuất đầu → +1 video cho kênh (15 video đổi nền)
             pr = c.dir / "plan_ready.json"
@@ -1350,10 +1424,63 @@ def _kill_children():
             pass
 
 
+def _children():
+    import psutil
+    keep = ("webview", "msedge", "webkit", "crashpad", "conhost")
+    out = []
+    for ch in psutil.Process().children(recursive=True):
+        try:
+            if not any(k in ch.name().lower() for k in keep):
+                out.append(ch)
+        except Exception:
+            pass
+    return out
+
+
+def _pause_wait(job):
+    """điểm chờ khi tạm dừng (luồng dựng gọi ở mỗi bước báo tiến độ / vòng chờ Claude)."""
+    while job.get("paused") and not job.get("cancel"):
+        time.sleep(0.5)
+
+
+@router.post("/pause")
+def pause():
+    """tạm dừng: treo mọi tiến trình con (Claude, ffmpeg, dựng hình, chép lời) — tiếp tục là chạy tiếp đúng chỗ."""
+    j = STATE["job"]
+    if j and j["state"] == "running" and not j.get("paused"):
+        j["paused"], j["pause_t"] = True, time.time()
+        for ch in _children():
+            try:
+                ch.suspend()
+            except Exception:
+                pass
+    return {"ok": True}
+
+
+@router.post("/resume")
+def resume():
+    from . import agent as A
+    j = STATE["job"]
+    if j and j.get("paused"):
+        for ch in _children():
+            try:
+                ch.resume()
+            except Exception:
+                pass
+        dt = time.time() - j.get("pause_t", time.time())
+        j["t0"] = j.get("t0", time.time()) + dt                      # thời gian tạm dừng không tính vào ước lượng
+        for sess in list(A.SESSIONS.values()):
+            sess.last_evt = time.time()                              # Claude vừa được đánh thức — không coi là treo
+        j["paused"] = False
+    return {"ok": True}
+
+
 @router.post("/cancel")
 def cancel():
     j = STATE["job"]
     if j and j["state"] == "running":
+        if j.get("paused"):
+            resume()
         j["cancel"] = True
         j["stage_label"] = "Đang dừng…"
         _kill_children()          # ffmpeg/ghi file đang chạy dừng ngay; bước kế tiếp sẽ thấy cờ hủy
@@ -1514,7 +1641,7 @@ def state(project: str | None = None):
     pub_job = None
     if job:
         _progress(job) if job["state"] == "running" else None
-        pub_job = {k: job.get(k) for k in ("state", "stage", "done", "percent", "eta_s", "stage_s", "video", "project", "activity")}
+        pub_job = {k: job.get(k) for k in ("state", "stage", "done", "percent", "eta_s", "stage_s", "video", "project", "activity", "paused")}
         pub_job["stages"] = [{"key": k, "label": l} for k, l, _ in (job.get("stages") or STAGES)]
         pub_job["log_tail"] = job["log"][-4:]
     pid = project or (job or {}).get("project") or next((q["project"] for q in reversed(STATE["queue"]) if q["project"]), None)

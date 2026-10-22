@@ -103,7 +103,11 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .opt .d{font-size:12px;color:var(--fg3)}
 .opt.add{color:var(--acc-fg);border-top:0.5px solid var(--line2);margin-top:4px;border-radius:0 0 6px 6px}
 /* giữa */
-.preview{display:flex;gap:14px}
+.preview{display:flex;gap:14px}.preview[hidden],#galNav[hidden]{display:none!important}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;align-items:start}
+.gal .gv{display:flex;flex-direction:column;gap:4px;min-width:0}
+.gal video{width:100%;border-radius:8px;background:#000;display:block;max-height:300px;object-fit:contain}
+.gal .gn{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gal .gb{display:flex;gap:4px}.gal .gb button{flex:1;font-size:11px;padding:3px 0}
 .player{width:170px;aspect-ratio:9/16;border-radius:8px;background:#0B0C0E;border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--fg3);overflow:hidden;flex:none}
 .player video{width:100%;height:100%;object-fit:contain;background:#000}
 .pcol{flex:none;width:170px;display:flex;flex-direction:column;gap:6px}
@@ -148,7 +152,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
 .overlay.show{display:flex}
-#voiceBox .modal{max-height:92vh;overflow:auto}.tvm.on{background:var(--acc);color:#fff}#t2vBox [hidden]{display:none!important}#tvVoice{min-width:0;width:100%}#t2vBox .row>select{flex:1 1 auto}#voiceBox input[type=checkbox]{width:auto;flex:none}#vSel{min-width:200px}#vSay,#vClone{white-space:nowrap}#vSpeed{flex:none;width:auto}
+#voiceBox .modal{max-height:92vh;overflow:auto}.tvm.on,.wst.on{background:var(--acc);color:#fff}#wsOpenPane[hidden],#wsNewPane[hidden]{display:none!important}#t2vBox [hidden]{display:none!important}#tvVoice{min-width:0;width:100%}#t2vBox .row>select{flex:1 1 auto}#voiceBox input[type=checkbox]{width:auto;flex:none}#vSel{min-width:200px}#vSay,#vClone{white-space:nowrap}#vSpeed{flex:none;width:auto}
 .modal{width:min(640px,92vw);background:var(--bg);border:0.5px solid var(--line2);border-radius:12px;padding:16px}
 .lic-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:0.5px solid var(--line2);font-size:14px}.lic-row .n{flex:1}
 .ltag{font-size:12px;padding:2px 8px;border-radius:6px;white-space:nowrap}.ltag.free,.ltag.own{background:var(--ok-bg);color:var(--ok)}.ltag.trial{background:var(--acc-bg);color:var(--acc-fg)}.ltag.out{background:var(--err-bg);color:var(--err)}
@@ -179,7 +183,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div class="pcenter"><div class="pname" id="pname" title="Dự án đang mở"><span id="ptext">Chưa có dự án</span></div>
   <input id="pedit" class="pedit" hidden maxlength="80" aria-label="Tên dự án"></div>
   <div class="right">
-    <button class="newproj" id="newProj" title="Tạo dự án mới">＋ Dự án mới</button>
+    <button class="newproj" id="newProj" title="Tạo dự án mới hoặc mở dự án cũ">＋ Dự án</button>
     <span class="badge warn" id="sys">Đang kiểm tra…</span>
     <button class="iconbtn" id="voiceBtn" aria-label="Giọng đọc" title="Giọng đọc">🎙</button>
     <button class="iconbtn" id="licBtn" aria-label="Bản quyền skill" title="Bản quyền skill">🔑</button>
@@ -213,6 +217,10 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
           <div class="opt add" id="addstyle">+ Thêm style (.zip)</div></div>
       </div>
     </div>
+    <div class="card" id="thCard" hidden>
+      <h3>Talking Head</h3>
+      <div class="field"><label>Khổ xuất</label><select id="thFmt"><option value="9x16">Dọc 9:16</option><option value="16x9">Ngang 16:9</option><option value="both">Cả dọc lẫn ngang</option></select></div>
+    </div>
     <div class="card" id="reviewCard" hidden>
       <h3>Review</h3>
       <div class="field"><label>Lĩnh vực</label><select id="rvCat"><option value="bds">Bất động sản</option><option value="cong_nghe">Công nghệ</option><option value="my_pham">Mỹ phẩm – skincare</option><option value="am_thuc">Ẩm thực</option><option value="san_pham">Sản phẩm khác</option></select></div>
@@ -234,6 +242,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
       <div class="small dim" style="margin-top:4px">1080×1920 · 30fps · MP4</div>
     </div>
     <button class="primary" id="startBtn">Bắt đầu dựng</button>
+    <button id="pauseBtn" hidden>Tạm dừng</button>
     <button id="cancelBtn" hidden>Dừng</button>
     <div class="card" id="usageCard" style="margin-top:12px">
       <h3 style="display:flex;justify-content:space-between;align-items:center">Claude<span class="small dim" style="font-weight:400"><span id="usageAt"></span> <button class="link" id="usageRef" title="Làm mới giới hạn" style="font-size:13px">↻</button></span></h3>
@@ -243,8 +252,11 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 
   <section class="col">
     <div class="card">
-      <h3>Xem trước</h3>
-      <div class="preview">
+      <h3 style="display:flex;align-items:center;gap:8px"><span style="flex:1">Xem trước</span><span class="small dim" id="galInfo"></span>
+        <span id="galNav" hidden><button class="small" id="galPrev">‹</button><button class="small" id="galNext">›</button></span></h3>
+      <div class="gal" id="gal"></div>
+      <div class="empty" id="galEmpty">Video đã xuất sẽ hiện ở đây — mỗi video một ô để xem.</div>
+      <div class="preview" hidden>
         <div class="pcol"><div class="player" id="player">▶</div>
           <div class="pacts" id="pacts" hidden><span id="pFmt"></span><button id="pBig" title="Phóng to (Esc để thu lại)">⤢ Phóng to</button><button id="pSave" title="Lưu video về máy">⬇ Lưu</button><button id="pDir" title="Mở thư mục chứa video đã xuất">📂</button></div></div>
         <div style="flex:1;min-width:0">
@@ -321,12 +333,19 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 </div>
 <div class="overlay" id="wsBox">
   <div class="modal" style="width:min(520px,92vw)">
-    <div class="mhead"><b>Tạo dự án</b><button id="closeWs" aria-label="Đóng" hidden>✕</button></div>
-    <p class="small dim" style="margin:0 0 10px">Mỗi lần mở app là một dự án mới. Thư mục dưới đây chỉ chứa <b>dữ liệu làm việc</b> (file tạm, ảnh, kế hoạch, lịch sử chat) — thoát app vẫn còn. Video thành phẩm được xuất riêng ra <b>Nơi xuất</b>, đặt theo tên dự án.</p>
+    <div class="mhead"><b>Dự án</b><button id="closeWs" aria-label="Đóng" hidden>✕</button></div>
+    <div class="row" style="gap:6px;margin-bottom:12px"><button class="small wst on" data-w="new">＋ Dự án mới</button><button class="small wst" data-w="open">📂 Mở dự án cũ</button></div>
+    <div id="wsOpenPane" hidden>
+      <div id="wsList" style="max-height:320px;overflow:auto"></div>
+      <div class="row" style="margin-top:8px"><button class="link" id="wsOpenOther">Mở thư mục dự án khác…</button></div>
+    </div>
+    <div id="wsNewPane">
+    <p class="small dim" style="margin:0 0 10px">Tạo dự án mới. Thư mục dưới đây chỉ chứa <b>dữ liệu làm việc</b> (file tạm, ảnh, kế hoạch, lịch sử chat) — thoát app vẫn còn. Video thành phẩm được xuất riêng ra <b>Nơi xuất</b>, đặt theo tên dự án.</p>
     <div class="field"><label>Tên dự án</label><input id="wsName"></div>
     <div class="field"><label>Nơi lưu dữ liệu làm việc</label><div class="row"><input id="wsPar"><button id="wsPick">Chọn</button></div></div>
     <div class="small dim" id="wsPath" style="margin:2px 0 12px;word-break:break-all"></div>
     <div class="row"><span style="flex:1"></span><button class="primary" id="wsCreate" style="padding:8px 18px">Tạo dự án</button></div>
+    </div>
   </div>
 </div>
 <div class="overlay" id="scriptBox">
@@ -420,7 +439,7 @@ async function refresh(){
   if(!S.workspace&&!wsShown)openWs();
   const sy=S.system;$('#sys').className='badge '+sy.level;$('#sys').textContent=sy.label;
   $('#outdir').textContent=S.settings.export_dir;
-  renderQueue();renderStyles();renderReview();renderT2V();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
+  renderQueue();renderStyles();renderReview();renderT2V();renderTH();renderGal();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
 }
 let CHS=null;   // danh sách kênh (nền MG theo kênh)
 api('/api/ccut/channels').then(d=>{CHS=d.channels;renderQueue()}).catch(()=>{});
@@ -467,6 +486,9 @@ $('#tvAdd').onclick=async()=>{const voice=$('#tvVoice').value,t=$('#tvText').val
   const b=tvMode==='request'?{request:t,seconds:Number($('#tvSec').value)||60,voice,formats}:{text:tvPath?null:t,path:tvPath,voice,formats};
   if(!(b.request||b.text||b.path)){toast(tvMode==='request'?'Nhập ý tưởng video':'Dán kịch bản hoặc chọn file');return}
   try{const r=await post('/api/ccut/t2v/add',b);toast('Đã thêm '+r.added.length+' video');$('#tvText').value='';tvPath=null;$('#tvFileName').textContent='';refresh()}catch(e){toast(e.message)}};
+function renderTH(){const on=S.settings.style==='talking-head-style';$('#thCard').hidden=!on;if(!on||document.activeElement===$('#thFmt'))return;
+  const f=S.settings.th_formats||['9x16'];$('#thFmt').value=f.length>1?'both':f[0]}
+$('#thFmt').onchange=async()=>{const v=$('#thFmt').value;await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({th_formats:v==='both'?['9x16','16x9']:[v]})});refresh()};
 function renderReview(){
   const on=S.settings.style==='review-editor';$('#reviewCard').hidden=!on;if(!on)return;
   const r=S.settings.review||{};if(document.activeElement&&$('#reviewCard').contains(document.activeElement))return;
@@ -495,7 +517,8 @@ function renderJob(){
   const stages=(j&&j.stages)||[{key:'ingest',label:'Nhập'},{key:'transcribe',label:'Chép lời'},{key:'matting',label:'Tách nền'},{key:'plan',label:'Kế hoạch'},{key:'preflight',label:'Kiểm tra'},{key:'render',label:'Xuất'}];
   st.innerHTML=stages.map(s=>{let c='';if(j){if(j.done.includes(s.key))c='done';else if(j.stage===s.key)c=j.state==='running'?'cur':(j.state==='done'?'':'err')}return `<span class="${c}">${c==='done'?'✓ ':''}${s.label}</span>`}).join('');
   const running=j&&j.state==='running';
-  $('#startBtn').hidden=running;$('#cancelBtn').hidden=!running;
+  $('#startBtn').hidden=running;$('#cancelBtn').hidden=!running;$('#pauseBtn').hidden=!running;
+  $('#pauseBtn').textContent=j&&j.paused?'▶ Tiếp tục':'⏸ Tạm dừng';$('#pauseBtn').classList.toggle('primary',!!(j&&j.paused));
   if(!running){$('#cancelBtn').textContent='Dừng';$('#cancelBtn').disabled=false}
   if(!j){$('#pct').textContent='Chưa chạy';$('#barfill').style.width='0';$('#logline').textContent='';return}
   $('#barfill').style.width=(j.percent||0)+'%';
@@ -523,6 +546,24 @@ $('#pBig').onclick=bigView;
 $('#rvRefs').onclick=async()=>{try{const r=await post('/api/ccut/pick',{kind:'video'});if(r.path){const x=await post('/api/ccut/review/refs',{paths:[r.path]});toast(x.refs.length+' video tham khảo');refresh()}}catch(e){toast(e.message)}};
 $('#pSave').onclick=async()=>{if(!curOut)return;try{const r=await post('/api/ccut/output/save',{path:curOut});if(r.saved)toast('Đã lưu: '+r.saved)}catch(e){toast(e.message)}};
 $('#pDir').onclick=async()=>{if(curOut)try{await post('/api/ccut/output/reveal',{path:curOut})}catch(e){toast(e.message)}};
+/* Xem trước: mọi video đã xuất trong dự án (mỗi khổ một ô), chia trang khi không đủ chỗ */
+var galPage=0,galKey='';
+function galItems(){const out=[];(S.queue||[]).forEach(q=>{const fs=q.outputs&&q.outputs.length?q.outputs:(q.output?[q.output]:[]);
+  fs.forEach(p=>out.push({name:q.name,path:p,fmt:/16x9/.test(p)?'Ngang 16:9':'Dọc 9:16'}))});return out}
+function galPer(){const w=$('#gal').clientWidth||600;return Math.max(2,Math.floor((w+10)/160))*(window.innerHeight>900?2:1)}
+function renderGal(){const it=galItems(),per=galPer(),pages=Math.max(1,Math.ceil(it.length/per));galPage=Math.min(galPage,pages-1);
+  const show=it.slice(galPage*per,galPage*per+per),key=show.map(x=>x.path).join('|');
+  $('#galEmpty').hidden=it.length>0;$('#galNav').hidden=pages<2;$('#galInfo').textContent=it.length?`${it.length} video${pages>1?` · trang ${galPage+1}/${pages}`:''}`:'';
+  if(key===galKey)return;galKey=key;
+  $('#gal').innerHTML=show.map((x,i)=>`<div class="gv"><video controls preload="metadata" src="${file(x.path)}"></video><div class="gn" title="${esc(x.name)}">${esc(x.name)} · ${x.fmt}</div>
+    <div class="gb"><button data-a="big" data-i="${i}">⤢</button><button data-a="save" data-i="${i}">⬇ Lưu</button><button data-a="dir" data-i="${i}">📂</button></div></div>`).join('');
+  $('#gal').querySelectorAll('button').forEach(b=>b.onclick=async()=>{const x=show[+b.dataset.i],v=$('#gal').querySelectorAll('video')[+b.dataset.i];
+    if(b.dataset.a==='big'){$('#player').innerHTML=`<video src="${v.src}"></video>`;$('#player video').currentTime=v.currentTime;v.pause();bigView()}
+    else if(b.dataset.a==='save'){try{const r=await post('/api/ccut/output/save',{path:x.path});if(r.saved)toast('Đã lưu: '+r.saved)}catch(e){toast(e.message)}}
+    else{try{await post('/api/ccut/output/reveal',{path:x.path})}catch(e){toast(e.message)}}})}
+$('#galPrev').onclick=()=>{galPage=Math.max(0,galPage-1);galKey='';renderGal()};
+$('#galNext').onclick=()=>{galPage++;galKey='';renderGal()};
+addEventListener('resize',()=>{galKey='';renderGal()});
 function renderProject(){
   const p=S.project;
   const pid=p?p.id:null;
@@ -671,6 +712,7 @@ $('#addstyle').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'zip'
 /* xuất, chạy */
 $('#pickOut').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path){await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({export_dir:r.path})});refresh()}};
 $('#startBtn').onclick=async()=>{try{await post('/api/ccut/start');if('Notification' in window&&Notification.permission==='default')Notification.requestPermission()}catch(e){toast(e.message)}refresh()};
+$('#pauseBtn').onclick=async()=>{const p=S.job&&S.job.paused;await post(p?'/api/ccut/resume':'/api/ccut/pause');toast(p?'Đã tiếp tục dựng':'Đã tạm dừng — bấm Tiếp tục để chạy tiếp đúng chỗ');refresh()};
 $('#cancelBtn').onclick=async()=>{$('#cancelBtn').textContent='Đang dừng…';$('#cancelBtn').disabled=true;await post('/api/ccut/cancel');refresh()};
 $('#copyCredits').onclick=()=>{const l=S&&S.project&&S.project.credits.lines;if(l){navigator.clipboard.writeText(l.join('\n'));toast('Đã chép nguồn')}};
 /* tên dự án */
@@ -790,10 +832,19 @@ let wsShown=false;
 async function wsSuggest(par){const r=await api('/api/ccut/workspace'+(par?'?parent='+encodeURIComponent(par):''));return r}
 function wsUpd(){const p=$('#wsPar').value.trim(),n=$('#wsName').value.trim(),norm=x=>(x||'').replace(/[\\/]+$/,'');
   $('#wsPath').textContent=(p&&n?'→ '+norm(p)+(p.includes('\\')?'\\':'/')+n:'')+(S&&S.settings&&norm(p)===norm(S.settings.export_dir)?'  ⚠ Trùng thư mục xuất video — nên chọn thư mục khác để thư mục xuất chỉ có video thành phẩm.':'')}
-async function openWs(){wsShown=true;const r=await wsSuggest();$('#wsName').value=r.suggest;$('#wsPar').value=r.parent;$('#closeWs').hidden=!S.workspace;wsUpd();$('#wsBox').classList.add('show');setTimeout(()=>{$('#wsName').focus();$('#wsName').select()},50)}
+async function openWs(){wsShown=true;const r=await wsSuggest();$('#wsName').value=r.suggest;$('#wsPar').value=r.parent;$('#closeWs').hidden=!S.workspace;wsUpd();$('#wsBox').classList.add('show');
+  try{const L=await api('/api/ccut/workspace/list');const b=document.querySelector(`.wst[data-w="${L.projects.length?'open':'new'}"]`);b.click()}catch(e){}setTimeout(()=>{$('#wsName').focus();$('#wsName').select()},50)}
 $('#wsName').oninput=wsUpd;$('#wsPar').oninput=wsUpd;
 $('#wsPick').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path){$('#wsPar').value=r.path;const s=await wsSuggest(r.path);if(/^Dự Án Mới( \d+)?$/.test($('#wsName').value.trim()))$('#wsName').value=s.suggest;wsUpd()}};
 $('#closeWs').onclick=()=>$('#wsBox').classList.remove('show');
+document.querySelectorAll('.wst').forEach(b=>b.onclick=()=>{document.querySelectorAll('.wst').forEach(x=>x.classList.toggle('on',x===b));
+  $('#wsOpenPane').hidden=b.dataset.w!=='open';$('#wsNewPane').hidden=b.dataset.w==='open';if(b.dataset.w==='open')wsLoadList()});
+async function wsLoadList(){try{const r=await api('/api/ccut/workspace/list'+($('#wsPar').value?'?parent='+encodeURIComponent($('#wsPar').value.trim()):''));
+  $('#wsList').innerHTML=r.projects.length?r.projects.map(p=>`<div class="lic-row" style="cursor:pointer" data-open="${esc(p.dir)}"><span class="n">${esc(p.name)}${p.current?' <span class="ltag own">đang mở</span>':''}</span><span class="small dim">${p.videos?p.done+'/'+p.videos+' video · ':''}${new Date(p.modified*1000).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div>`).join(''):'<div class="small dim">Chưa có dự án nào ở thư mục này.</div>';
+  document.querySelectorAll('[data-open]').forEach(r=>r.onclick=()=>wsOpen(r.dataset.open))}catch(e){}}
+async function wsOpen(dir){try{const r=await post('/api/ccut/workspace/open',{dir});$('#wsBox').classList.remove('show');chatN=-1;toast('Đã mở dự án '+r.current.name);await refresh()}catch(e){toast(e.message)}}
+$('#wsOpenOther').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path)wsOpen(r.path)};
+$('#wsPar').addEventListener('change',wsLoadList);
 $('#wsName').onkeydown=e=>{if(e.key==='Enter')$('#wsCreate').click()};
 $('#wsCreate').onclick=async()=>{const b=$('#wsCreate');b.disabled=true;
   try{const r=await post('/api/ccut/workspace',{name:$('#wsName').value.trim()||'Dự Án Mới',parent:$('#wsPar').value.trim()});$('#wsBox').classList.remove('show');chatN=-1;toast('Đã tạo dự án '+r.current.name);await refresh()}catch(e){toast(e.message)}
