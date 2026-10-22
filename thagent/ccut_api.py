@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "1.9.1"
+APP_VERSION = "1.9.2"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -214,18 +214,47 @@ def ws_open(body: WsOpenIn):
         (d / "project_info.json").write_text(json.dumps({"name": d.name, "created": time.strftime("%Y-%m-%d %H:%M"), "app": APP_VERSION},
                                                         ensure_ascii=False, indent=1), encoding="utf-8")
     load_queue()
-    if not (d / "queue.json").exists():           # dự án tạo trước bản 1.8.4: hàng chờ lưu chung ở thư mục cha → lấy phần thuộc dự án này
-        try:
-            old = json.loads((d.parent / "queue.json").read_text(encoding="utf-8"))
-            subs = {x.name for x in d.iterdir() if x.is_dir()}
-            STATE["queue"] = [q for q in old if q.get("project") in subs]
-            for q in STATE["queue"]:
-                if q["status"] == "running":
-                    q["status"] = "wait"
-            save_queue()
-        except Exception:
-            pass
+    if not STATE["queue"]:                        # dự án tạo bằng bản cũ: hàng chờ chưa lưu riêng / đã bị ghi đè → dựng lại từ các thư mục video
+        STATE["queue"] = _rebuild_queue(d)
+        save_queue()
     return {"current": WS, "videos": len(STATE["queue"])}
+
+
+def _rebuild_queue(d: Path) -> list[dict]:
+    """đọc lại các video đã làm trong thư mục dự án (mỗi thư mục con = một video): tên, nguồn, trạng thái, video đã xuất."""
+    out = []
+    for sub in sorted((x for x in d.iterdir() if x.is_dir()), key=lambda x: x.stat().st_mtime):
+        item = None
+        try:
+            pj = sub / "project.json"
+            if pj.exists():                                              # Talking Head / nhiều đoạn
+                p = json.loads(pj.read_text(encoding="utf-8"))
+                src = (p.get("source") or {}).get("path") or str(sub)
+                files = [r["file"] for r in p.get("renders", []) if r.get("file")]
+                files = [str(ROOT / f) if not Path(f).is_absolute() else f for f in files]
+                files = [f for f in files if Path(f).is_file()]
+                dur = (p.get("source") or {}).get("duration") or 0
+                item = {"name": Path(src).name if src else sub.name, "path": src, "kind": "multi" if (sub / "edl.json").exists() else None,
+                        "files": files[-1:], "meta": f"{int(dur // 60)}:{int(dur % 60):02d} · dự án cũ"}
+            elif (sub / "script.json").exists():                          # Text to Video
+                files = sorted((sub / "versions").glob("*/*.mp4"), key=lambda x: x.stat().st_mtime) if (sub / "versions").exists() else []
+                item = {"name": sub.name, "path": f"t2v:old:{sub.name}", "kind": "t2v", "files": [str(x) for x in files[-2:]], "meta": "Text to Video · dự án cũ"}
+            elif (sub / "transcript.json").exists():                      # Voice to Motion
+                files = sorted((sub / "versions").glob("*/*.mp4"), key=lambda x: x.stat().st_mtime) if (sub / "versions").exists() else []
+                item = {"name": sub.name, "path": str(next(sub.glob("voice.*"), sub)), "kind": None, "files": [str(x) for x in files[-2:]],
+                        "meta": "Voice to Motion · dự án cũ"}
+            elif (sub / "review" / "edit.json").exists():                 # Review
+                files = sorted((sub / "review" / "versions").glob("*/review_*.mp4"), key=lambda x: x.stat().st_mtime) if (sub / "review" / "versions").exists() else []
+                item = {"name": sub.name, "path": str(sub), "kind": "review", "files": [str(x) for x in files[-2:]], "meta": "Review · dự án cũ"}
+        except Exception:
+            item = None
+        if item:
+            files = item.pop("files")
+            q = {"status": "done" if files else "wait", "project": sub.name, "script": None, **item}
+            if files:
+                q["output"], q["outputs"] = files[0], files
+            out.append(q)
+    return out
 
 
 class RenameIn(BaseModel):
