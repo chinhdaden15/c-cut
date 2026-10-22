@@ -31,9 +31,9 @@ Source: "..\build\pyi\C-Cut\*"; DestDir: "{app}"; Flags: ignoreversion recursesu
 Source: "guide\Huong dan su dung C-Cut.pdf"; DestDir: "{app}"
 
 [Icons]
-Name: "{group}\C-Cut"; Filename: "{app}\C-Cut.exe"; IconFilename: "{app}\C-Cut.exe"
+Name: "{group}\C-Cut"; Filename: "{app}\C-Cut.exe"; IconFilename: "{app}\C-Cut.exe"; AppUserModelID: "vn.ccut.app"
 Name: "{group}\Hướng dẫn sử dụng"; Filename: "{app}\Huong dan su dung C-Cut.pdf"
-Name: "{userdesktop}\C-Cut"; Filename: "{app}\C-Cut.exe"; IconFilename: "{app}\C-Cut.exe"; Tasks: desktopicon
+Name: "{userdesktop}\C-Cut"; Filename: "{app}\C-Cut.exe"; IconFilename: "{app}\C-Cut.exe"; AppUserModelID: "vn.ccut.app"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Tạo biểu tượng ngoài màn hình"

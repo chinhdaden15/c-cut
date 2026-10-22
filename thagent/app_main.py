@@ -190,6 +190,12 @@ def run_app():
         if srv.started:
             break
         time.sleep(0.05)
+    if sys.platform == "win32":              # mã nhận diện cố định = lối tắt Start/ghim → taskbar luôn lấy biểu tượng của bản cài mới nhất
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("vn.ccut.app")
+        except Exception:
+            pass
     win = webview.create_window(APP_NAME, f"http://127.0.0.1:{port}", width=1440, height=900, min_size=(1100, 700),
                                 text_select=True)
     ccut_api.WINDOW = win
