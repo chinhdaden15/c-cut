@@ -46,10 +46,11 @@ def _claude() -> dict:
         return {"installed": False, "logged_in": False}
     try:
         r = subprocess.run([exe, "auth", "status"], capture_output=True, text=True, timeout=20)
-        logged = bool(json.loads(r.stdout).get("loggedIn"))
+        js = json.loads(r.stdout)
+        logged, email = bool(js.get("loggedIn")), js.get("email")
     except Exception:
-        logged = False
-    return {"installed": True, "logged_in": logged, "path": exe}
+        logged, email = False, None
+    return {"installed": True, "logged_in": logged, "email": email, "path": exe}
 
 
 def _git_ok() -> bool:
@@ -109,6 +110,20 @@ def start_whisper():
     if not DL["running"] and not whisper_ready():
         DL.update(running=True, error=None)
         threading.Thread(target=_download, daemon=True).start()
+    return status()
+
+
+@router.post("/claude_logout")
+def claude_logout():
+    """đổi tài khoản Claude: đăng xuất tài khoản hiện tại, dừng mọi phiên Claude của app, mở cửa sổ đăng nhập tài khoản khác."""
+    from . import agent as A
+    exe = shutil.which("claude")
+    if not exe:
+        raise HTTPException(400, "Chưa cài Claude")
+    A.reset_all()
+    subprocess.run([exe, "auth", "logout"], capture_output=True, text=True, timeout=30,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    run_in_terminal("claude_login")
     return status()
 
 

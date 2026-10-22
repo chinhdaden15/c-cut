@@ -809,7 +809,7 @@ function renderSetup(){
   const cmd=k=>`<code style="user-select:all">${esc(SU.cmds[k])}</code> <button class="small" data-copy="${k}">Chép</button>`;
   steps.push({ok:c.installed,t:'Cài Claude',d:c.installed?'Đã cài.':`Bộ não lên kế hoạch dựng, chạy bằng tài khoản Claude của bạn (gói Pro/Max).<br>${cmd('claude_install')}<div style="margin-top:6px">${btn('claude_install','Mở cửa sổ cài đặt')}</div>`});
   if(SU.os==='windows')steps.push({ok:SU.git,t:'Cài Git for Windows',d:SU.git?'Đã cài.':`Claude trên Windows cần Git.<br>${cmd('git_install')}<div style="margin-top:6px">${btn('git_install','Mở cửa sổ cài đặt')}</div>`});
-  steps.push({ok:c.logged_in,t:'Đăng nhập Claude',d:c.logged_in?'Đã đăng nhập.':!c.installed?'Cài Claude trước.':`Trình duyệt sẽ mở để đăng nhập tài khoản Claude.<div style="margin-top:6px">${btn('claude_login','Đăng nhập')}</div>`});
+  steps.push({ok:c.logged_in,t:'Đăng nhập Claude',d:c.logged_in?`Đã đăng nhập${c.email?': <b>'+esc(c.email)+'</b>':''}. <button class="small" id="claudeSwitch">Đổi tài khoản</button>`:!c.installed?'Cài Claude trước.':`Trình duyệt sẽ mở để đăng nhập tài khoản Claude.<div style="margin-top:6px">${btn('claude_login','Đăng nhập')}</div>`});
   steps.push({ok:w.ready,t:'Tải model chép lời (~3 GB, một lần)',d:w.ready?'Đã có.':w.running?`Đang tải… ${w.pct}%<div class="pbar"><i style="width:${w.pct}%"></i></div>`:`${w.error?`<span style="color:var(--err)">${esc(w.error)}</span><br>`:''}Dùng để nghe lời nói tiếng Việt trong clip. Nên tải ngay, không thì lần dựng đầu sẽ phải chờ.<div style="margin-top:6px"><button class="small" id="dlWhisper">Tải ngay</button></div>`});
   const hf=SU.hyperframes||{};const nodeOk=!(hf.problems||[]).some(p=>p.includes('Node'));
   steps.push({ok:hf.ok,opt:1,t:'Công cụ dựng HyperFrames (tự cài)',d:hf.ok?`Sẵn sàng — bản ghim ${esc(hf.version||'')}. Mọi style video dùng chung.`:hf.running?`Đang tự cài nền: ${esc(hf.stage||'')}… ${hf.pct||0}%<div class="pbar"><i style="width:${hf.pct||0}%"></i></div>`:`${hf.error?`<span style="color:var(--err)">${esc(hf.error)}</span><br>`:''}Dựng chữ động, sơ đồ, biểu đồ, nhãn/spotlight bằng HTML. ${esc((hf.problems||[]).join('; '))}`
@@ -819,6 +819,9 @@ function renderSetup(){
   $('#setupDone').disabled=!SU.done;
   document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const t=SU.cmds[b.dataset.copy],ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();navigator.clipboard?.writeText(t).catch(()=>{});toast('Đã chép lệnh')});
   document.querySelectorAll('[data-run]').forEach(b=>b.onclick=async()=>{await post('/api/ccut/setup/run/'+b.dataset.run);toast('Đã mở cửa sổ — làm theo hướng dẫn trong đó')});
+  const sw=$('#claudeSwitch');if(sw)sw.onclick=async()=>{if(S.job&&S.job.state==='running'){toast('Đang dựng — dừng trước khi đổi tài khoản');return}
+    if(!confirm('Đăng xuất tài khoản Claude hiện tại và đăng nhập tài khoản khác?'))return;
+    try{SU=await post('/api/ccut/setup/claude_logout');renderSetup();toast('Đã đăng xuất — đăng nhập tài khoản mới trong cửa sổ vừa mở, rồi bấm Kiểm tra lại')}catch(e){toast(e.message)}};
   const d=$('#dlWhisper');if(d)d.onclick=async()=>{SU=await post('/api/ccut/setup/whisper');renderSetup()};
   const h=$('#instHF');if(h)h.onclick=async()=>{SU=await post('/api/ccut/setup/hyperframes');renderSetup()};
 }
