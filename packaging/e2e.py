@@ -315,6 +315,7 @@ def _entities():
 def _callouts():
     from types import SimpleNamespace as NS
     from PIL import Image
+    import numpy as np
     from thagent import callouts as CO
     img = WORK / "co_i_demo.jpg"
     Image.new("RGB", (400, 300), (90, 120, 160)).save(img)
@@ -343,6 +344,16 @@ def _callouts():
         buf = CO.blank(H, W)
         CO.draw(buf, co, L, 45)
         assert buf[..., 3].max() > 0.5, f"{k} không vẽ ra gì"
+    from thagent import icons3d as K3                      # kho icon 3D dùng chung + khung kính mờ + vệt sáng
+    assert len(K3.index()) > 1000 and K3.find("house") and K3.path("trophy").exists(), "kho icon 3D thiếu"
+    co = dict(id="g1", kind="icon_keyword", start=0, end=90, tone="gold", icon="3d:trophy", text="#1 BESTSELLER", sub="poetry", glass=True)
+    L = CO.layout(co, anc, W, H)
+    assert L["ok"], L.get("why")
+    buf, gm = CO.blank(H, W), np.zeros((H, W), np.float32)
+    CO.draw(buf, co, L, 20, gm)
+    assert gm.max() > 0.5 and buf[..., 3].max() > 0.5, "khung kính không báo vùng làm mờ"
+    k = [x for x in CO._leaves_scaled(co, L, 1.0) if x[4] == "main"]
+    assert k and np.abs(CO.sweep(k[0][2], 0.5) - k[0][2]).max() > 0.05, "vệt sáng không chạy"
     big = NS(callouts=[dict(id="x", kind="icon_keyword", start=0, end=90, text="CHỮ RẤT RẤT RẤT DÀI KHÔNG CÒN CHỖ NÀO " * 4)])
     errs = [m for sev, m in CO.check(big, [{"head_top": 0.1, "face_cx": 0.5, "face_cy": 0.4, "face_h": 0.45, "face_bottom": 0.8}] * 100,
                                      W, H, 30) if sev == "error"]
@@ -350,6 +361,29 @@ def _callouts():
     thin = NS(text_groups=[], mg=[], fx=[], duration_frames=600, callouts=[dict(id="y", kind="big_number", text="7", start=0, end=60)])
     assert CO.density(thin, 30), "khoảng 18s không có chữ nổi bật mà không báo lỗi"
     return f"{len(args)} mẫu"
+
+
+@case("th", "sân khấu Talking Head: đủ kiểu vẽ được, chữ sau lưng chỉ hiện 1.5s, tự zoom + loé + SFX lúc vào")
+def _stage():
+    from types import SimpleNamespace as NS
+    from thagent import stage as ST, callouts as CO
+    anc = [{"face_cx": 0.5, "face_cy": 0.3, "face_h": 0.15}] * 400
+    kw = {"giant_text": dict(text="FAKE"), "orbit_icons": dict(icons=["3d:star", "3d:f-books"]), "bokeh": {}, "marquee": dict(text="SALE"),
+          "spotlight": {}, "big_number": dict(text="30%")}
+    assert set(kw) == ST.KINDS, f"thiếu kiểu trong bài kiểm: {ST.KINDS - set(kw)}"
+    sts = [dict(id=f"s{i}", kind=k, start=0, end=300, **a) for i, (k, a) in enumerate(kw.items())]
+    for st in sts:
+        b, f = CO.blank(1920, 1080), CO.blank(1920, 1080)
+        ST.draw(st, 20, b, f, anc, 30, 300)
+        assert max(b[..., 3].max(), f[..., 3].max()) > 0.1, f"{st['kind']} không vẽ ra gì"
+        if st["kind"] in ST.FLASH_KINDS:
+            b2 = CO.blank(1920, 1080)
+            ST.draw(st, 50, b2, CO.blank(1920, 1080), anc, 30, 300)
+            assert b2[..., 3].max() == 0, f"{st['kind']} hiện quá 1.5s"
+    pl = NS(stage=sts, fx=[], duration_frames=300)
+    assert ST.zoom_events(pl) and ST.flash_events(pl) and ST.sound_events(pl), "thiếu zoom / loé / SFX lúc hiệu ứng vào"
+    assert not [m for sv, m in ST.check(NS(stage=sts[:1]), 30) if sv == "error"]
+    return f"{len(kw)} kiểu"
 
 
 @case("voice", "giọng đọc: tải model ghim phiên bản → giọng có sẵn đọc Việt + Anh → nhân bản giọng từ video (bắt buộc xác nhận quyền) → đọc bằng giọng nhân bản")

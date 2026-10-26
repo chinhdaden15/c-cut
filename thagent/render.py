@@ -98,7 +98,8 @@ def zoom_at(plan: Plan, f: int) -> tuple[float, float, float]:
     """(zoom, cx, cy). mode=punch: vào nhanh 4 frame, giữ, ra 10 frame; mode=out: bắt đầu phóng rồi lùi dần về 1."""
     z, cx, cy = 1.0, 0.5, 0.4
     from .callouts import zoom_events
-    for e in list(plan.fx) + zoom_events(plan):
+    from .stage import zoom_events as stage_zoom
+    for e in list(plan.fx) + zoom_events(plan) + stage_zoom(plan):
         if e.type != "zoom" or not e.enabled or not (e.start <= f < e.end + 10):
             continue
         tgt = e.params.get("scale", 1.06)
@@ -176,7 +177,8 @@ def draw_highlights(out: np.ndarray, plan: Plan, f: int, z: float, zcx: float, z
 
 def flash_at(plan: Plan, f: int) -> float:
     o = 0.0
-    for e in plan.fx:
+    from .stage import flash_events
+    for e in list(plan.fx) + flash_events(plan):
         if e.type != "flash" or not e.enabled:
             continue
         d = e.end - e.start
@@ -315,7 +317,7 @@ class Wide:
     def _col(self, img, interp=cv2.INTER_AREA):
         return cv2.resize(img, (self.cw, WH), interpolation=interp)
 
-    def frame(self, base, alpha, behind, front, mg_out, mg_mask, flash, z, zcx, zcy):
+    def frame(self, base, alpha, behind, front, mg_out, mg_mask, flash, z, zcx, zcy, gmask=None):
         if self.src is not None:                                 # quay ngang: khung gốc + alpha kéo về đúng tỉ lệ
             try:
                 wb = next(self.src).astype(np.float32) / 255.0
@@ -337,6 +339,9 @@ class Wide:
         if bh[..., 3].any():
             am = wa[..., None]
             out = out * (1 - am) + wb * am
+        if gmask is not None:                                    # khung kính (callouts): nền phía sau mờ thật
+            from .callouts import blur_behind
+            out = blur_behind(out, cv2.warpAffine(gmask, self.M, (WW, WH), flags=cv2.INTER_LINEAR))
         out = out * (1 - fr[..., 3:4]) + fr[..., :3]
         if mg_mask is not None:                                  # cảnh MG: đặt giữa, nền mờ của chính cảnh (đang trượt vào → che theo mép)
             cov = float(mg_mask.mean())
@@ -415,14 +420,20 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         for g in active:
             ax, ay = pos[g.id]
             draw_group(behind if layer_of(g) == "behind_subject" else front, g, f, ax, ay)
+        if plan.stage:
+            from . import stage as STG
+            STG.draw_all(plan, f, behind, front, anchors_tl, fps)
+        gmask = np.zeros((H, W), np.float32) if any(c.get("glass") and c["start"] <= f < c["end"] for c in cos) else None
         for c in cos:
             L = colay.get(c["id"], {})
-            CO.draw(behind if L.get("layer") == "behind" else front, c, L, f)
+            CO.draw(behind if L.get("layer") == "behind" else front, c, L, f, gmask)
         out = base * (1 - behind[..., 3:4]) + behind[..., :3]
         if behind[..., 3].any():
             am = alpha[..., None]
             out = out * (1 - am) + base * am          # nhân vật đè lên chữ phía sau
         out = draw_highlights(out, plan, f, z, zcx, zcy)
+        if gmask is not None:
+            out = CO.blur_behind(out, gmask)          # khung kính: nền video phía sau mờ thật
         out = out * (1 - front[..., 3:4]) + front[..., :3]
         pre = out
         out = overlay_mg(out, plan, f)
@@ -432,7 +443,7 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             if out is not pre:
                 mgm = np.abs(out - pre).max(axis=2) > 0.004
                 mgm = cv2.dilate(mgm.astype(np.uint8), np.ones((9, 9), np.uint8)).astype(bool) if mgm.any() else None
-            wlast = WD.frame(base, alpha, behind, front, out, mgm, fl, z, zcx, zcy)
+            wlast = WD.frame(base, alpha, behind, front, out, mgm, fl, z, zcx, zcy, gmask)
         if fl > 0:
             out = out + (1 - out) * fl                 # light wash: sáng dần về trắng, không cháy
         frame = (np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)
@@ -467,13 +478,15 @@ def mix_audio(plan: Plan, voice: str, sfx_dir: Path, manifest: dict, out_wav: st
     # cooldown: không đặt 2 SFX có đỉnh cách nhau < 4 frame, giữ cái ưu tiên cao hơn
     chosen = []
     # tiếng chữ rơi: nhỏ (≤ -17 dB) và thưa — dòng dẫn dài chỉ kêu ~1/2 số chữ, đỡ nhức tai
-    ticks, nth = [s for s in plan.sounds if s.enabled and s.asset == "u_tick"], {}
+    from .stage import sound_events
+    sounds = list(plan.sounds) + sound_events(plan)          # SFX lúc hiệu ứng sân khấu vào
+    ticks, nth = [s for s in sounds if s.enabled and s.asset == "u_tick"], {}
     drop = set()
     for s in sorted(ticks, key=lambda s: s.hit):
         j = nth[s.linked_event] = nth.get(s.linked_event, -1) + 1
         if j % 2 == 1:
             drop.add(s.id)
-    for s in sorted([s for s in plan.sounds if s.enabled and s.id not in drop], key=lambda s: -s.priority):
+    for s in sorted([s for s in sounds if s.enabled and s.id not in drop], key=lambda s: -s.priority):
         if s.asset == "u_tick":
             s.gain_db = min(s.gain_db, -17)
         if any(abs(s.hit - c.hit) < 4 for c in chosen):

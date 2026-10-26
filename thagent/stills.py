@@ -66,12 +66,16 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
         for g in pl.text_groups:
             if g.enabled and g.start <= f < g.end:
                 draw_group(bh if R.layer_of(g) == "behind_subject" else fr, g, f, *pos[g.id])
+        from . import stage as STG
+        STG.draw_all(pl, f, bh, fr, atl)
+        gmask = np.zeros((H, W), np.float32)
         for x in cos:
             L = colay.get(x["id"], {})
-            CO.draw(bh if L.get("layer") == "behind" else fr, x, L, f)
+            CO.draw(bh if L.get("layer") == "behind" else fr, x, L, f, gmask)
         o = base * (1 - bh[..., 3:4]) + bh[..., :3]
         o = o * (1 - a) + base * a
         o = R.draw_highlights(o, pl, f, z, zcx, zcy)
+        o = CO.blur_behind(o, gmask)
         o = o * (1 - fr[..., 3:4]) + fr[..., :3]
         MG.chain(pl.mg)
         o = R.overlay_mg(o, pl, f)

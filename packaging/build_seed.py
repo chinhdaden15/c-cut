@@ -16,6 +16,8 @@ def main():
     shutil.rmtree(OUT, ignore_errors=True)
     seed = OUT / "seed"
     shutil.copytree(ROOT / "web", OUT / "web", ignore=IGN)
+    from thagent import icons3d                     # kho icon 3D dùng chung: tải đủ để bộ cài dùng được offline
+    icons3d.fetch_all()
     shutil.copytree(ROOT / "assets", seed / "assets", ignore=IGN)
     shutil.copytree(ROOT / "models", seed / "models", ignore=IGN)
     shutil.copytree(ROOT / "kit", seed / "kit", ignore=IGN)

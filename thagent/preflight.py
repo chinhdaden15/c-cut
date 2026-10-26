@@ -185,6 +185,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     from . import callouts as CO
     out.extend(CO.check(pl, atl, pl.width, pl.height, fps, open_close(pl, c.project.words, fps)))
     out.extend(CO.density(pl, fps))
+    from . import stage as STG
+    out.extend(STG.check(pl, fps))
     # 4b) không cắt khi người còn đang nói ở cuối video
     try:
         from .cleancut import silences

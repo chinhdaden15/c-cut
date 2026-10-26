@@ -31,7 +31,9 @@ jobs:
           path: |
             ~/.cache/huggingface
             ~/.cache/hyperframes
-          key: models-mac-${{ matrix.arch }}-v1
+            assets/icons3d/3dicons
+            assets/icons3d/fluent
+          key: models-mac-${{ matrix.arch }}-v2
       - run: pip install -r packaging/requirements-build.txt
       - run: pip install --no-deps vieneu==3.2.1
       - run: FFMPEG_DIR=build/ffmpeg PY=python ./packaging/build_mac.sh
@@ -80,7 +82,9 @@ jobs:
           path: |
             ~/.cache/huggingface
             ~/.cache/hyperframes
-          key: models-win-v1
+            assets/icons3d/3dicons
+            assets/icons3d/fluent
+          key: models-win-v2
       - run: ./packaging/build_win.ps1
         shell: pwsh
       - name: kiểm tra bản đóng gói

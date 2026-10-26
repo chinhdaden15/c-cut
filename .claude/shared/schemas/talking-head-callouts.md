@@ -8,6 +8,11 @@ Callout + chữ nổi bật kèm icon / ảnh cho Talking Head (cùng style neon
 plan.callouts = [{"id", "kind", "start", "end" (frame timeline), "tone": "gold"|"red"|"blue", "layer": "front"|"behind",
                   "place": "auto"|"chest"|"low"|"above_head"|"left"|"right",
                   "zoom": "punch"|"out" (nhấn nhá ý chính, ~mỗi 10–12s, xen kẽ), "at": [frame…] (mốc hiện từng mục), …tham số theo kind}]
+                  "glass": true|"dark"|"light" (khung KÍNH MỜ — nền video phía sau mờ thật; mặc định nên dùng cho chữ + icon),
+                  "sweep_at": [frame…] (thêm lần vệt sáng lướt qua chữ nhấn — lần đầu tự chạy lúc vào, kiểu CC Light Sweep),
+                  "icon_style": "premium"|"color" (icon 3D 3dicons)
+Icon 3D (kho chung, mọi skill): "icon": "3d:<id>" — tra: python -m thagent.tools icon3d <từ khoá tiếng Anh>. 3D CHỈ dùng cho icon;
+khung, chữ luôn phẳng. Icon nét (Uicons, tên trần như "clock") vẫn dùng được cho icon nhỏ.
 Vào: từng phần bật lần lượt (pop vượt cỡ + loé sáng), mục trong trio/checklist/stat_pair/photo_strip hiện theo `at` (đặt đúng lúc nói).
 App TỰ ĐẶT vị trí: thử lần lượt các chỗ, chọn chỗ NẰM TRONG KHUNG AN TOÀN và KHÔNG CHẠM MẶT trong suốt lúc hiện
 (mặt lấy từ work/anchors.json, nới thêm lề); không chỗ nào vừa → tự thu nhỏ. Không bao giờ đặt trước mặt nhân vật.

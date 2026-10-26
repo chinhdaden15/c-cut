@@ -3,6 +3,11 @@
 plan.callouts = [{"id", "kind", "start", "end" (frame timeline), "tone": "gold"|"red"|"blue", "layer": "front"|"behind",
                   "place": "auto"|"chest"|"low"|"above_head"|"left"|"right",
                   "zoom": "punch"|"out" (nhấn nhá ý chính, ~mỗi 10–12s, xen kẽ), "at": [frame…] (mốc hiện từng mục), …tham số theo kind}]
+                  "glass": true|"dark"|"light" (khung KÍNH MỜ — nền video phía sau mờ thật; mặc định nên dùng cho chữ + icon),
+                  "sweep_at": [frame…] (thêm lần vệt sáng lướt qua chữ nhấn — lần đầu tự chạy lúc vào, kiểu CC Light Sweep),
+                  "icon_style": "premium"|"color" (icon 3D 3dicons)
+Icon 3D (kho chung, mọi skill): "icon": "3d:<id>" — tra: python -m thagent.tools icon3d <từ khoá tiếng Anh>. 3D CHỈ dùng cho icon;
+khung, chữ luôn phẳng. Icon nét (Uicons, tên trần như "clock") vẫn dùng được cho icon nhỏ.
 Vào: từng phần bật lần lượt (pop vượt cỡ + loé sáng), mục trong trio/checklist/stat_pair/photo_strip hiện theo `at` (đặt đúng lúc nói).
 App TỰ ĐẶT vị trí: thử lần lượt các chỗ, chọn chỗ NẰM TRONG KHUNG AN TOÀN và KHÔNG CHẠM MẶT trong suốt lúc hiện
 (mặt lấy từ work/anchors.json, nới thêm lề); không chỗ nào vừa → tự thu nhỏ. Không bao giờ đặt trước mặt nhân vật.
@@ -76,6 +81,7 @@ class Lay(np.ndarray):
     """sprite RGBA + danh sách thành phần lá [(x, y, sprite, t0)] để diễn hoạt từng phần (vào lần lượt, pop)."""
     def __array_finalize__(self, obj):
         self.parts = None
+        self.kind = None
 
 
 def leaves(a: np.ndarray) -> list:
@@ -98,6 +104,26 @@ def _ink(p: np.ndarray, thr: float = 0.45) -> tuple[int, int, int, int]:
     if not len(ys):
         return 0, p.shape[0], 0, p.shape[1]
     return int(ys[0]), int(ys[-1]) + 1, int(xs[0]), int(xs[-1]) + 1
+
+
+def putf(dst: np.ndarray, src: np.ndarray, x: float, y: float, k: float = 1.0):
+    """đặt sprite ở toạ độ LẺ pixel (dịch phần lẻ bằng warpAffine) — chuyển động chậm không bị giật từng pixel."""
+    ix, iy = math.floor(x), math.floor(y)
+    fx, fy = x - ix, y - iy
+    H, W = dst.shape[:2]
+    h, w = src.shape[:2]
+    x0, y0, x1, y1 = max(0, ix - 1), max(0, iy - 1), min(W, ix + w + 1), min(H, iy + h + 1)
+    if x1 <= x0 or y1 <= y0 or k <= 0.003:
+        return
+    sx0, sy0 = x0 - ix, y0 - iy                    # vùng nguồn tương ứng (có thể âm 1 ở mép)
+    crop = np.zeros((y1 - y0, x1 - x0, 4), np.float32)
+    a0, b0 = max(0, sx0), max(0, sy0)
+    a1, b1 = min(w, sx0 + (x1 - x0)), min(h, sy0 + (y1 - y0))
+    if a1 > a0 and b1 > b0:
+        crop[b0 - sy0:b1 - sy0, a0 - sx0:a1 - sx0] = src[b0:b1, a0:a1]
+    if fx > 0.01 or fy > 0.01:
+        crop = cv2.warpAffine(crop, np.float32([[1, 0, fx], [0, 1, fy]]), (crop.shape[1], crop.shape[0]), flags=cv2.INTER_LINEAR)
+    over(dst, crop * k, x0, y0)
 
 
 def stack(parts: list[np.ndarray], axis: str = "v", gap: int = 14, align: str = "center") -> np.ndarray:
@@ -141,13 +167,45 @@ def glow_layer(h: int, w: int, draw, color: str, width: int = 6, blur: float = 1
     return out
 
 
+def _kind(a: np.ndarray, kind: str, **kw) -> np.ndarray:
+    a = a.view(Lay)
+    a.kind = kind
+    for k, v in kw.items():
+        setattr(a, k, v)
+    return a
+
+
 def T(text: str, size: int, tone: str = "white", role: str = "display", glow: float = 0.9) -> np.ndarray:
-    return N.text_sprite(str(text), role, int(size), tone, glow_k=glow)
+    t = N.text_sprite(str(text), role, int(size), tone, glow_k=glow)
+    return _kind(t, "main") if size >= 90 and tone != "white" else t       # chữ nhấn → vệt sáng lướt qua
+
+
+_ICON_STYLE = "premium"
+
+
+def icon3d(name: str, size: int) -> np.ndarray:
+    """icon 3D từ kho chung (thagent/icons3d) — bóng đổ mềm; to hơn icon nét ~1.35× cho cân với chữ."""
+    from . import icons3d as K
+    size = int(size * 1.35)
+    im = cv2.imread(str(K.path(name[3:], _ICON_STYLE)), cv2.IMREAD_UNCHANGED)
+    if im is None or im.ndim != 3 or im.shape[2] != 4:
+        raise ValueError(f"icon 3D hỏng: {name}")
+    im = cv2.resize(im, (size, size), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
+    a = im[..., 3:4]
+    out = blank(size + 36, size + 36)
+    out[26:26 + size, 18:18 + size, 3] = cv2.GaussianBlur(a[..., 0], (0, 0), 9) * 0.55
+    spr = blank(size, size)
+    spr[..., :3] = im[..., 2::-1] * a
+    spr[..., 3:] = a
+    over(out, spr, 18, 6)
+    return _kind(out, "icon3d")
 
 
 def I(name: str | None, size: int, tone: str) -> np.ndarray | None:
     if not name:
         return None
+    if name.startswith("3d:"):
+        return icon3d(name, size)
     try:
         return N.icon_sprite(name, int(size), _tone(tone) if tone != "white" else "white")
     except Exception:
@@ -226,7 +284,66 @@ def _t_items(co: dict, n: int) -> list:
     return [max(0, int(at_[i]) - a0) if i < len(at_) else 8 * i for i in range(n)]
 
 
+GLASS_SKIP = {"pointer", "arrow_label", "photo_behind", "thought", "phone", "polaroid", "icon_badge"}
+
+
 def sprite(co: dict, kb: float = 1.0) -> np.ndarray:
+    """mẫu + (tuỳ chọn) khung kính mờ "glass": true|"dark"|"light" — nền video phía sau được làm mờ thật lúc dựng."""
+    global _ICON_STYLE
+    _ICON_STYLE = co.get("icon_style") or "premium"
+    g = co.get("glass")
+    if g and co["kind"] not in GLASS_SKIP:
+        c = dict(co, glass=False)
+        if c["kind"] == "card":                       # thẻ có sẵn nền → dùng nội dung của thẻ trong khung kính
+            c["kind"] = "icon_keyword"
+        return glass_panel(_sprite(c, kb), "light" if g == "light" else "dark", N.PALETTES[_tone(co.get("tone", "gold"))][2])
+    return _sprite(co, kb)
+
+
+def _rrect(h: int, w: int, r: int) -> np.ndarray:
+    m = np.zeros((h, w), np.uint8)
+    cv2.rectangle(m, (r, 0), (w - r, h), 255, -1)
+    cv2.rectangle(m, (0, r), (w, h - r), 255, -1)
+    for x, y in [(r, r), (w - r, r), (r, h - r), (w - r, h - r)]:
+        cv2.circle(m, (x, y), r, 255, -1, cv2.LINE_AA)
+    return cv2.GaussianBlur(m, (0, 0), 0.8).astype(np.float32) / 255
+
+
+def glass_panel(content: np.ndarray, tint: str, accent: str, padx: int = 46, pady: int = 34, r: int = 40) -> np.ndarray:
+    """khung kính: lớp phủ trong + viền mảnh sáng (trên sáng hơn dưới, ánh màu tông) + vệt sáng chéo + bóng đổ mềm.
+    Lá đầu (kind "glass", .gmask) báo cho renderer làm mờ nền video đúng vùng này; nội dung vào sau khung 4 frame."""
+    y0, y1, x0, x1 = _ink(content, 0.3)
+    cw, ch = x1 - x0, y1 - y0
+    w, h, sp = cw + 2 * padx, ch + 2 * pady, 34
+    m = _rrect(h, w, r)
+    tc = np.array([1, 1, 1], np.float32) if tint == "light" else np.array([0.02, 0.03, 0.06], np.float32)
+    ta = 0.16 if tint == "light" else 0.36
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    sheen = np.clip(1 - (xx / w + yy / h) * 1.1, 0, 1) ** 2 * 0.2 * m
+    edge = np.clip(m - cv2.erode(m, np.ones((5, 5), np.uint8)), 0, 1) * np.clip(1.2 - yy / h, 0.35, 1) * 0.8
+    ac = _hex(accent)
+    panel = blank(h + 2 * sp, w + 2 * sp)
+    shadow = cv2.GaussianBlur(np.pad(m, sp), (0, 0), 20) * 0.5
+    panel[..., 3] = np.roll(shadow, 14, 0)                                         # bóng đổ (đen) dưới khung
+    core = blank(h, w)
+    core[..., :3] = tc * ta * m[..., None] + sheen[..., None]
+    core[..., 3] = np.clip(ta * m + sheen, 0, 1)
+    ecol = ac * 0.45 + 0.55
+    core[..., :3] = core[..., :3] * (1 - edge[..., None]) + ecol * edge[..., None]
+    core[..., 3] = np.clip(core[..., 3] + edge, 0, 1)
+    over(panel, core, sp, sp)
+    gm = np.zeros(panel.shape[:2], np.float32)
+    gm[sp:sp + h, sp:sp + w] = m
+    panel = _kind(panel, "glass", gmask=gm)
+    out = blank(*panel.shape[:2]).view(Lay)
+    ox, oy = sp + padx - x0, sp + pady - y0
+    over(out, panel, 0, 0)
+    over(out, content, ox, oy)
+    out.parts = [(0, 0, panel, 0)] + [(ox + x, oy + y, p_, None if t is None else t + 4) for x, y, p_, t in leaves(content)]
+    return out
+
+
+def _sprite(co: dict, kb: float = 1.0) -> np.ndarray:
     """cỡ chữ phụ ≈ 1/2 chữ nhấn; khoảng cách tính theo nét thật (stack)."""
     k, tone = co["kind"], _tone(co.get("tone", "gold"))
     col = N.PALETTES[tone][2]
@@ -507,6 +624,7 @@ def _back(x: float) -> float:
 
 
 def _leaves_scaled(co: dict, lay: dict, kb: float) -> list:
+    """[(x, y, sprite, t0, kind, gmask)] đã nhân tỉ lệ bố cục."""
     key = (co["id"], kb, lay["scale"])
     L = _SPR.get(key)
     if L is None:
@@ -514,9 +632,13 @@ def _leaves_scaled(co: dict, lay: dict, kb: float) -> list:
         k = lay["scale"]
         L = []
         for i, (x, y, p, t0) in enumerate(leaves(spr)):
+            kind, gm = getattr(p, "kind", None), getattr(p, "gmask", None)
+            p = np.asarray(p)
             if k != 1.0:
-                p = cv2.resize(p, (max(1, int(p.shape[1] * k)), max(1, int(p.shape[0] * k))), interpolation=cv2.INTER_AREA)
-            L.append((x * k, y * k, p, t0 if t0 is not None else min(3 * i, 12)))
+                sz = (max(1, int(p.shape[1] * k)), max(1, int(p.shape[0] * k)))
+                p = cv2.resize(p, sz, interpolation=cv2.INTER_AREA)
+                gm = cv2.resize(gm, sz, interpolation=cv2.INTER_AREA) if gm is not None else None
+            L.append((x * k, y * k, p, t0 if t0 is not None else min(3 * i, 12), kind, gm))
         if len(_SPR) > 300:
             _SPR.clear()
         _SPR[key] = L
@@ -524,10 +646,36 @@ def _leaves_scaled(co: dict, lay: dict, kb: float) -> list:
 
 
 POP = 9            # frame mỗi phần bật vào
+SWEEP = 16         # frame vệt sáng lướt qua chữ nhấn (kiểu CC Light Sweep)
 
 
-def draw(buf: np.ndarray, co: dict, lay: dict, f: int):
-    """vào: từng phần lần lượt (lá trước → lá sau, mục theo `at`) phóng 0.55 → vượt → 1, mờ → rõ, loé sáng nhẹ; ra: thu nhỏ + mờ + trôi lên."""
+def sweep(p: np.ndarray, u: float, width: float = 0.16, angle: float = 22, k: float = 0.95) -> np.ndarray:
+    """vệt sáng chéo lướt qua nét chữ/khung: u 0 → 1 = trái → phải; chỉ sáng trên nét (theo alpha)."""
+    h, w = p.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    t = math.tan(math.radians(angle))
+    pos = (xx + (h - yy) * t) / (w + h * t)
+    c = -0.25 + 1.5 * u
+    band = np.exp(-((pos - c) / width) ** 2) * k
+    core = np.clip((p[..., 3] - 0.5) * 2, 0, 1)                    # trên nét, không loang ra quầng sáng
+    q = p.copy()
+    q[..., :3] = np.minimum(q[..., :3] + (band * core)[..., None], q[..., 3:4])
+    return q
+
+
+def _rot(p: np.ndarray, deg: float) -> np.ndarray:
+    if abs(deg) < 0.3:
+        return p
+    h, w = p.shape[:2]
+    M = cv2.getRotationMatrix2D((w / 2, h / 2), deg, 1)
+    return cv2.warpAffine(p, M, (w, h), flags=cv2.INTER_LINEAR)
+
+
+def draw(buf: np.ndarray, co: dict, lay: dict, f: int, gmask: np.ndarray | None = None):
+    """vào: từng phần lần lượt (lá trước → lá sau, mục theo `at`) phóng 0.55 → vượt → 1, mờ → rõ, loé sáng nhẹ;
+    khung kính: nở 0.92 → 1 + nền mờ dần + vệt sáng quét ngang mặt kính; chữ nhấn: vệt sáng lướt qua (CC Light Sweep);
+    icon 3D: bật vào kèm xoay về thẳng, sau đó lơ lửng nhẹ. Ra: thu nhỏ + mờ + trôi lên.
+    gmask (H×W) nhận vùng kính để renderer làm mờ nền video phía sau."""
     a, b = int(co["start"]), int(co["end"])
     if not (a <= f < b) or not lay.get("ok"):
         return
@@ -538,24 +686,62 @@ def draw(buf: np.ndarray, co: dict, lay: dict, f: int):
     ox, oy = lay["x"], lay["y"]
     gs = 1 - 0.12 * x_out                                    # thu cả cụm khi ra
     gcx, gcy = ox + lay["w"] / 2, oy + lay["h"] / 2
-    for x, y, p, t0 in _leaves_scaled(co, lay, kb):
+    sweeps = [0] + [int(t) - a for t in co.get("sweep_at") or []]
+    for x, y, p, t0, kind, gm in _leaves_scaled(co, lay, kb):
         loc = f - a - t0
         if loc < 0:
             continue
-        u = (loc + 1) / POP
-        s = (0.55 + 0.45 * _back(u)) * gs
-        o = min(1.0, (loc + 1) / 4) * (1 - x_out)
+        o = min(1.0, (loc + 1) / (8 if kind == "glass" else 4)) * (1 - x_out)
         if o <= 0.01:
             continue
-        sp = p if abs(s - 1) < 0.004 else cv2.resize(p, (max(1, int(p.shape[1] * s)), max(1, int(p.shape[0] * s))), interpolation=cv2.INTER_LINEAR)
-        fl = max(0.0, 1 - loc / 8) * 0.45                    # loé sáng lúc vào
+        if kind == "glass":
+            s = (0.92 + 0.08 * _ease((loc + 1) / 10)) * gs
+        else:
+            s = (0.55 + 0.45 * _back((loc + 1) / POP)) * gs
+        sp = p
+        if kind == "glass" and 4 <= loc < 4 + 18:            # vệt sáng quét mặt kính một lần lúc vào
+            sp = sweep(sp, (loc - 4) / 18, 0.12, 25, 0.35)
+        if kind == "main":
+            for t_s in sweeps:
+                ls = f - a - max(t_s, t0 + POP - 2)
+                if 0 <= ls < SWEEP:
+                    sp = sweep(sp, ls / SWEEP)
+        if kind == "icon3d":
+            sp = _rot(sp, 16 * (1 - _ease((loc + 1) / 12)) * (1 if co.get("id", "")[-1:] in "13579" else -1))
+        if abs(s - 1) >= 0.004:
+            sp = cv2.resize(sp, (max(1, int(p.shape[1] * s)), max(1, int(p.shape[0] * s))), interpolation=cv2.INTER_LINEAR)
+        fl = max(0.0, 1 - loc / 8) * 0.45 if kind not in ("glass", "icon3d") else 0
         if fl > 0.01:
             sp = sp.copy()
             sp[..., :3] = np.minimum(sp[..., :3] * (1 + fl), sp[..., 3:4])
         sp = sp * o
+        bob = 4 * math.sin((f - a) * 2 * math.pi / 50) if kind == "icon3d" and loc > 12 else 0
         cx = gcx + (ox + x + p.shape[1] / 2 - gcx) * gs
-        cy = gcy + (oy + y + p.shape[0] / 2 - gcy) * gs - 26 * x_out
-        over(buf, sp, int(cx - sp.shape[1] / 2), int(cy - sp.shape[0] / 2))
+        cy = gcy + (oy + y + p.shape[0] / 2 - gcy) * gs - 26 * x_out + bob
+        X, Y = int(cx - sp.shape[1] / 2), int(cy - sp.shape[0] / 2)
+        if kind == "glass":
+            over(buf, sp, X, Y)
+        else:
+            putf(buf, sp, cx - sp.shape[1] / 2, cy - sp.shape[0] / 2)          # lẻ pixel → lơ lửng / trôi không giật
+        if kind == "glass" and gmask is not None and gm is not None:
+            g = gm if sp.shape[:2] == gm.shape else cv2.resize(gm, (sp.shape[1], sp.shape[0]), interpolation=cv2.INTER_LINEAR)
+            H, W = gmask.shape
+            x0, y0, x1, y1 = max(0, X), max(0, Y), min(W, X + g.shape[1]), min(H, Y + g.shape[0])
+            if x1 > x0 and y1 > y0:
+                reg = gmask[y0:y1, x0:x1]
+                np.maximum(reg, g[y0 - Y:y1 - Y, x0 - X:x1 - X] * o, out=reg)
+
+
+def blur_behind(out: np.ndarray, gmask: np.ndarray) -> np.ndarray:
+    """nền phía sau khung kính: làm mờ thật (nhanh: thu nhỏ 1/4 → mờ → phóng lại) + sáng nhẹ."""
+    if not gmask.any():
+        return out
+    H, W = gmask.shape
+    sm = cv2.resize(out, (W // 4, H // 4), interpolation=cv2.INTER_AREA)
+    sm = cv2.GaussianBlur(sm, (0, 0), 5)
+    bl = cv2.resize(sm, (W, H), interpolation=cv2.INTER_LINEAR) * 1.05
+    m = gmask[..., None]
+    return out * (1 - m) + np.clip(bl, 0, 1) * m
 
 
 def _draw_lines(buf, co, lay, k):
