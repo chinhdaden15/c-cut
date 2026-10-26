@@ -1,6 +1,6 @@
 ---
 name: voice-to-motion
-version: 1.3.0
+version: 1.4.0
 description: Dựng hoặc chỉnh sửa video motion graphic minh họa từ voice thu sẵn, ưu tiên tiếng Việt và bất động sản. Dùng khi người dùng yêu cầu biến file voice/audio thành video giải thích, infographic động, bản đồ/sơ đồ có diễn hoạt hoặc sửa một đoạn của video đã dựng. Tự phân tích, lập storyboard nội bộ, dựng, kiểm tra và xuất final mà không dừng duyệt. Không tự kích hoạt để tạo voice từ kịch bản, phân tích mẫu đơn thuần hoặc xây app khi chưa được yêu cầu.
 ---
 
@@ -12,7 +12,11 @@ Biến voice có sẵn thành video motion graphic diễn giải đúng nội du
 
 Đây là hướng dẫn vận hành cho AI có công cụ dựng/render; không phải ứng dụng hoặc renderer đã được triển khai. Không tuyên bố cài đặt app, dựng xong video hoặc nghe được âm thanh nếu chưa thực hiện và kiểm chứng. Không giả lập thành công khi môi trường thiếu công cụ.
 
-**Phiên bản 1.3.0** — xem `CHANGELOG.md`.
+**Phiên bản 1.4.0** — xem `CHANGELOG.md`.
+
+**Motion Graphics bố cục + chuyển động (v1.4.0, ưu tiên)**: cho số liệu, liệt kê, so sánh, câu hỏi, tài liệu, thông báo… dùng `s.mg(kind, t0, t1, …)` (mẫu dùng chung với Talking Head — định dạng `.claude/shared/schemas/talking-head-mg2.md`; bg mặc định "none" để thấy nền cảnh) thay vì tự xếp khối rời; `at=[giây…]` để từng mục hiện đúng lúc nói; `kind="custom"` khi cần thiết kế riêng theo chủ đề (html/css/GSAP). Mỗi video ≥ 3 mẫu khác nhau, không lặp liền nhau.
+**Nền đơn giản (v1.4.0, bắt buộc)**: `K.scene(..., bg={"style": "gradient"|"charcoal"|"dots"|"spot"|"cream", "color": "#…", "color2": "#…"})` hoặc `theme.bg_style` — chọn 1–2 kiểu cho cả video, đổi màu theo chủ đề; "cream" chỉ với theme chữ tối. Không dùng nền nhiều chi tiết (skyline, nến chứng khoán, mạch…) — rối, khó đọc chữ.
+**Icon 3D (v1.4.0)**: `"3d:<id>"` từ kho chung (`python -m thagent.tools icon3d <từ khoá tiếng Anh>`) cho icon lớn / mẫu MG; icon phải nhận ra ngay đúng vật (vd giá nhà → nhà / tiền giấy).
 
 **Ảnh & b-roll (v1.3.0, bắt buộc)**: xen ảnh thật và video b-roll (bo góc, thu nhỏ) giữa icon/sơ đồ; ảnh phải ĐÚNG CHÍNH XÁC nghĩa đen và bối cảnh (nhất là giáo dục, BĐS, y tế, tài chính), tự kiểm từng ảnh; chủ thể có thật chỉ dùng ảnh thật — `references/images-and-broll.md`.
 

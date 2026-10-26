@@ -24,7 +24,7 @@ from .schema import Plan, TextGroup
 from .typography import draw_group, group_extent, _blend, clamp01, ease_out_cubic, hex_rgb
 from . import mg as MG
 
-SAFE = {"top": 150, "bottom": 330, "side": 70}
+from .callouts import SAFE, use_frame   # khung an toàn dùng chung — đổi theo hướng khung (use_frame)
 
 
 def run(cmd: list[str]):
@@ -271,6 +271,14 @@ def overlay_mg(out: np.ndarray, plan: Plan, f: int) -> np.ndarray:
         if m is None:
             continue
         dx = int(round(MG.mg_slide(seg, f)))
+        if out.shape[1] > out.shape[0] and m.shape[1] < m.shape[0]:   # khổ ngang: cảnh MG dọc đặt giữa, nền là bản mờ của chính cảnh
+            Hh, Ww = out.shape[:2]
+            cw = int(round(Hh * m.shape[1] / m.shape[0]))
+            fill = cv2.GaussianBlur(cv2.resize(m, (Ww // 8, Hh // 8), interpolation=cv2.INTER_AREA), (0, 0), 6)
+            land = cv2.resize(fill, (Ww, Hh), interpolation=cv2.INTER_LINEAR) * 0.55
+            land[:, (Ww - cw) // 2:(Ww - cw) // 2 + cw] = cv2.resize(m, (cw, Hh), interpolation=cv2.INTER_AREA)
+            m = land
+            dx = int(round(dx * Ww / 1080))
         if dx == 0:
             out = m
             continue
@@ -370,6 +378,7 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
               progress=None, snapshots: list[int] | None = None, snap_dir: Path | None = None,
               cancel=None, hf_items: list[dict] | None = None, wide_out: str | None = None):
     W, H, fps = plan.width, plan.height, plan.fps
+    use_frame(W, H)
     anchors_tl = timeline_anchors(plan, anchors_src)
     pos = resolve_layout(plan, anchors_tl, W, H)
     groups = [g for g in plan.text_groups if g.enabled]
@@ -379,6 +388,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
     from . import callouts as CO
     cos = [c for c in plan.callouts if c.get("enabled", True)]
     colay = CO.layout_all(plan, anchors_tl, W, H)
+    from . import mg2 as MG2
+    mg2cov = MG2.covers(plan)
     a0, a1 = frame_range or (0, plan.duration_frames)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
                             "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "17",
@@ -405,7 +416,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             M = np.float32([[z, 0, (1 - z) * zcx * W], [0, z, (1 - z) * zcy * H]])
             base = cv2.warpAffine(base, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
             alpha = cv2.warpAffine(alpha, M, (W, H), flags=cv2.INTER_LINEAR)
-        active = [g for g in groups if g.start <= f < g.end]
+        full2 = any(x <= f < y for x, y in mg2cov)      # cảnh MG2 che toàn khung → không vẽ chữ / callout / sân khấu bên dưới
+        active = [] if full2 else [g for g in groups if g.start <= f < g.end]
         behind = np.zeros((H, W, 4), np.float32)
         front = np.zeros((H, W, 4), np.float32)
         if OV:
@@ -420,11 +432,11 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         for g in active:
             ax, ay = pos[g.id]
             draw_group(behind if layer_of(g) == "behind_subject" else front, g, f, ax, ay)
-        if plan.stage:
+        if plan.stage and not full2:
             from . import stage as STG
             STG.draw_all(plan, f, behind, front, anchors_tl, fps)
         gmask = np.zeros((H, W), np.float32) if any(c.get("glass") and c["start"] <= f < c["end"] for c in cos) else None
-        for c in cos:
+        for c in ([] if full2 else cos):
             L = colay.get(c["id"], {})
             CO.draw(behind if L.get("layer") == "behind" else front, c, L, f, gmask)
         out = base * (1 - behind[..., 3:4]) + behind[..., :3]
@@ -434,6 +446,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         out = draw_highlights(out, plan, f, z, zcx, zcy)
         if gmask is not None:
             out = CO.blur_behind(out, gmask)          # khung kính: nền video phía sau mờ thật
+        if mg2cov:
+            out = MG2.blur_bg(out, plan, f)           # cảnh MG2 nền "blur": video gốc làm mờ + tối
         out = out * (1 - front[..., 3:4]) + front[..., :3]
         pre = out
         out = overlay_mg(out, plan, f)
@@ -479,7 +493,9 @@ def mix_audio(plan: Plan, voice: str, sfx_dir: Path, manifest: dict, out_wav: st
     chosen = []
     # tiếng chữ rơi: nhỏ (≤ -17 dB) và thưa — dòng dẫn dài chỉ kêu ~1/2 số chữ, đỡ nhức tai
     from .stage import sound_events
-    sounds = list(plan.sounds) + sound_events(plan)          # SFX lúc hiệu ứng sân khấu vào
+    from .mg2 import sound_events as mg2_sounds
+    from .callouts import sound_events as co_sounds
+    sounds = list(plan.sounds) + sound_events(plan) + mg2_sounds(plan) + co_sounds(plan)   # SFX tự động: sân khấu, cảnh MG, callout
     ticks, nth = [s for s in sounds if s.enabled and s.asset == "u_tick"], {}
     drop = set()
     for s in sorted(ticks, key=lambda s: s.hit):

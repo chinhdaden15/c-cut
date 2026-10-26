@@ -66,17 +66,28 @@ def probe_source(path: str) -> MediaInfo:
                      size_bytes=int(j["format"].get("size", 0)))
 
 
+def frame_of(info) -> tuple[int, int]:
+    """khung dựng theo clip gốc (tính cả xoay điện thoại): ngang → 1920×1080, dọc / vuông → 1080×1920."""
+    w, h = info.width, info.height
+    if abs(int(getattr(info, "rotation", 0) or 0)) % 180 == 90:
+        w, h = h, w
+    return (1920, 1080) if w > h * 1.05 else (1080, 1920)
+
+
 def step_ingest(c: Ctx, source: str):
     info = probe_source(source)
+    FW, FH = frame_of(info)
+    c.project.style["frame"] = [FW, FH]
     c.project.source = info
     if not info.has_audio:
         raise RuntimeError("Video nguồn không có audio — không thể phân tích lời nói")
     proxy = c.path("proxy", "proxy.mov")
     if not proxy.exists():
-        c.log(f"Tạo proxy 1080x1920@30 (nguồn {info.width}x{info.height}@{info.fps:.2f}, HDR={info.hdr})")
-        # scale trước rồi tonemap → nhanh hơn nhiều so với tonemap ở 4K
-        tm = ("zscale=w=1080:h=1920:f=lanczos,zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,"
-              "tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,") if info.hdr else "scale=1080:1920:flags=lanczos,"
+        c.log(f"Tạo proxy {FW}x{FH}@30 theo khung clip gốc (nguồn {info.width}x{info.height}@{info.fps:.2f}, HDR={info.hdr})")
+        # giữ tỉ lệ (phủ kín + cắt mép), scale trước rồi tonemap → nhanh hơn nhiều so với tonemap ở 4K
+        fit = f"scale={FW}:{FH}:force_original_aspect_ratio=increase:flags=lanczos,crop={FW}:{FH},"
+        tm = (fit + "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,"
+              "tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,") if info.hdr else fit
         R.run(["ffmpeg", "-v", "error", "-y", "-i", source, "-map", "0:v:0", "-map", "0:a:0",
                "-vf", tm + "fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-g", "30",
                "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "1", str(proxy) + ".part.mov"])
@@ -122,13 +133,25 @@ def step_transcribe(c: Ctx, vocab=None, model="large-v3"):
 def step_matting(c: Ctx):
     from .matting import run_matting
     if not c.path("work", "anchors.json").exists():
-        run_matting(c.project.proxy, str(c.path("work", "alpha.mp4")), str(c.path("work", "anchors.json")),
+        FW, FH = frame(c)
+        run_matting(c.project.proxy, str(c.path("work", "alpha.mp4")), str(c.path("work", "anchors.json")), w=FW, h=FH,
                     progress=c.log)
+
+
+def frame(c: Ctx) -> tuple[int, int]:
+    """khung dựng của dự án (dự án cũ chưa ghi → dọc 1080×1920 như trước)."""
+    f = c.project.style.get("frame")
+    if f:
+        return int(f[0]), int(f[1])
+    if c.project.plan:
+        return c.project.plan.width, c.project.plan.height
+    return 1080, 1920
 
 
 def step_plan(c: Ctx, force=False):
     if c.project.plan is None or force:
         c.project.plan = make_plan(c.project.words, c.project.sentences, c.project.source.duration, media=c.project.proxy)
+        c.project.plan.width, c.project.plan.height = frame(c)
     c.project.status = "designed"
     c.save()
 
@@ -184,8 +207,9 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     elif not clean.exists():
         denoise_voice(c.project.proxy, str(clean), c.log)
     rc = R.rough_cut(plan, c.project.proxy, str(c.path("work", "alpha.mp4")), vdir, str(clean))
+    landscape = plan.width > plan.height
     fmts = list(c.project.style.get("formats") or ["9x16"])
-    wide = "16x9" in fmts
+    wide = "16x9" in fmts and not landscape and not c.project.style.get("frame")   # dự án mới: xuất đúng khung gốc, không kéo sang khổ kia
     if wide and c.project.source and c.project.source.width > c.project.source.height:
         # clip quay ngang: proxy ngang 1920x1080 từ nguồn (proxy dọc là bản kéo dãn của chính khung này) → ghép theo cùng các đoạn giữ
         pw = c.path("proxy", "proxy_wide.mov")
@@ -215,6 +239,10 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
         from .th_hf import prerender
         c.log(f"HyperFrames: {len(plan.hf)} lớp (render 1 lần, lưu đệm)")
         hf_items = prerender(plan, c.path("work", "x").parent, c.log)
+    if plan.mg2:
+        from . import mg2 as MG2
+        c.log(f"Motion Graphics: {len(plan.mg2)} cảnh (HyperFrames, render 1 lần, lưu đệm)")
+        hf_items += MG2.prerender(plan, c.path("work", "x").parent, R.timeline_anchors(plan, anchors), c.log)
     c.log(f"Compositing frame {fr[0]}–{fr[1]}")
     layout = R.composite(plan, rc, anchors, str(vdir / "video_noaudio.mp4"), fr, progress=c.log,
                          snapshots=snaps, snap_dir=vdir, cancel=c.cancel, hf_items=hf_items,
@@ -243,7 +271,7 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     rec = {"version": n, "label": label, "file": str(out.relative_to(ROOT)) if out.is_relative_to(ROOT) else str(out), "frames": list(fr),
            "seconds": round(time.time() - t0, 1), "status": "rendered_preview" if label != "final" else "exported",
            "approved": False, "issues": len([i for i in issues if i.severity != "info"]),
-           "formats": ["9x16"] + (["16x9"] if out_w else []),
+           "formats": (["16x9"] if landscape else ["9x16"]) + (["16x9"] if out_w else []),
            "file_16x9": (str(out_w.relative_to(ROOT)) if out_w.is_relative_to(ROOT) else str(out_w)) if out_w else None}
     c.project.renders.append(rec)
     c.project.status = "ready"

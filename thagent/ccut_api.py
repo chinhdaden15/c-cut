@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1383,13 +1383,16 @@ def _run_queue(settings: dict):
             item["pf_tries"] = 0
             job["done"].append("preflight")
             job["stage"] = "render"
-            c.project.style["formats"] = list(settings.get("th_formats") or ["9x16"])     # khổ xuất Talking Head: dọc / ngang / cả hai
+            if not c.project.style.get("frame"):              # dự án cũ (trước khi tự nhận khung): giữ lựa chọn khổ trong Cài đặt
+                c.project.style["formats"] = list(settings.get("th_formats") or ["9x16"])
+            else:                                             # tự nhận khung theo clip gốc: ngang → 16:9, dọc → 9:16
+                c.project.style["formats"] = ["16x9"] if c.project.style["frame"][0] > c.project.style["frame"][1] else ["9x16"]
             c.save()
             rec = P.step_render(c, None, "ccut")
             out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
             final = _final_path(item, out_dir, multi)
             outs = []
-            if "9x16" in c.project.style["formats"]:
+            if "9x16" in c.project.style["formats"] or c.project.style.get("frame"):
                 shutil.copy2(ROOT / rec["file"], final); outs.append(final)
             if rec.get("file_16x9"):
                 fw = final.with_name(f"{final.stem}_16x9{final.suffix}")

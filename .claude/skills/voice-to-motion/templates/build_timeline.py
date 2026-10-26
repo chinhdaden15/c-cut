@@ -19,6 +19,10 @@ Khối có sẵn (s = K.scene(...)):
            ẢNH PHẢI ĐÚNG CHÍNH XÁC nội dung (references/images-and-broll.md) — tải: python -m thagent.tools img <dự-án> <url> i_ten.jpg "<nguồn>"
   nhịp     s.spotlight([id…], [t…]) mục đang nói to lên, mục khác lùi · s.keyword("VỊ TRÍ", t) từ khóa bật lên · s.pulse(id, t)
            s.checklist([(chữ, t)…]) dòng hiện + dấu tích · s.steps([(icon, nhãn, t)…]) các bước nối tiếp
+           s.mg(kind, t0, t1, …) MG bố cục + chuyển động (chart/money/notif/question/photos/doc/iconrow/chips/compare/checklist/custom;
+             at=[giây…] từng mục theo lời) — xem .claude/shared/schemas/talking-head-mg2.md
+           Nền cảnh: K.scene(t0, t1, "…", bg={"style": "gradient"|"charcoal"|"dots"|"spot"|"cream", "color": "#…", "color2": "#…"})
+           Icon 3D: "3d:<id>" (tra: python -m thagent.tools icon3d <từ khoá>)
            s.street(("house-chimney", "Căn nhà"), [(icon, nhãn, t)…], t0) sơ đồ mặt đường + tiện ích quanh nhà (BĐS)
            K.beats(t0, t1) gợi ý mốc từ khóa ≈ 2,5s/lần · phụ đề chạy theo lời: kit tự thêm (tắt cảnh: s.captions = False)
   QUY TẮC NHỊP: cảnh 4–8s, ≤ 3s phải có thay đổi hình theo lời, mỗi ý có hình bổ nghĩa; check chặn “hình đứng im”, “khung trống”.

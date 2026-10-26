@@ -114,6 +114,7 @@ def rhythm(tl) -> list[tuple[str, str]]:
     for oid, o in tl.objs.items():          # lớp HyperFrames: lớp con hiện/ẩn bên trong cũng là hành động hình (theo spec)
         if o["type"] == "hf":
             v0 = o["_vis"][0]
+            ts += [v0 + float(b) for b in o.get("beats") or []]      # chuyển động bên trong mẫu MG (Kit.mg)
             sp = o.get("spec") or {}
             for sc in sp.get("scenes") or [{"start": 0, "layers": sp.get("layers", [])}]:
                 for L in sc.get("layers", []):

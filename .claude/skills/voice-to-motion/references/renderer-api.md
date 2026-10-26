@@ -20,7 +20,7 @@ Renderer chạy trong app C-Cut / repo Agent Talking Head (Python, `.venv/bin/py
 
 ## Timeline (tóm tắt)
 
-`timeline.json`: `audio{path,duration_s}`, `canvas{width,height,fps}`, `theme{bg,bg2,glow,text,muted,accent,alt,deco,drift}`,
+`timeline.json`: `audio{path,duration_s}`, `canvas{width,height,fps}`, `theme{bg,bg2,glow,text,muted,accent,alt,deco,drift,bg_style}` (bg_style: gradient|charcoal|dots|spot|cream; cảnh: `bg{style,color,color2}`),
 `camera[]` + `scenes[]{id,start_s,end_s,voice_span,purpose,visual_type,objects[],events[],camera[],audio_events[],transition_in,bg}`.
 
 Event: `{object_id, action: reveal|hide|animate|draw|count|pulse, start_s, end_s, style, to{}, ease}`.

@@ -272,7 +272,17 @@ def image_sprite(path: str, w: int, h: int, r: float, fit: str, shadow: float, s
 
 @lru_cache(maxsize=128)
 def icon_sprite(name: str, size: int, color: str) -> np.ndarray:
-    """icon Uicons (solid-rounded) một màu."""
+    """icon Uicons (solid-rounded) một màu; "3d:<id>" → icon 3D màu từ kho chung (thagent/icons3d, màu `color` bỏ qua)."""
+    if name.startswith("3d:"):
+        import cv2
+        from .. import icons3d as K
+        im = cv2.imread(str(K.path(name[3:], "color" if name[3:] in ("money-bag", "bag", "money", "gift", "clock", "wallet") else "premium")),
+                        cv2.IMREAD_UNCHANGED)
+        im = cv2.resize(im, (int(size), int(size)), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
+        out = np.zeros(im.shape[:2] + (4,), np.float32)
+        out[..., :3] = im[..., 2::-1] * im[..., 3:4]
+        out[..., 3] = im[..., 3]
+        return np.pad(out, ((4, 4), (4, 4), (0, 0)))
     from .. import neon
     m = neon._uicon_mask(name, int(size))
     if m is None:
@@ -285,6 +295,9 @@ def icon_sprite(name: str, size: int, color: str) -> np.ndarray:
 
 
 def icon_exists(name: str) -> bool:
+    if name.startswith("3d:"):
+        from .. import icons3d as K
+        return K.exists(name[3:])
     from .. import neon
     return neon.icon_exists(name)
 

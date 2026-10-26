@@ -36,7 +36,14 @@ import numpy as np
 
 from . import neon as N
 
-SAFE = {"top": 150, "bottom": 330, "side": 70}
+SAFE = {"top": 150, "bottom": 330, "side": 70}          # khung an toàn — đổi theo hướng khung bằng use_frame()
+SAFE_V = dict(SAFE)
+SAFE_H = {"top": 70, "bottom": 120, "side": 120}          # khổ ngang 1920×1080: chừa lề trên / dưới (thanh UI) + hai bên
+
+
+def use_frame(W: int, H: int):
+    """đặt khung an toàn theo hướng khung đang dựng (dùng chung: chữ, callout, sân khấu, thẻ)."""
+    SAFE.update(SAFE_H if W > H else SAFE_V)
 FACE_PAD = 0.05            # nới khung mặt mỗi phía (tỉ lệ khung) — chữ/ảnh không được chạm vùng này
 ENTER, EXIT = 8, 6
 
@@ -488,6 +495,26 @@ def zoom_events(plan) -> list:
     return out
 
 
+def sound_events(plan) -> list:
+    """SFX tự động khi callout vào (+ từng mục hiện theo `at`) — bỏ qua callout đã có âm khai tay (plan.sounds linked_event = id)."""
+    from .schema import SoundEvent
+    manual = {x.linked_event for x in plan.sounds}
+    out = []
+    for i, co in enumerate(c for c in getattr(plan, "callouts", None) or [] if c.get("enabled", True)):
+        if co["id"] in manual:
+            continue
+        k = co["kind"]
+        a = ("impact_soft" if k in ("big_number", "warning") else "card_02" if co.get("glass") or k in PHOTO_KINDS
+             else f"pop_0{(i * 3) % 10}")
+        out.append(SoundEvent(id=f"co_{co['id']}", asset=a, linked_event=co["id"], hit=int(co["start"]) + 3,
+                              gain_db=-13 if a == "impact_soft" else -15, priority=4))
+        for j, t in enumerate(co.get("at") or []):
+            if int(t) > int(co["start"]) + 6:
+                out.append(SoundEvent(id=f"co_{co['id']}_{j}", asset=f"check_0{j % 6}" if k == "checklist" else f"pop_0{(j * 3 + 1) % 10}",
+                                      linked_event=co["id"], hit=int(t) + 2, gain_db=-16, priority=3))
+    return out
+
+
 def attach_objects(anchors: list[dict], gaze_file, fps: int = 30) -> list[dict]:
     """gắn vùng VẬT đang cầm/trình diễn (gaze.json: obj, mẫu mỗi STEP giây) vào anchors theo frame nguồn → callout tránh che vật."""
     gf = Path(gaze_file)
@@ -532,7 +559,16 @@ ORDER = {"auto": ["chest", "low", "above_head", "right", "left"], "chest": ["che
 
 def _spots(place: str, w: float, h: float, face, W: int, H: int):
     fx = (face[0] + face[2]) / 2
-    for p in ORDER.get(place, ORDER["auto"]):
+    order = ORDER.get(place, ORDER["auto"])
+    if W > H and place in ("auto", "chest"):              # khổ ngang: chỗ trống lớn là hai bên người → đặt bên rộng hơn trước
+        wide = "right" if (W - face[2]) >= face[0] else "left"
+        order = [wide, "left" if wide == "right" else "right", "low", "chest", "above_head"]
+    ymid = min(max((face[1] + face[3]) / 2 + (face[3] - face[1]) * 0.35 - h / 2, SAFE["top"]), H - SAFE["bottom"] - h)
+    for p in order:
+        if W > H and p in ("left", "right"):              # giữa khoảng trống bên cạnh, ngang tầm mặt → ngực
+            x0, x1 = (SAFE["side"], face[0]) if p == "left" else (face[2], W - SAFE["side"])
+            yield p, min(max((x0 + x1) / 2 - w / 2, SAFE["side"]), W - SAFE["side"] - w), ymid
+            continue
         if p == "chest":
             yield p, W / 2 - w / 2, face[3] + 24
         elif p == "low":
@@ -565,6 +601,16 @@ def layout(co: dict, anchors_tl: list[dict], W: int, H: int) -> dict:
         if L["ok"] and ob and _hit((L["x"], L["y"], L["x"] + L["w"], L["y"] + L["h"]), ob) and not co.get("target"):
             L.update(ok=False, why="nhãn che vật đang cầm")
         return L
+    if W > H and place in ("auto", "chest"):                # khổ ngang: ưu tiên bên cạnh người (thu ≤ 0.8) trước khi phải đặt trước ngực
+        for k in (1.0, 0.9, 0.8, 0.7, 0.62, 0.56, 0.5):
+            w, h = w0 * k, h0 * k
+            for spot, x, y in _spots(place, w, h, face, W, H):
+                if spot not in ("left", "right"):
+                    continue
+                r = (x, y, x + w, y + h)
+                if _inside(r, W, H) and not _hit(r, face) and not (ob and _hit(r, ob)):
+                    return {"ok": True, "x": int(x), "y": int(y), "scale": k, "w": int(w), "h": int(h), "spot": spot, "face": face,
+                            "layer": "front"}
     for avoid_obj, k in [(True, k) for k in (1.0, 0.9, 0.8, 0.7, 0.62)] + [(False, k) for k in (1.0, 0.9, 0.8, 0.7, 0.62)]:
         if not avoid_obj and not ob:                      # lượt 2 (cho đè một phần vật, KHÔNG BAO GIỜ đè mặt) chỉ khi có vật
             break
@@ -815,6 +861,9 @@ def density(plan, fps: int, gap_s: float = 5.0) -> list[tuple[str, str]]:
     for seg in plan.mg or []:
         hits += [int(s["start"]) for s in seg.get("scenes", [])]
     hits += [int(h["start"]) for h in getattr(plan, "hf", None) or [] if h.get("enabled", True)]   # lớp chữ HyperFrames
+    for m in getattr(plan, "mg2", None) or []:          # cảnh MG2: cả cảnh là nội dung nổi bật (mốc mỗi 3s trong cảnh)
+        if m.get("enabled", True):
+            hits += list(range(int(m["start"]) + 6, int(m["end"]), 3 * fps)) + [int(m["end"]) - 1]
     hits = sorted(set(hits))
     end = plan.duration_frames
     out, prev = [], 0

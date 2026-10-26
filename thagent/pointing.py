@@ -53,7 +53,10 @@ def _target_box(img: np.ndarray, tip, d) -> list[float]:
 
 def detect(path: str, words=None, log=print) -> list[dict]:
     import mediapipe as mp
+    global SW, SH
     info = P.probe_source(path)
+    fw, fh = P.frame_of(info)
+    SW, SH = (720, 1280) if fh > fw else (1280, 720)
     vf = C._vf(info, 1.0, SW, SH).replace(f"fps={C.FPS}", f"fps={1 / STEP:g}").replace("format=yuv420p", "format=rgb24")
     p = subprocess.Popen(["ffmpeg", "-v", "error", "-i", path, "-vf", vf, "-f", "rawvideo", "-"], stdout=subprocess.PIPE)
     hits, i = [], 0

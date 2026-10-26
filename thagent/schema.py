@@ -169,6 +169,7 @@ class Plan(BaseModel):
     mg: list[dict] = []          # đoạn Motion Graphics toàn khung (thagent/mg.py)
     speed: float = 1.0           # tăng/giảm tốc cả video lúc xuất (0.8–1.5), giọng giữ cao độ
     hf: list[dict] = []          # lớp HyperFrames (công cụ dựng chung) — thagent/th_hf.py
+    mg2: list[dict] = []         # Motion Graphics thế hệ 2 (bố cục + chuyển động, HyperFrames) — thagent/mg2.py
     stage: list[dict] = []       # "sân khấu" quanh / sau lưng nhân vật — thagent/stage.py
     callouts: list[dict] = []    # chữ nổi bật + icon / callout / ảnh kẹp — thagent/callouts.py (app tự đặt, tránh mặt)
 

@@ -20,6 +20,7 @@ DOCS = {   # file .md → (mã nguồn, tiêu đề)
     "talking-head-hf.md": ("thagent/th_hf.py", "plan.hf — lớp HyperFrames trong Talking Head"),
     "talking-head-callouts.md": ("thagent/callouts.py", "plan.callouts — chữ nổi bật + icon / callout / ảnh kẹp (Talking Head)"),
     "talking-head-stage.md": ("thagent/stage.py", "plan.stage — hiệu ứng quanh / sau lưng nhân vật (Talking Head)"),
+    "talking-head-mg2.md": ("thagent/mg2.py", "plan.mg2 — Motion Graphics bố cục + chuyển động (Talking Head, HyperFrames)"),
     "icons3d.md": ("thagent/icons3d.py", "Kho icon 3D dùng chung (mọi skill)"),
     "entities.md": ("thagent/entities.py", "entities.json — chủ thể có tên (dự án, địa danh…) + ảnh thật"),
 }

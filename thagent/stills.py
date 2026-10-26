@@ -27,8 +27,11 @@ def _grab(path: str, src_frame: int, gray=False) -> np.ndarray:
 
 
 def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
+    global W, H
     c = P.Ctx(pid)
     pl = c.project.plan
+    W, H = pl.width, pl.height                       # khung dựng thật (ngang / dọc theo clip gốc)
+    R.use_frame(W, H)
     T.build_mapping(pl)
     from .channels import theme
     theme(pl.mg, c.dir)
@@ -42,8 +45,18 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
     from . import callouts as CO
     cos = [x for x in pl.callouts if x.get("enabled", True)]
     colay = CO.layout_all(pl, atl, W, H)
+    from . import mg2 as MG2
+    OV = None
+    if pl.mg2:                                       # cảnh MG2: render 1 lần (lưu đệm — lúc xuất video dùng lại), lấy khung từ đó
+        from .hyper.overlay import Overlays
+        try:
+            OV = Overlays(MG2.prerender(pl, c.path("work", "x").parent, atl, print), W, H, pl.fps)
+        except Exception as e:                       # cảnh lỗi → vẫn ra ảnh tĩnh phần còn lại, báo lỗi để sửa
+            print(f"LỖI dựng cảnh MG2: {str(e)[:600]}")
+    cov2 = MG2.covers(pl)
     if not frames:
         frames = sorted({g.hit + 4 for g in pl.text_groups if g.enabled} |
+                        {int(s["start"]) + min(60, (int(s["end"]) - int(s["start"])) * 2 // 3) for s in pl.mg2 if s.get("enabled", True)} |
                         {int(x["end"]) - CO.EXIT - 4 for x in cos} |
                         {sc["start"] + 25 for m in pl.mg for sc in m["scenes"]})
     out_dir = c.path("stills", "x").parent
@@ -61,21 +74,29 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
             base = cv2.warpAffine(base, M, (W, H), borderMode=cv2.BORDER_REFLECT)
             a = cv2.warpAffine(a[..., 0], M, (W, H))[..., None]
         bh = np.zeros((H, W, 4), np.float32); fr = bh.copy()
+        full2 = any(x <= f < y for x, y in cov2)
+        if OV:
+            hg = OV.rgba(f / pl.fps, "front")
+            if hg is not None:
+                fr[..., :3] = hg[..., :3] * hg[..., 3:4]
+                fr[..., 3] = hg[..., 3]
         for v in cards:
             R.draw_card(bh if v.zone == "above_head" else fr, v, f, *cpos[v.id])
         for g in pl.text_groups:
-            if g.enabled and g.start <= f < g.end:
+            if g.enabled and g.start <= f < g.end and not full2:
                 draw_group(bh if R.layer_of(g) == "behind_subject" else fr, g, f, *pos[g.id])
         from . import stage as STG
-        STG.draw_all(pl, f, bh, fr, atl)
+        if not full2:
+            STG.draw_all(pl, f, bh, fr, atl)
         gmask = np.zeros((H, W), np.float32)
-        for x in cos:
+        for x in ([] if full2 else cos):
             L = colay.get(x["id"], {})
             CO.draw(bh if L.get("layer") == "behind" else fr, x, L, f, gmask)
         o = base * (1 - bh[..., 3:4]) + bh[..., :3]
         o = o * (1 - a) + base * a
         o = R.draw_highlights(o, pl, f, z, zcx, zcy)
         o = CO.blur_behind(o, gmask)
+        o = MG2.blur_bg(o, pl, f)
         o = o * (1 - fr[..., 3:4]) + fr[..., :3]
         MG.chain(pl.mg)
         o = R.overlay_mg(o, pl, f)
@@ -86,11 +107,11 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
         p = out_dir / f"f_{f:05d}.jpg"
         imgio.imwrite(str(p), img)
         files.append(str(p))
-        t = cv2.resize(img, (270, 480))
+        t = cv2.resize(img, (270, 480) if H > W else (480, 270))
         cv2.putText(t, T.tc(f), (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
         thumbs.append(t)
     if thumbs:
-        cols = 6
+        cols = 6 if H > W else 4
         rows = [thumbs[i:i + cols] for i in range(0, len(thumbs), cols)]
         rows[-1] += [np.zeros_like(thumbs[0])] * (cols - len(rows[-1]))
         imgio.imwrite(str(out_dir / "sheet.jpg"), np.vstack([np.hstack(r) for r in rows]))

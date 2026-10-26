@@ -48,7 +48,8 @@ def _stem(name: str) -> str:
 def _gaze(path: str, info, log) -> list[dict]:
     """Dò mặt tầm xa (cảnh rộng, mặt nhỏ) → phóng to vùng mặt → FaceMesh đo hướng đầu + mí mắt."""
     import mediapipe as mp
-    sw, sh = 720, 1280
+    fw, fh = P.frame_of(info)                       # cùng hướng khung với bản dựng (toạ độ mặt / tay 0–1 khớp proxy)
+    sw, sh = (720, 1280) if fh > fw else (1280, 720)
     p = subprocess.Popen(["ffmpeg", "-v", "error", "-i", path, "-vf", _vf(info, 1.0, sw, sh).replace(f"fps={FPS}", f"fps={1 / STEP:g}")
                           .replace("format=yuv420p", "format=rgb24"), "-f", "rawvideo", "-"], stdout=subprocess.PIPE)
     out, i = [], 0

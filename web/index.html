@@ -219,7 +219,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
     </div>
     <div class="card" id="thCard" hidden>
       <h3>Talking Head</h3>
-      <div class="field"><label>Khổ xuất</label><select id="thFmt"><option value="9x16">Dọc 9:16</option><option value="16x9">Ngang 16:9</option><option value="both">Cả dọc lẫn ngang</option></select></div>
+      <div class="field"><label>Khổ xuất</label><div class="muted">Tự theo clip gốc — quay ngang xuất 16:9, quay dọc xuất 9:16</div></div>
     </div>
     <div class="card" id="reviewCard" hidden>
       <h3>Review</h3>
@@ -489,9 +489,7 @@ $('#tvAdd').onclick=async()=>{const voice=$('#tvVoice').value,t=$('#tvText').val
   const b=tvMode==='request'?{request:t,seconds:Number($('#tvSec').value)||60,voice,formats}:{text:tvPath?null:t,path:tvPath,voice,formats};
   if(!(b.request||b.text||b.path)){toast(tvMode==='request'?'Nhập ý tưởng video':'Dán kịch bản hoặc chọn file');return}
   try{const r=await post('/api/ccut/t2v/add',b);toast('Đã thêm '+r.added.length+' video');$('#tvText').value='';tvPath=null;$('#tvFileName').textContent='';refresh()}catch(e){toast(e.message)}};
-function renderTH(){const on=S.settings.style==='talking-head-style';$('#thCard').hidden=!on;if(!on||document.activeElement===$('#thFmt'))return;
-  const f=S.settings.th_formats||['9x16'];$('#thFmt').value=f.length>1?'both':f[0]}
-$('#thFmt').onchange=async()=>{const v=$('#thFmt').value;await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({th_formats:v==='both'?['9x16','16x9']:[v]})});refresh()};
+function renderTH(){const on=S.settings.style==='talking-head-style';$('#thCard').hidden=!on}
 function renderReview(){
   const on=S.settings.style==='review-editor';$('#reviewCard').hidden=!on;if(!on)return;
   const r=S.settings.review||{};if(document.activeElement&&$('#reviewCard').contains(document.activeElement))return;

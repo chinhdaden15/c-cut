@@ -386,6 +386,46 @@ def _stage():
     return f"{len(kw)} kiểu"
 
 
+@case("th", "khung tự nhận theo clip gốc (ngang → 1920×1080 không kéo dãn) + Motion Graphics bản mới (HyperFrames, dọc & ngang, qua bộ kiểm)")
+def _frame_mg2():
+    from types import SimpleNamespace as NS
+    from thagent import pipeline as Pp, mg2 as M
+    assert Pp.frame_of(NS(width=1920, height=1080, rotation=0)) == (1920, 1080)
+    assert Pp.frame_of(NS(width=1920, height=1080, rotation=90)) == (1080, 1920), "video điện thoại xoay 90° phải là khung dọc"
+    assert Pp.frame_of(NS(width=1080, height=1920, rotation=0)) == (1080, 1920)
+    src = WORK / "landscape.mp4"                       # clip ngang từ fixture → proxy 1920×1080, kế hoạch 1920×1080
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(FIX / "presenter.mp4"), "-t", "4", "-vf",
+                    "scale=-2:1080,pad=1920:1080:(ow-iw)/2:0", "-c:a", "copy", str(src)], check=True)
+    pid = "e2e_land"
+    Pp.PROJECTS = Path(os.environ["CCUT_PROJECTS"])
+    shutil.rmtree(Pp.PROJECTS / pid, ignore_errors=True)
+    c = Pp.Ctx(pid, log=lambda m: None)
+    Pp.step_ingest(c, str(src))
+    w, h = probe(c.project.proxy)["w"], probe(c.project.proxy)["h"]
+    assert (w, h) == (1920, 1080) and c.project.style.get("frame") == [1920, 1080], f"proxy {w}x{h} — clip ngang phải dựng khung ngang"
+    kinds = {"chart": dict(value_from=5, value_to=64, label="tăng", title="Doanh thu", icon="3d:chart", bg="charcoal"),
+             "chips": dict(items=[{"icon": "3d:f-fire", "text": "Sưởi ấm"}, {"icon": "3d:f-snowflake", "text": "Làm mát"}])}
+    pl = NS(mg2=[], mg=[], duration_frames=900, width=1080, height=1920, fps=30)
+    pl.mg2 = [dict(id="x", kind="chart", start=0, end=90, bg="rối"), dict(id="z", kind="chart", start=100, end=130, bg="dots")]
+    errs = [m for sv, m in M.check(pl, 30, need_rhythm=False) if sv == "error"]
+    assert any("nền" in m for m in errs) and any("2.5–8s" in m for m in errs), f"không bắt nền sai / cảnh quá ngắn: {errs}"
+    pl.mg2 = [dict(id="y", kind="chart", start=60, end=150, bg="charcoal")]
+    assert [m for sv, m in M.check(pl, 30) if "không có Motion Graphics" in m], "nói > 12s không MG mà không báo"
+    if not hyper_ready():
+        return "khung OK · bỏ qua render MG2 (HyperFrames chưa sẵn sàng)"
+    from thagent.hyper.job import Job
+    n = 0
+    for k, a in kinds.items():
+        for W, H in ((1080, 1920), (1920, 1080)):
+            out = WORK / "mg2" / f"{k}_{W}.mov"
+            Job(M.spec(NS(width=W, height=H, fps=30), dict(id=f"{k}{W}", kind=k, start=0, end=90, tone="gold", **a), out), WORK / "mg2_jobs").run(
+                progress=lambda m: None)
+            p = probe(out)
+            assert (p["w"], p["h"]) == (W, H), f"MG2 {k} {W}x{H}: ra {p['w']}x{p['h']}"
+            n += 1
+    return f"khung ngang OK · {n} cảnh MG2 qua bộ kiểm"
+
+
 @case("voice", "giọng đọc: tải model ghim phiên bản → giọng có sẵn đọc Việt + Anh → nhân bản giọng từ video (bắt buộc xác nhận quyền) → đọc bằng giọng nhân bản")
 def _voice():
     import soundfile as sf
@@ -665,6 +705,37 @@ def _v2m():
     return f"{D:.1f}s × 2 tỷ lệ{' + HyperFrames' if use_hf else ''}"
 
 
+@case("v2m", "Voice to Motion: mẫu MG bố cục + chuyển động (s.mg), nền đơn giản, icon 3D — check 0 lỗi + dựng dọc/ngang")
+def _v2m_mg():
+    P = WORK / "v2m_mg"
+    shutil.rmtree(P, ignore_errors=True)
+    run("thagent.v2m", "init", FIX / "voice_vi.mp3", P, timeout=1800)
+    from thagent.v2m.kit import Kit
+    for fmt in ("9x16", "16x9"):
+        K = Kit(P, fmt)
+        D = K.T
+        s = K.scene(0, D / 2, "a", bg={"style": "spot", "color": "#FF8C28", "color2": "#2a1206"})
+        s.title("PHỞ BÒ", 0.1)
+        s.mg("chips", 1.0, 3.6, items=[{"icon": "3d:f-steaming-bowl", "text": "Nước dùng trong"}, {"icon": "3d:f-cut-of-meat", "text": "Ngọt vị xương"}],
+             at=[1.2, 2.4])
+        s.mg("compare", 3.7, D / 2 - 0.1, a={"value": "30k", "sub": "trước"}, b={"value": "45k", "sub": "nay"})
+        s2 = K.scene(D / 2, D, "b", bg={"style": "charcoal"})
+        s2.mg("money", D / 2 + 0.1, D - 0.1, value_from=30000, value_to=45000, decimals=0, unit="đ", title="Một tô phở bò", badge="6:00",
+              icon="3d:f-steaming-bowl")
+        s2.mg("checklist", D / 2 + 0.1, D - 0.1, title="ĐÚNG VỊ", items=["Rau thơm", "Bánh mềm"], at=[D / 2 + 1.5, D / 2 + 3])
+        K.save()
+    shutil.copy2(P / "timeline_9x16.json", P / "timeline.json")
+    for fmt in ("9x16", "16x9"):
+        chk = run("thagent.v2m", "check", P, fmt, timeout=900, ok_codes=(0, 1))
+        assert "0 lỗi" in chk, chk[-1200:]
+    if not hyper_ready():
+        return "check OK · bỏ qua dựng (HyperFrames chưa sẵn sàng)"
+    run("thagent.v2m", "render", P, "both", timeout=3600)
+    for f, (W, H) in (("9x16", (1080, 1920)), ("16x9", (1920, 1080))):
+        expect_video(next(P.glob(f"*_{f}.mp4")), W, H, None, tol=0.4)
+    return "2 tỷ lệ + mẫu MG + nền đơn giản"
+
+
 # ===================== Review =====================
 def _rv_edit(P, hf=False):
     from thagent.review.edit import media
@@ -807,7 +878,7 @@ def _th():
     c.save()
     errs = [m for lv, m in check(pid) if lv == "error"]
     assert not errs, "preflight lỗi: " + "; ".join(errs)
-    c.project.style["formats"] = ["9x16", "16x9"]          # dựng cả dọc lẫn ngang trong một lượt
+    c.project.style["formats"] = ["9x16", "16x9"]          # cài đặt cũ đòi cả hai khổ → dự án mới vẫn chỉ xuất đúng khung gốc
     r = Pp.step_render(c, frame_range=(0, min(pl.duration_frames, 150)), label="e2e")
     f = Path(c.project.renders[-1]["file"])
     f = f if f.is_absolute() else Pp.PROJECTS.parent / f
@@ -815,8 +886,7 @@ def _th():
         f = next(x for x in (Pp.PROJECTS / pid / "renders").glob("*e2e*/*.mp4") if "16x9" not in x.name)
     expect_video(f, 1080, 1920, min(pl.duration_frames, 150) / 30, tol=0.2)
     fw = next((Pp.PROJECTS / pid / "renders").glob("*e2e*/*_16x9.mp4"), None)
-    assert fw, "chưa xuất bản ngang 16:9"
-    expect_video(fw, 1920, 1080, min(pl.duration_frames, 150) / 30, tol=0.2)
+    assert not fw, "clip dọc chỉ xuất đúng khung gốc 9:16 (không kéo sang 16:9)"
     out = run("thagent.tools", "where", pid)
     assert "duration" in out
     run("thagent.tools", "words", pid)

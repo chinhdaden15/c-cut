@@ -285,6 +285,49 @@ def scene_at(tl: Timeline, t: float) -> int:
     return idx
 
 
+BG_STYLES = {"gradient", "charcoal", "dots", "spot", "cream"}
+
+
+@lru_cache(maxsize=16)
+def _bg_style(W, H, style, c1, c2) -> np.ndarray:
+    """5 nền đơn giản đã duyệt (dùng chung tinh thần với Talking Head mg2): chữ dễ đọc, không chi tiết chạy qua chỗ đặt chữ."""
+    import re
+
+    def C(c):                                            # "#RRGGBB" hoặc "rgba(r,g,b,a)" → (rgb 0–1, độ đậm)
+        m = re.match(r"rgba?\(([^)]*)\)", str(c).strip())
+        if m:
+            v = [float(x) for x in m.group(1).split(",")]
+            return np.array(v[:3], np.float32) / 255.0, (v[3] if len(v) > 3 else 1.0)
+        return D.rgb(c), 1.0
+
+    def rgb(c):
+        col, a = C(c)
+        return col * a
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    blob = lambda cx, cy, r, col, a: np.exp(-(((xx - cx) / r) ** 2 + ((yy - cy) / r) ** 2))[..., None] * C(col)[0] * a * C(col)[1]
+    vig = lambda k: (1 - k * np.clip(np.hypot((xx - W / 2) / W, (yy - H / 2) / H) * 1.6, 0, 1) ** 2)[..., None]
+    m = min(W, H)
+    if style == "gradient":
+        bg = rgb(c2 or "#0E1424") + blob(W * 0.2, H * 0.2, m * 0.65, c1 or "#2B3F8F", 0.7) + blob(W * 0.85, H * 0.8, m * 0.75, "#6B3A8F", 0.5)
+    elif style == "charcoal":
+        bg = (rgb("#161618") + blob(W / 2, H * 0.15, m * 0.55, c1 or "#FFB000", 0.12)) * vig(0.6)
+    elif style == "dots":
+        bg = np.broadcast_to(rgb(c2 or "#0F1A2E"), (H, W, 3)).copy()
+        dc = rgb(c1 or "#3A5A8C")
+        d = np.hypot(xx - W / 2, yy - H * 0.45) / (m * 0.85)
+        mask = ((xx % 48 - 24) ** 2 + (yy % 48 - 24) ** 2 < 9).astype(np.float32) * np.clip(1 - d, 0.15, 1)
+        bg = bg * (1 - mask[..., None]) + dc * mask[..., None]
+        bg = bg * vig(0.4)
+    elif style == "spot":
+        bg = (rgb(c2 or "#1A0F2E") + blob(W / 2, H * 0.46, m * 0.48, c1 or "#7B4BFF", 0.55)) * vig(0.5)
+    else:   # cream
+        bg = rgb(c1 or "#F4EDE2") + blob(W * 0.7, H * 0.15, m * 0.8, "#FFFFFF", 0.35)
+    if style != "cream":
+        rng = np.random.default_rng(7)
+        bg = bg + rng.normal(0, 0.03, (H, W, 1)).astype(np.float32)          # hạt grain nhẹ
+    return np.clip(bg, 0, 1).astype(np.float32)
+
+
 def background(tl: Timeline, t: float, cam) -> np.ndarray:
     th = tl.theme
     i = scene_at(tl, t)
@@ -293,12 +336,19 @@ def background(tl: Timeline, t: float, cam) -> np.ndarray:
         b = sc.get("bg") or {}
         return b.get("color", th["bg"]), b.get("color2", b.get("color", th["bg2"])), b.get("glow", th.get("glow"))
 
-    bg = _bg(tl.W, tl.H, *cols(tl.scenes[i]))
+    def one(sc):
+        b = sc.get("bg") or {}
+        st = b.get("style") or th.get("bg_style")
+        if st in BG_STYLES:
+            return _bg_style(tl.W, tl.H, st, b.get("color"), b.get("color2"))
+        return _bg(tl.W, tl.H, *cols(sc))
+
+    bg = one(tl.scenes[i])
     tr = tl.scenes[i].get("transition_in") or {}
     if i > 0 and tr.get("type") in ("fade", "flip"):
         k = (t - tl.scenes[i]["start_s"]) / max(float(tr.get("dur", 0.5)), 1e-3)
         if k < 1:
-            old = _bg(tl.W, tl.H, *cols(tl.scenes[i - 1]))
+            old = one(tl.scenes[i - 1])
             x = ease("inout", k)
             bg = old * (1 - x) + bg * x
     bg = bg.copy()

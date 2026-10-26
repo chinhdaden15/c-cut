@@ -1,5 +1,10 @@
 # Changelog — voice-to-motion
 
+## 1.4.0
+- Motion Graphics có bố cục + chuyển động (mẫu dùng chung với Talking Head, HyperFrames): `s.mg(kind, t0, t1, …)` — `chart`, `money`, `notif`, `question`, `photos`, `doc`, `iconrow`, `chips`, `compare`, `checklist`, `custom` (tự thiết kế html/css/GSAP theo chủ đề). `at=[giây voice…]` cho từng mục hiện đúng lúc nói; check tính chuyển động bên trong mẫu.
+- Nền đơn giản tinh tế (đã duyệt): `bg={"style": "gradient"|"charcoal"|"dots"|"spot"|"cream", "color", "color2"}` theo cảnh, hoặc `theme.bg_style` cho cả video — chữ dễ đọc, không chi tiết chạy qua chỗ đặt chữ; không dùng nền rối.
+- Icon 3D từ kho chung của app (`"3d:<id>"`, tra `python -m thagent.tools icon3d <từ khoá>`) cho khối icon và mẫu MG — icon phải nhận ra ngay đúng vật.
+
 ## 1.3.0
 - Video b-roll ngoài: lệnh `broll` tải từ Pinterest (ưu tiên) hoặc Pexels, chuẩn hoá + ảnh xem trước để kiểm nội dung.
 - Thư mục: mỗi file âm thanh/video = một video riêng, xuất dọc + ngang cho từng file; ảnh gốc + thư mục con = tư liệu dùng chung (`tu_lieu/`).

@@ -96,6 +96,7 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     trimmed = trim_tail_gaze(c)
     pl = c.project.plan
     T.build_mapping(pl)
+    R.use_frame(pl.width, pl.height)
     fps, out = pl.fps, []
     add = lambda sev, msg: out.append((sev, msg))
     if trimmed:
@@ -128,7 +129,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
             add("warn", f"giây {sec}: {n} âm (không tính tick) — có thể rối tai")
     # 3) thời lượng graphic theo quy tắc
     segs = sorted([(m["start"], m["end"]) for m in pl.mg] +             # callout (chữ + icon / ảnh) cũng là graphic
-                  [(int(x["start"]), int(x["end"])) for x in getattr(pl, "callouts", None) or [] if x.get("enabled", True)])
+                  [(int(x["start"]), int(x["end"])) for x in getattr(pl, "callouts", None) or [] if x.get("enabled", True)] +
+                  [(int(x["start"]), int(x["end"])) for x in getattr(pl, "mg2", None) or [] if x.get("enabled", True)])
     prev = 0
     for a, b in segs + [(pl.duration_frames, pl.duration_frames)]:
         if (a - prev) / fps > GAP_RULE_S:
@@ -187,6 +189,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     out.extend(CO.density(pl, fps))
     from . import stage as STG
     out.extend(STG.check(pl, fps))
+    from . import mg2 as MG2                     # Motion Graphics thế hệ 2: mẫu / nền / ảnh / nhịp ~10s (trừ đoạn trình diễn vật)
+    out.extend(MG2.check(pl, fps, open_close(pl, c.project.words, fps), demo_runs(pl, c.path("work", "gaze.json"), fps)))
     # 4b) không cắt khi người còn đang nói ở cuối video
     try:
         from .cleancut import silences
@@ -351,6 +355,25 @@ def _has_face(path: str) -> bool:
         return False
 
 
+def demo_runs(pl, gaze_file, fps: int) -> list[tuple[int, int]]:
+    """đoạn TRÌNH DIỄN vật (timeline) từ gaze.json + gaze_override.json."""
+    if not Path(gaze_file).exists():
+        return []
+    from .clips import load_gaze
+    runs = []
+    for g in load_gaze(gaze_file):
+        if not g.get("demo"):
+            continue
+        f = T.src_to_tl(pl, g["t"])
+        if f is None:
+            continue
+        if runs and f - runs[-1][1] <= fps:
+            runs[-1][1] = f + fps // 2
+        else:
+            runs.append([f, f + fps // 2])
+    return [tuple(r) for r in runs]
+
+
 def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
     """đoạn đang NÓI mà không nhìn máy ≥1s phải được MG / ảnh phủ kín.
     Có cúi nhìn điện thoại/kịch bản (down) → lỗi; chỉ quay đi (giới thiệu không gian) → cảnh báo để tự xem."""
@@ -360,8 +383,9 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
     gaze = load_gaze(gaze_file)
     from . import mg as M, neon
     M.chain(pl.mg)
+    from . import mg2 as MG2
     covers = [M.covered_range(m) for m in pl.mg] + [(v.start, v.end) for v in pl.visuals
-                                                        if getattr(v, "enabled", True) and getattr(v, "fullscreen", True)]
+                                                        if getattr(v, "enabled", True) and getattr(v, "fullscreen", True)] + MG2.covers(pl)
     talk = [(w.source_start, w.source_end) for w in words or []]
     runs = []   # [đầu, cuối, số mẫu cúi]
     demo = []    # [đầu, cuối] đoạn trình diễn vật (timeline)
@@ -400,7 +424,8 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
     for a, b in demo:            # đang trình diễn vật (cúi xem sách, cầm sản phẩm) → giữ hình, không che MG
         if b - a < int(1.5 * fps):
             continue
-        for m in pl.mg:
+        for m in list(pl.mg) + [{"id": "mg2 " + x["id"], "start": x["start"], "end": x["end"]} for x in pl.mg2
+                                 if x.get("enabled", True) and MG2.full(x)]:
             ov = min(b, m["end"]) - max(a, m["start"])
             if ov > fps:
                 out.append(("error", f"{m['id']}: MG che {ov / fps:.1f}s đoạn đang TRÌNH DIỄN vật {T.tc(a)}→{T.tc(b)} (tay cầm vật trong "
@@ -452,7 +477,9 @@ def open_close_rules(pl, words, fps: int) -> list[tuple[str, str]]:
     h, e = open_close(pl, words, fps)
     out = []
     M.chain(pl.mg)
-    covers = [(m["id"], *M.covered_range(m)) for m in pl.mg] + [(v.id, v.start, v.end) for v in pl.visuals if v.enabled]   # MG, ảnh, b-roll
+    from . import mg2 as MG2
+    covers = [(m["id"], *M.covered_range(m)) for m in pl.mg] + [(v.id, v.start, v.end) for v in pl.visuals if v.enabled] + \
+             [("mg2 " + x["id"], int(x["start"]), int(x["end"])) for x in pl.mg2 if x.get("enabled", True) and MG2.full(x)]   # MG, ảnh, b-roll
     for cid, a, b in covers:
         if a < h:
             out.append(("error", f"{cid} ({T.tc(a)}→{T.tc(b)}) che đoạn mở đầu (hook, tới {T.tc(h)}) — hook chỉ có hình nhân vật + chữ hook (không MG/ảnh), "
@@ -497,6 +524,11 @@ def entity_rules(pl, words, pdir, fps: int) -> list[tuple[str, str]]:
             ims = [{"file": Path(f).name, "label": "", "real": Path(f).name.startswith(("w_", "c_"))} for f in fs]
             txt = " · ".join(str(co.get(k)) for k in ("text", "lead", "label", "title", "script", "a_label", "b_label") if co.get(k))
             scenes.append({"id": f"callout {co.get('id')}", "t0": co["start"] / fps, "t1": co["end"] / fps, "images": ims, "text": txt})
+    for m in getattr(pl, "mg2", None) or []:                     # cảnh MG2 có ảnh: cùng luật đúng vật
+        if m.get("enabled", True) and m.get("images"):
+            ims = [{"file": Path(i["src"]).name, "label": i.get("label", ""), "real": Path(i["src"]).name.startswith(("w_", "c_"))} for i in m["images"]]
+            scenes.append({"id": f"mg2 {m['id']}", "t0": m["start"] / fps, "t1": m["end"] / fps, "images": ims,
+                           "text": " · ".join(str(m.get(k)) for k in ("title", "text") if m.get(k))})
     return E.check(pdir, ws, scenes, lambda im: im["real"])
 
 

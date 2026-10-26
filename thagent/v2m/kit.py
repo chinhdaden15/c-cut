@@ -509,6 +509,37 @@ class Scene:
                 self.draw(lid, tb - 0.35, 0.4)
         return ids
 
+    def mg(self, kind: str, t0: float, t1: float | None = None, **p) -> str:
+        """cảnh Motion Graphics có bố cục + chuyển động (mẫu dùng chung với Talking Head — thagent/mg2.py, HyperFrames):
+        chart, money, notif, question, photos, doc, iconrow, chips, compare, checklist, custom. Tham số như plan.mg2 của Talking Head
+        (at = [giây voice…] để từng mục hiện đúng lúc nói; region = "center" | "main" — mặc định: cảnh có tiêu đề → vùng minh hoạ,
+        không có tiêu đề → giữa khung);
+        mặc định bg="none" (nền của cảnh V2M phía sau). Icon "3d:<id>" (kho chung). Ảnh: đường dẫn trong dự án."""
+        from .. import mg2 as M
+        K = self.K
+        t1 = self.t1 if t1 is None else t1
+        for im in p.get("images") or []:
+            if not Path(im["src"]).is_absolute():
+                im["src"] = str(K.pdir / im["src"])
+        if p.get("at"):                                  # mốc tuyệt đối (giây voice) → tính từ đầu cảnh
+            p["at"] = [round(float(a) - t0, 3) for a in p["at"]]
+        has_text = any(o.get("type") == "text" and o.get("role") != "caption" and o.get("space") == "screen" for o in self.objs)
+        region = p.pop("region", "main" if has_text else "center")   # cảnh không có tiêu đề → MG căn GIỮA khung (không lệch một bên)
+        sc = dict(id=K.uid("mg"), kind=kind, start=0, end=0, bg=p.pop("bg", "none"), **p)
+        if sc["bg"] == "none" and region:
+            if region == "center":
+                cap_top = K.zone("caption")[1]        # chừa dải phụ đề phía dưới
+                sc["box"] = [K.W * 0.08, K.H * 0.08, K.W * 0.92, cap_top - K.H * 0.03]
+            else:
+                sc["box"] = list(K.zone(region))       # căn + co cả cụm vào vùng minh hoạ của khung (không đè tiêu đề / phụ đề)
+        D = round(t1 - t0, 3)
+        oid = self.add({"type": "hf", "spec": {"layers": [M.layer(sc, K.W, K.H, D)]}, "beats": M.beats(sc, D)}, t0, style="fade", d=0.01)
+        self.hide(oid, t1, "fade", 0.01)
+        role = {"mgtrans_01": "transition", "card_01": "pop", "u_money": "money", "tick_01": "data", "soft_00": "paper"}
+        for t, asset, _ in M.sfx(sc, D):                # SFX theo chuyển động của mẫu (vai trò trong kho sfx_v2m)
+            self.sound(t0 + t, role.get(asset, "success" if asset.startswith("check") else "pop" if asset.startswith("pop") else "click"))
+        return oid
+
     def cards(self, items, region="main", w=None, h=None) -> list[str]:
         """items [(icon, chữ, t)] — thẻ nền sáng/tối có icon trên, chữ dưới."""
         K = self.K
