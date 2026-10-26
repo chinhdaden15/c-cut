@@ -205,6 +205,8 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
         reduce_hf_noise(rc["voice"], rc["voice"] + ".clean.wav")
         rc["voice"] = rc["voice"] + ".clean.wav"
     anchors = json.loads(c.path("work", "anchors.json").read_text())
+    from . import callouts as CO
+    CO.attach_objects(anchors, c.path("work", "gaze.json"), plan.fps)
     fr = frame_range or (0, plan.duration_frames)
     fr = (max(0, fr[0]), min(plan.duration_frames, fr[1]))
     snaps = sorted({g.hit + 3 for g in plan.text_groups if g.enabled and fr[0] <= g.hit < fr[1]})

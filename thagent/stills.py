@@ -33,12 +33,18 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
     from .channels import theme
     theme(pl.mg, c.dir)
     anchors = json.loads(c.path("work", "anchors.json").read_text())
+    from . import callouts as _CO
+    _CO.attach_objects(anchors, c.path("work", "gaze.json"), pl.fps)
     atl = R.timeline_anchors(pl, anchors)
     pos = R.resolve_layout(pl, atl, W, H)
     cards = [v for v in pl.visuals if v.enabled and v.status == "ready" and v.file]
     cpos = {v.id: R.card_layout(pl, v, atl, W, H) for v in cards}
+    from . import callouts as CO
+    cos = [x for x in pl.callouts if x.get("enabled", True)]
+    colay = CO.layout_all(pl, atl, W, H)
     if not frames:
         frames = sorted({g.hit + 4 for g in pl.text_groups if g.enabled} |
+                        {int(x["end"]) - CO.EXIT - 4 for x in cos} |
                         {sc["start"] + 25 for m in pl.mg for sc in m["scenes"]})
     out_dir = c.path("stills", "x").parent
     for old in out_dir.glob("*.jpg"):
@@ -60,6 +66,9 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
         for g in pl.text_groups:
             if g.enabled and g.start <= f < g.end:
                 draw_group(bh if R.layer_of(g) == "behind_subject" else fr, g, f, *pos[g.id])
+        for x in cos:
+            L = colay.get(x["id"], {})
+            CO.draw(bh if L.get("layer") == "behind" else fr, x, L, f)
         o = base * (1 - bh[..., 3:4]) + bh[..., :3]
         o = o * (1 - a) + base * a
         o = R.draw_highlights(o, pl, f, z, zcx, zcy)

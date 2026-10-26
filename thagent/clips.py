@@ -54,7 +54,8 @@ def _gaze(path: str, info, log) -> list[dict]:
     out, i = [], 0
     with mp.solutions.face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5) as fd, \
             mp.solutions.face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True,
-                                            min_detection_confidence=0.4) as fm:
+                                            min_detection_confidence=0.4) as fm, \
+            mp.solutions.hands.Hands(static_image_mode=True, max_num_hands=2, min_detection_confidence=0.5) as hd:
         while True:
             buf = p.stdout.read(sw * sh * 3)
             if len(buf) < sw * sh * 3:
@@ -68,7 +69,14 @@ def _gaze(path: str, info, log) -> list[dict]:
             cx, cy, s0 = (bb.xmin + bb.width / 2) * sw, (bb.ymin + bb.height / 2) * sh, max(bb.width * sw, bb.height * sh) * 1.8
             x0, y0 = int(max(0, cx - s0 / 2)), int(max(0, cy - s0 / 2))
             crop = img[y0:int(min(sh, cy + s0 / 2)), x0:int(min(sw, cx + s0 / 2))]
-            rec = {"t": t, "face": True, "size": round(bb.width, 3)}
+            rec = {"t": t, "face": True, "size": round(bb.width, 3),
+                   "fbox": [round(bb.xmin, 3), round(bb.ymin, 3), round(bb.width, 3), round(bb.height, 3)]}
+            hb = []                                   # bàn tay trong khung (0–1) — cúi nhìn vật đang cầm = trình diễn
+            for lm in hd.process(img).multi_hand_landmarks or []:
+                xs, ys = [q.x for q in lm.landmark], [q.y for q in lm.landmark]
+                hb.append([round(min(xs), 3), round(min(ys), 3), round(max(xs) - min(xs), 3), round(max(ys) - min(ys), 3)])
+            if hb:
+                rec["hands"] = hb
             if crop.size:
                 r = fm.process(cv2.resize(crop, (256, 256)))
                 if r.multi_face_landmarks:
@@ -87,7 +95,40 @@ def _gaze(path: str, info, log) -> list[dict]:
         op = sorted(near)[len(near) // 2] if near else 0
         g["cam"] = bool("yaw" in g and abs(g["yaw"]) < 0.2 and op > 0.55 * base)
         g["down"] = bool("yaw" in g and abs(g["yaw"]) < 0.35 and op <= 0.55 * base)   # cúi nhìn điện thoại/kịch bản
+    demo_marks(out)
     return out
+
+
+def demo_marks(gaze: list[dict]) -> list[dict]:
+    """đánh dấu đoạn TRÌNH DIỄN: không nhìn máy nhưng tay đang cầm/chỉ vật trong khung, dưới mặt (cúi xem sách, mở hộp, cầm
+    sản phẩm…) → demo=true + obj (vùng vật ≈ quanh hai bàn tay). Đoạn này giữ hình người, KHÔNG che MG — chỉ chữ/callout.
+    Rời máy thật (đọc kịch bản/điện thoại ngoài khung, quay đi) → demo=false. Claude xem ảnh để xác nhận, ghi đè ở
+    work/gaze_override.json [{"t0", "t1", "kind": "demo"|"away"}]."""
+    for g in gaze:
+        hs = [h for h in g.get("hands") or [] if g.get("fbox") and h[1] + h[3] / 2 > g["fbox"][1] + g["fbox"][3]]
+        g["demo"] = bool(not g.get("cam") and g.get("face") and hs)
+        if hs:
+            x0 = min(h[0] for h in hs); y0 = min(h[1] for h in hs)
+            x1 = max(h[0] + h[2] for h in hs); y1 = max(h[1] + h[3] for h in hs)
+            pw, ph = 0.06 + (x1 - x0) * 0.25, 0.04 + (y1 - y0) * 0.35            # vật thường to hơn bàn tay → nới rộng
+            g["obj"] = [round(max(0, x0 - pw), 3), round(max(0, y0 - ph), 3), round(min(1, x1 + pw) - max(0, x0 - pw), 3),
+                        round(min(1, y1 + ph) - max(0, y0 - ph), 3)]
+    return gaze
+
+
+def load_gaze(gaze_file) -> list[dict]:
+    """gaze.json + ghi đè của Claude (work/gaze_override.json)."""
+    from pathlib import Path as _P
+    gaze = json.loads(_P(gaze_file).read_text())
+    ov = _P(gaze_file).with_name("gaze_override.json")
+    if ov.exists():
+        for o in json.loads(ov.read_text()):
+            for g in gaze:
+                if o["t0"] <= g["t"] < o["t1"]:
+                    g["demo"] = o.get("kind") == "demo"
+                    if g["demo"]:
+                        g["cam"] = False
+    return gaze
 
 
 def _sheet(path: str, info, gaze: list[dict], dst: Path):

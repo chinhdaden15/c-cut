@@ -86,14 +86,19 @@ def timeline_anchors(plan: Plan, anchors_src: list[dict]) -> list[dict]:
     out = []
     for f in range(plan.duration_frames):
         sf = T.tl_to_src_frame(plan, f)
-        out.append(sm[min(max(sf or 0, 0), len(sm) - 1)])
+        i = min(max(sf or 0, 0), len(sm) - 1)
+        a = sm[i]
+        if anchors_src[min(i, len(anchors_src) - 1)].get("obj"):     # vùng vật đang cầm (callouts.attach_objects)
+            a = {**a, "obj": anchors_src[min(i, len(anchors_src) - 1)]["obj"]}
+        out.append(a)
     return out
 
 
 def zoom_at(plan: Plan, f: int) -> tuple[float, float, float]:
     """(zoom, cx, cy). mode=punch: vào nhanh 4 frame, giữ, ra 10 frame; mode=out: bắt đầu phóng rồi lùi dần về 1."""
     z, cx, cy = 1.0, 0.5, 0.4
-    for e in plan.fx:
+    from .callouts import zoom_events
+    for e in list(plan.fx) + zoom_events(plan):
         if e.type != "zoom" or not e.enabled or not (e.start <= f < e.end + 10):
             continue
         tgt = e.params.get("scale", 1.06)
@@ -366,6 +371,9 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
     MG.chain(plan.mg)
     cards = [v for v in plan.visuals if v.enabled and v.status == "ready" and v.file]
     cpos = {v.id: card_layout(plan, v, anchors_tl, W, H) for v in cards}
+    from . import callouts as CO
+    cos = [c for c in plan.callouts if c.get("enabled", True)]
+    colay = CO.layout_all(plan, anchors_tl, W, H)
     a0, a1 = frame_range or (0, plan.duration_frames)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
                             "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "17",
@@ -407,6 +415,9 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         for g in active:
             ax, ay = pos[g.id]
             draw_group(behind if layer_of(g) == "behind_subject" else front, g, f, ax, ay)
+        for c in cos:
+            L = colay.get(c["id"], {})
+            CO.draw(behind if L.get("layer") == "behind" else front, c, L, f)
         out = base * (1 - behind[..., 3:4]) + behind[..., :3]
         if behind[..., 3].any():
             am = alpha[..., None]

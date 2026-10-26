@@ -127,7 +127,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
         if n > 2:
             add("warn", f"giây {sec}: {n} âm (không tính tick) — có thể rối tai")
     # 3) thời lượng graphic theo quy tắc
-    segs = sorted((m["start"], m["end"]) for m in pl.mg)
+    segs = sorted([(m["start"], m["end"]) for m in pl.mg] +             # callout (chữ + icon / ảnh) cũng là graphic
+                  [(int(x["start"]), int(x["end"])) for x in getattr(pl, "callouts", None) or [] if x.get("enabled", True)])
     prev = 0
     for a, b in segs + [(pl.duration_frames, pl.duration_frames)]:
         if (a - prev) / fps > GAP_RULE_S:
@@ -135,6 +136,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
         prev = b
     # 4) bố cục + thời gian đọc + chồng nhóm cùng lớp
     anchors = json.loads(c.path("work", "anchors.json").read_text())
+    from . import callouts as _CO
+    _CO.attach_objects(anchors, c.path("work", "gaze.json"), pl.fps)
     atl = R.timeline_anchors(pl, anchors)
     pos = R.resolve_layout(pl, atl, pl.width, pl.height)
     for g in pl.text_groups:
@@ -178,6 +181,10 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
                 add("error", f"{a.id} chồng {b.id} cùng lớp {(a.end - b.start)} frame")
     for gid in sorted(R.MOVED_DOWN):
         add("info", f"{gid}: đầu sát mép trên, không đủ chỗ cho chữ sau đầu → app tự đưa xuống trước ngực (xem stills)")
+    # 4a) callout / chữ + icon / ảnh kẹp: không chạm mặt, trong khung an toàn; chữ nổi bật dày ~4s/lần (≤5s)
+    from . import callouts as CO
+    out.extend(CO.check(pl, atl, pl.width, pl.height, fps, open_close(pl, c.project.words, fps)))
+    out.extend(CO.density(pl, fps))
     # 4b) không cắt khi người còn đang nói ở cuối video
     try:
         from .cleancut import silences
@@ -299,9 +306,17 @@ def text_rules(pl, words, fps: int) -> list[tuple[str, str]]:
                     add("error", f"{where}: dòng dẫn không cắt được")
     photos.sort()
     from . import imgio
+    for co in getattr(pl, "callouts", None) or []:            # chữ trong callout cũng là chữ nổi bật
+        if co.get("enabled", True):
+            txt = " ".join(str(v) for k, v in co.items() if k in ("text", "sub", "lead", "a", "b", "label", "title", "bad", "good"))
+            txt += " ".join(str(it.get("text", "")) + " " + str(it.get("value", "")) for it in co.get("items") or [])
+            shown.append((int(co["start"]), int(co["end"]), txt))
     for fl in sorted({p[1] for p in photos} | {v.file for v in pl.visuals if getattr(v, "file", None)}):
         if imgio.imread(fl) is None:
             add("error", f"ảnh {fl.split('/')[-1]} không đọc được (thiếu file / hỏng / không phải ảnh) — tải ảnh khác bằng tools img")
+        elif fl.split("/")[-1].startswith("c_") and _has_face(fl):
+            add("error", f"ảnh {fl.split('/')[-1]}: khung cắt từ clip có mặt người nói — minh hoạ phải là cận cảnh VẬT; đoạn người đang cầm/"
+                         "trình diễn vật thì giữ hình gốc + callout, không đưa vào MG")
     for i, (t, fl, where) in enumerate(photos):
         prev = next((p for p in reversed(photos[:i]) if p[1] == fl and t - p[0] < 30 * fps), None)
         if prev:
@@ -320,19 +335,43 @@ def text_rules(pl, words, fps: int) -> list[tuple[str, str]]:
     return out
 
 
+def _has_face(path: str) -> bool:
+    """ảnh có mặt người rõ (≥ 3% bề ngang) — dò bằng MediaPipe."""
+    try:
+        import cv2
+        import mediapipe as mp
+        from . import imgio
+        im = imgio.imread(path)
+        with mp.solutions.face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.6) as fd:
+            det = fd.process(cv2.cvtColor(im, cv2.COLOR_BGR2RGB)).detections or []
+        return any(d.location_data.relative_bounding_box.width > 0.03 for d in det)
+    except Exception:
+        return False
+
+
 def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
     """đoạn đang NÓI mà không nhìn máy ≥1s phải được MG / ảnh phủ kín.
     Có cúi nhìn điện thoại/kịch bản (down) → lỗi; chỉ quay đi (giới thiệu không gian) → cảnh báo để tự xem."""
     if not gaze_file.exists():
         return [("warn", "chưa dò hướng nhìn (work/gaze.json) — chạy python -m thagent.gaze <id>")]
-    gaze = json.loads(gaze_file.read_text())
+    from .clips import load_gaze
+    gaze = load_gaze(gaze_file)
     from . import mg as M, neon
     M.chain(pl.mg)
     covers = [M.covered_range(m) for m in pl.mg] + [(v.start, v.end) for v in pl.visuals
                                                         if getattr(v, "enabled", True) and getattr(v, "fullscreen", True)]
     talk = [(w.source_start, w.source_end) for w in words or []]
     runs = []   # [đầu, cuối, số mẫu cúi]
+    demo = []    # [đầu, cuối] đoạn trình diễn vật (timeline)
     for g in gaze:
+        if g.get("demo"):
+            f = T.src_to_tl(pl, g["t"])
+            if f is not None:
+                if demo and f - demo[-1][1] <= fps:
+                    demo[-1][1] = f + fps // 2
+                else:
+                    demo.append([f, f + fps // 2])
+            continue
         if g.get("cam") or not g.get("face") or not any(a - 0.3 <= g["t"] <= b + 0.3 for a, b in talk):
             continue
         f = T.src_to_tl(pl, g["t"])
@@ -356,6 +395,16 @@ def gaze_rules(pl, words, gaze_file, fps: int) -> list[tuple[str, str]]:
                 if f is not None and a <= f < b and g.get("down") and not any(x <= f < y for x, y in covers):
                     out.append(("error", f"{m['id']}: chuyển cảnh {name} @ {T.tc(f)} lộ cảnh cúi nhìn điện thoại — dời mốc MG"))
                     break
+    for a, b in demo:            # đang trình diễn vật (cúi xem sách, cầm sản phẩm) → giữ hình, không che MG
+        if b - a < int(1.5 * fps):
+            continue
+        for m in pl.mg:
+            ov = min(b, m["end"]) - max(a, m["start"])
+            if ov > fps:
+                out.append(("error", f"{m['id']}: MG che {ov / fps:.1f}s đoạn đang TRÌNH DIỄN vật {T.tc(a)}→{T.tc(b)} (tay cầm vật trong "
+                                     "khung) — giữ hình nhân vật, dùng chữ nổi bật / callout (pointer, arrow_label…); không phải trình "
+                                     "diễn (đọc kịch bản/điện thoại) → ghi work/gaze_override.json kind \"away\""))
+                break
     h, e = open_close(pl, words, fps)
     for a, b, nd in runs:
         if b - a < fps:
@@ -411,7 +460,9 @@ def open_close_rules(pl, words, fps: int) -> list[tuple[str, str]]:
                                  f"cho MG kết thúc trước {T.tc(e)}"))
     spans = [(g.start, g.end) for g in pl.text_groups if g.enabled] + \
             [(int(it["start"]), int(it["end"])) for it in (getattr(pl, "hf", None) or [])        # chữ dựng bằng HyperFrames cũng tính
-             if any(L.get("type") == "text" for L in (it.get("spec") or {}).get("layers", []))]
+             if any(L.get("type") == "text" for L in (it.get("spec") or {}).get("layers", []))] + \
+            [(int(co["start"]), int(co["end"])) for co in (getattr(pl, "callouts", None) or [])       # callout chữ cũng tính
+             if co.get("enabled", True) and not co.get("image") and not co.get("images")]
     if not any(a <= fps and b > a for a, b in spans):
         out.append(("error", f"đoạn mở đầu chưa có chữ hook trong 1s đầu — thêm tiêu đề/con số hook trên hình nhân vật (tới {T.tc(h)})"))
     if not any(b > e and a < pl.duration_frames for a, b in spans):
@@ -436,6 +487,14 @@ def entity_rules(pl, words, pdir, fps: int) -> list[tuple[str, str]]:
                     ims.append({"file": Path(it["file"]).name, "label": it.get("label", ""), "real": Path(it["file"]).name.startswith(("w_", "c_"))})
             txt = " · ".join(str(e.get("text", "")) for e in M.layout_scene(sc)["elements"] if e["type"] in ("big", "words", "tag") and e.get("text"))
             scenes.append({"id": f"{seg['id']}/cảnh {k + 1}", "t0": sc["start"] / fps, "t1": sc["end"] / fps, "images": ims, "text": txt})
+    for co in getattr(pl, "callouts", None) or []:               # callout kẹp ảnh: cùng luật đúng vật như cảnh MG
+        if not co.get("enabled", True):
+            continue
+        fs = [co.get(k) for k in ("image", "a_image", "b_image") if co.get(k)] + list(co.get("images") or [])
+        if fs:
+            ims = [{"file": Path(f).name, "label": "", "real": Path(f).name.startswith(("w_", "c_"))} for f in fs]
+            txt = " · ".join(str(co.get(k)) for k in ("text", "lead", "label", "title", "script", "a_label", "b_label") if co.get(k))
+            scenes.append({"id": f"callout {co.get('id')}", "t0": co["start"] / fps, "t1": co["end"] / fps, "images": ims, "text": txt})
     return E.check(pdir, ws, scenes, lambda im: im["real"])
 
 

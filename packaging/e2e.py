@@ -311,6 +311,47 @@ def _entities():
     return f"{len(errs)} lỗi đúng chỗ"
 
 
+@case("th", "callout Talking Head: dựng đủ mẫu, tự đặt trong khung an toàn + tránh mặt, preflight bắt chạm mặt / chữ nổi bật thưa")
+def _callouts():
+    from types import SimpleNamespace as NS
+    from PIL import Image
+    from thagent import callouts as CO
+    img = WORK / "co_i_demo.jpg"
+    Image.new("RGB", (400, 300), (90, 120, 160)).save(img)
+    anc = [{"head_top": 0.2, "face_cx": 0.5, "face_cy": 0.3, "face_h": 0.14, "face_bottom": 0.4}] * 400
+    W, H = 1080, 1920
+    args = {"icon_keyword": dict(icon="clock", text="5 GIỜ", sub="mỗi tuần"), "two_tier": dict(lead="quan trọng", text="DÒNG TIỀN"),
+            "step": dict(step="1/3", text="KHẢO SÁT"), "quote": dict(lead="Đừng", text="ĐÁM ĐÔNG"), "warning": dict(text="CẨN THẬN"),
+            "trio": dict(items=[{"text": "A"}, {"text": "B"}, {"text": "C"}], at=[0, 20, 40]), "checklist": dict(items=[{"text": "Một"}, {"text": "Hai"}]),
+            "before_after": dict(a="5 TỶ", b="3 TỶ"), "stat_pair": dict(items=[{"value": "+40%", "label": "giá"}, {"value": "-25%", "label": "mua"}]),
+            "big_number": dict(text="70%"), "card": dict(icon="bulb", text="Mẹo"), "dos_donts": dict(bad="Sai", good="Đúng"),
+            "circle_word": dict(text="PHÁP LÝ"), "icon_badge": dict(icon="shield-check", label="AN TOÀN"),
+            "pointer": dict(target=[0.25, 0.7], label="Micro"), "arrow_label": dict(target=[0.75, 0.7], label="Đây"),
+            "photo_card": dict(image=str(img), text="CĂN HỘ"), "photo_circle": dict(image=str(img), label="Phòng"),
+            "polaroid": dict(image=str(img), text="NHÀ"), "photo_split": dict(image=str(img), text="CAO CẤP"),
+            "photo_strip": dict(images=[str(img)] * 3, title="3 BƯỚC"), "photo_compare": dict(a_image=str(img), b_image=str(img)),
+            "photo_behind": dict(image=str(img), label="Dự án", layer="behind"), "thought": dict(image=str(img), text="ước gì"),
+            "phone": dict(image=str(img), label="Đặt lịch")}
+    assert set(args) == CO.KINDS, f"thiếu mẫu trong bài kiểm: {CO.KINDS - set(args)}"
+    for i, (k, a) in enumerate(args.items()):
+        co = dict(id=f"c{i}", kind=k, start=0, end=90, tone="gold", **a)
+        L = CO.layout(co, anc, W, H)
+        assert L["ok"], f"{k}: {L.get('why')}"
+        r = (L["x"], L["y"], L["x"] + L["w"], L["y"] + L["h"])
+        assert CO._inside(r, W, H), f"{k} ra ngoài khung an toàn {r}"
+        assert L.get("layer") == "behind" or not CO._hit(r, L["face"]), f"{k} đè mặt {r} / {L['face']}"
+        buf = CO.blank(H, W)
+        CO.draw(buf, co, L, 45)
+        assert buf[..., 3].max() > 0.5, f"{k} không vẽ ra gì"
+    big = NS(callouts=[dict(id="x", kind="icon_keyword", start=0, end=90, text="CHỮ RẤT RẤT RẤT DÀI KHÔNG CÒN CHỖ NÀO " * 4)])
+    errs = [m for sev, m in CO.check(big, [{"head_top": 0.1, "face_cx": 0.5, "face_cy": 0.4, "face_h": 0.45, "face_bottom": 0.8}] * 100,
+                                     W, H, 30) if sev == "error"]
+    assert errs, "chữ không còn chỗ (mặt chiếm khung) mà preflight không báo lỗi"
+    thin = NS(text_groups=[], mg=[], fx=[], duration_frames=600, callouts=[dict(id="y", kind="big_number", text="7", start=0, end=60)])
+    assert CO.density(thin, 30), "khoảng 18s không có chữ nổi bật mà không báo lỗi"
+    return f"{len(args)} mẫu"
+
+
 @case("voice", "giọng đọc: tải model ghim phiên bản → giọng có sẵn đọc Việt + Anh → nhân bản giọng từ video (bắt buộc xác nhận quyền) → đọc bằng giọng nhân bản")
 def _voice():
     import soundfile as sf
@@ -725,6 +766,11 @@ def _th():
             for k in [k for k, v in L.items() if v is None]:
                 L.pop(k)
         c.save()
+    from thagent import callouts as CO                       # chữ nổi bật ~4s/lần: lấp khoảng thưa bằng callout chữ + icon
+    pl.callouts = [dict(id=f"co{i}", kind=k, start=f0, end=min(f0 + 75, pl.duration_frames), tone="gold", icon="star", text="Ý CHÍNH",
+                        a="A", b="B") for i, (f0, k) in enumerate((f, ("icon_keyword", "before_after")[j % 2])
+                                                                   for j, f in enumerate(range(45, pl.duration_frames - 50, 110)))]
+    c.save()
     errs = [m for lv, m in check(pid) if lv == "error"]
     assert not errs, "preflight lỗi: " + "; ".join(errs)
     c.project.style["formats"] = ["9x16", "16x9"]          # dựng cả dọc lẫn ngang trong một lượt
