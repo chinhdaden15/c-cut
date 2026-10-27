@@ -105,7 +105,10 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
         if caps:
             cl = np.zeros((H, W, 4), np.float32)
             busy = (any(g.enabled and g.start <= f < g.end for g in pl.text_groups) or any(x["start"] <= f < x["end"] for x in cos)) and not full2
-            CAP.draw(cl, caps, f, atl, busy, low=full2)
+            MG.chain(pl.mg)
+            busy = busy or any(x <= f < y for x, y in [(int(m["start"]), int(m["end"])) for m in pl.mg2 if m.get("enabled", True)]
+                               + [MG.covered_range(m) for m in pl.mg])         # đoạn MG: không phụ đề
+            CAP.draw(cl, caps, f, atl, busy)
             o = o * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = R.flash_at(pl, f)
         if fl > 0:

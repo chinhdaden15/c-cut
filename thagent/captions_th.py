@@ -2,7 +2,7 @@
 
 - Mỗi lần hiện 1 từ / 1 cụm ngắn đúng lúc nói (tiếng Việt ghép từ 2–3 âm tiết liền nhau: "đơn điệu", "chuyên nghiệp",
   "hiệu ứng động"); không hiện cả câu.
-- Vị trí: ngay DƯỚI CẰM, giữa khung (dải cổ) — gần mặt, dễ xem; cảnh MG che kín vẫn chạy ở cùng chỗ.
+- Vị trí: ngay DƯỚI CẰM, giữa khung (dải cổ) — gần mặt, dễ xem. Trong các đoạn MG: KHÔNG phụ đề.
 - Có chữ nhấn / callout đang hiện ở dải cổ → phụ đề tạm ẩn (không chồng chữ).
 - Chữ trắng, nét vừa (SemiBold), không nền, bóng mờ nhẹ.
 - Tắt: plan.captions = False.

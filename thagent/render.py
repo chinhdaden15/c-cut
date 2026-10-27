@@ -391,6 +391,7 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
     colay = CO.layout_all(plan, anchors_tl, W, H)
     from . import mg2 as MG2
     mg2cov = MG2.covers(plan)
+    mgspans = [(int(m["start"]), int(m["end"])) for m in plan.mg2 if m.get("enabled", True)] + [MG.covered_range(m) for m in plan.mg]
     a0, a1 = frame_range or (0, plan.duration_frames)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
                             "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "17",
@@ -456,7 +457,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             from . import captions_th as CAP
             cl = np.zeros((H, W, 4), np.float32)
             busy = (bool(active) or any(c["start"] <= f < c["end"] for c in cos)) and not full2   # chữ nhấn / callout đang hiện → ẩn phụ đề
-            CAP.draw(cl, caps, f, anchors_tl, busy, low=full2)
+            busy = busy or any(x <= f < y for x, y in mgspans)   # đoạn MG: không phụ đề
+            CAP.draw(cl, caps, f, anchors_tl, busy)
             if cl[..., 3].any():
                 out = out * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = flash_at(plan, f)
