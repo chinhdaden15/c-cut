@@ -45,11 +45,11 @@ def _group_vi(tl, fps) -> list[list]:
     return groups
 
 
-MIN_S = 0.3                         # cụm hiện < 0.3s (chưa kịp đọc) → ghép với cụm sau
-MERGE_MAX = 18                      # ký tự tối đa của cụm sau khi ghép (gọn một dòng)
+MIN_S = 0.6                         # cụm hiện < 0.6s (chưa kịp đọc) → ghép thêm cụm sau
+MERGE_MAX = {"v": 24, "h": 28}     # ký tự tối đa của cụm sau khi ghép (một dòng)
 
 
-def _merge_short(groups, fps) -> list[list]:
+def _merge_short(groups, fps, mx: int = 24) -> list[list]:
     """cụm quá ngắn ghép với cụm kế tiếp (không qua dấu kết câu / chỗ ngừng dài); cụm cuối câu ngắn ghép ngược vào cụm trước."""
     txt = lambda g: " ".join(x[2] for x in g)
     out, i = [], 0
@@ -59,7 +59,7 @@ def _merge_short(groups, fps) -> list[list]:
             nxt = groups[i + 1]
             shown = nxt[0][0] - g[0][0]
             ends = g[-1][2][-1:] in ".!?…" or nxt[0][0] - g[-1][1] > fps * 0.5
-            if shown >= MIN_S * fps or ends or len(txt(g)) + 1 + len(txt(nxt)) > MERGE_MAX:
+            if shown >= MIN_S * fps or ends or len(txt(g)) + 1 + len(txt(nxt)) > mx:
                 break
             g += nxt
             i += 1
@@ -67,8 +67,8 @@ def _merge_short(groups, fps) -> list[list]:
         i += 1
     for k in range(len(out) - 1, 0, -1):            # cụm cuối câu vẫn quá ngắn → ghép ngược vào cụm trước nếu vừa
         g, p = out[k], out[k - 1]
-        if g[-1][1] - g[0][0] < MIN_S * fps * 0.6 and len(txt(p)) + 1 + len(txt(g)) <= MERGE_MAX \
-                and p[-1][2][-1:] not in ".!?…" and g[0][0] - p[-1][1] <= fps * 0.3:
+        nxt0 = out[k + 1][0][0] if k + 1 < len(out) else g[-1][1] + fps
+        if nxt0 - g[0][0] < MIN_S * fps and len(txt(p)) + 1 + len(txt(g)) <= mx + 6 and g[0][0] - p[-1][1] <= fps * 0.5:
             out[k - 1] = p + g
             del out[k]
     return out
@@ -89,14 +89,14 @@ def chunks(plan, words) -> list[tuple[int, int, str]]:
     from . import fonts as FT
     vi = FT.current() == "vi"                       # ghép âm tiết thành từ chỉ với tiếng Việt; ngôn ngữ khác: từng từ
     groups = _group_vi(tl, plan.fps) if vi else [[x] for x in tl]
-    groups = _merge_short(groups, plan.fps)
+    groups = _merge_short(groups, plan.fps, MERGE_MAX["v" if plan.height > plan.width else "h"])
     out = []
     for i, g in enumerate(groups):
         a = g[0][0]
         nxt = groups[i + 1][0][0] if i + 1 < len(groups) else plan.duration_frames
-        b = min(nxt, g[-1][1] + int(plan.fps * 0.35))
+        b = min(nxt, max(g[-1][1] + int(plan.fps * 0.35), a + int(plan.fps * MIN_S)))   # giữ đủ để đọc nếu phía sau còn trống
         t = re.sub(r"(\d) ([.,]?\d)", r"\1\2", " ".join(x[2] for x in g))      # số bị chép lời tách: "5 ,500" → "5,500"
-        t = re.sub(r"(\d) ([.,]\d)", r"\1\2", t)
+        t = re.sub(r"(\d) ([.,\-–]\d)", r"\1\2", t)
         out.append((a, max(b, a + 5), re.sub(r"[.,;:!?…]+$", "", t)))
     return out
 
