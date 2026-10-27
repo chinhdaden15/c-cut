@@ -34,7 +34,7 @@ select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 2px var(--acc
 select:disabled{opacity:.55;cursor:default}
 select option{background:var(--panel2);color:var(--fg)}
 input:focus{outline:none;border-color:var(--acc)}
-.muted{color:var(--fg2)}.dim{color:var(--fg3)}
+.muted{color:var(--fg2)}.qpager{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:8px;font-size:13px;color:var(--fg2)}.qpager button{min-width:34px;padding:4px 10px}.dim{color:var(--fg3)}
 .small{font-size:13px}
 /* thanh trên */
 header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:10px 16px;border-bottom:0.5px solid var(--line)}
@@ -207,7 +207,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <div class="row" style="gap:6px;margin-top:6px"><select id="tvVoice" style="flex:1"></select><button class="small" id="tvPlay" title="Nghe thử giọng">▶</button><button class="small" id="tvClone">Nhân bản giọng</button></div>
         <button class="primary" id="tvAdd" style="margin-top:8px;width:100%">Thêm vào hàng chờ</button>
       </div>
-      <div id="queue" style="margin-top:8px"></div>
+      <div id="queue" style="margin-top:8px"></div><div id="qpager" class="qpager" hidden></div>
     </div>
     <div class="card">
       <h3><span class="step">2</span>Style</h3>
@@ -216,10 +216,6 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <div class="menu"><input id="stylesearch" placeholder="Tìm style…"><div id="styleopts"></div>
           <div class="opt add" id="addstyle">+ Thêm style (.zip)</div></div>
       </div>
-    </div>
-    <div class="card" id="thCard" hidden>
-      <h3>Talking Head</h3>
-      <div class="field"><label>Khổ xuất</label><div class="muted">Tự theo clip gốc — quay ngang xuất 16:9, quay dọc xuất 9:16</div></div>
     </div>
     <div class="card" id="reviewCard" hidden>
       <h3>Review</h3>
@@ -239,7 +235,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
       <h3><span class="step">3</span>Nơi xuất</h3>
       <div class="small muted" id="outdir" style="word-break:break-all">—</div>
       <button class="link small" id="pickOut" style="margin-top:4px">Đổi</button>
-      <div class="small dim" style="margin-top:4px">1080×1920 · 30fps · MP4</div>
+      <div class="small dim" style="margin-top:4px">Khổ theo clip gốc · 30fps · MP4</div>
     </div>
     <button class="primary" id="startBtn">Bắt đầu dựng</button>
     <button id="pauseBtn" hidden>Tạm dừng</button>
@@ -450,16 +446,22 @@ function chSel(x,i){
   const o=[['',auto],...CHS.map(c=>[c.id,'Kênh: '+c.name]),['none','Không kênh (nền xanh)']];
   return `<select class="ch" data-i="${i}" title="Nền Motion Graphics theo kênh"${x.status==='running'?' disabled':''}>${o.map(([v,l])=>`<option value="${v}"${(x.channel||'')===v?' selected':''}>${esc(l)}</option>`).join('')}</select>`}
 var focusProj=null;
+let qPage=-1;
 function renderQueue(){
   if(document.activeElement&&document.activeElement.matches('.q select.ch'))return;   // đang mở ô chọn kênh → không vẽ lại kẻo đóng mất
-  const q=S.queue;
-  $('#queue').innerHTML=q.length?q.map((x,i)=>{
+  const q=S.queue,PER=5,pages=Math.max(1,Math.ceil(q.length/PER));
+  if(qPage<0){const r=q.findIndex(x=>x.status==='running');qPage=r>=0?Math.floor(r/PER):0}   // lần đầu: mở trang có clip đang dựng
+  qPage=Math.min(qPage,pages-1);
+  const pg=$('#qpager');pg.hidden=pages<2;
+  if(pages>1){pg.innerHTML=`<button id="qPrev" ${qPage?'':'disabled'}>‹</button><span>Trang ${qPage+1}/${pages} · ${q.length} clip</span><button id="qNext" ${qPage<pages-1?'':'disabled'}>›</button>`;
+    $('#qPrev').onclick=()=>{qPage--;renderQueue()};$('#qNext').onclick=()=>{qPage++;renderQueue()}}
+  $('#queue').innerHTML=q.length?q.map((x,i)=>(i<qPage*PER||i>=(qPage+1)*PER)?'':(()=>{
     const ic={wait:'⏱',running:'⟳',done:'✓',failed:'!',cancelled:'–',waiting_claude:'…',claude:'✦'}[x.status]||'';
     const licErr=x.status==='failed'&&String(x.error||'').startsWith('BẢN QUYỀN');
     const lab=licErr?'cần mua skill — bấm 🔑':{wait:'chờ',running:'đang dựng',done:'xong',failed:'lỗi',cancelled:'đã dừng',waiting_claude:'chờ Claude',claude:'Claude đang lập kế hoạch'}[x.status];
     if(licErr&&!licPrompted[x.name+x.error]){licPrompted[x.name+x.error]=1;toast(x.error.replace('BẢN QUYỀN: ',''));openLic(x.kind==='review'?'review-editor':S.settings.style)}
-    return `<div class="q st-${x.status}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}${chSel(x,i)}</div>`}).join(''):'';
-  document.querySelectorAll('.q').forEach((el,i)=>{const x=S.queue[i];if(x&&x.project){el.style.cursor='pointer';el.classList.toggle('foc',x.project===(S.project&&S.project.id));
+    return `<div class="q st-${x.status}" data-qi="${i}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}${chSel(x,i)}</div>`})()).join(''):'';
+  document.querySelectorAll('.q').forEach(el=>{const x=S.queue[+el.dataset.qi];if(x&&x.project){el.style.cursor='pointer';el.classList.toggle('foc',x.project===(S.project&&S.project.id));
     el.onclick=e=>{if(e.target.closest('button,select'))return;focusProj=x.project;chatN=-1;refresh()}}});
   document.querySelectorAll('.q .sc').forEach(b=>b.onclick=()=>openScript(+b.dataset.i));
   document.querySelectorAll('.q select.ch').forEach(b=>b.onchange=async()=>{b.blur();await api(`/api/ccut/queue/${b.dataset.i}/channel`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel:b.value})});toast(b.value?'Đã chọn kênh — xuất lần sau dùng nền kênh này':'Claude sẽ tự nhận kênh');refresh()});
@@ -489,7 +491,7 @@ $('#tvAdd').onclick=async()=>{const voice=$('#tvVoice').value,t=$('#tvText').val
   const b=tvMode==='request'?{request:t,seconds:Number($('#tvSec').value)||60,voice,formats}:{text:tvPath?null:t,path:tvPath,voice,formats};
   if(!(b.request||b.text||b.path)){toast(tvMode==='request'?'Nhập ý tưởng video':'Dán kịch bản hoặc chọn file');return}
   try{const r=await post('/api/ccut/t2v/add',b);toast('Đã thêm '+r.added.length+' video');$('#tvText').value='';tvPath=null;$('#tvFileName').textContent='';refresh()}catch(e){toast(e.message)}};
-function renderTH(){const on=S.settings.style==='talking-head-style';$('#thCard').hidden=!on}
+function renderTH(){}
 function renderReview(){
   const on=S.settings.style==='review-editor';$('#reviewCard').hidden=!on;if(!on)return;
   const r=S.settings.review||{};if(document.activeElement&&$('#reviewCard').contains(document.activeElement))return;

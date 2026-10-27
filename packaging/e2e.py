@@ -403,6 +403,9 @@ def _frame_mg2():
     Pp.step_ingest(c, str(src))
     w, h = probe(c.project.proxy)["w"], probe(c.project.proxy)["h"]
     assert (w, h) == (1920, 1080) and c.project.style.get("frame") == [1920, 1080], f"proxy {w}x{h} — clip ngang phải dựng khung ngang"
+    from thagent.schema import Plan                     # design.py tạo Plan() mặc định dọc → nạp/lưu phải tự theo khung dự án (lỗi 2.1.0: video sọc)
+    c.project.plan = Plan(); c.save()
+    assert (Pp.Ctx(pid).project.plan.width, Pp.Ctx(pid).project.plan.height) == (1920, 1080), "kế hoạch không theo khung ngang"
     kinds = {"chart": dict(value_from=5, value_to=64, label="tăng", title="Doanh thu", icon="3d:chart", bg="charcoal"),
              "chips": dict(items=[{"icon": "3d:f-fire", "text": "Sưởi ấm"}, {"icon": "3d:f-snowflake", "text": "Làm mát"}])}
     pl = NS(mg2=[], mg=[], duration_frames=900, width=1080, height=1920, fps=30)

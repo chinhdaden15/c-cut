@@ -34,8 +34,17 @@ class Ctx:
         self.cancel = cancel or (lambda: False)
         p = self.dir / "project.json"
         self.project = Project.model_validate_json(p.read_text(encoding="utf-8")) if p.exists() else Project(id=pid, name=pid)
+        self.fit_frame()
+
+    def fit_frame(self):
+        """kế hoạch luôn theo khung dự án (design.py tạo Plan() mới mặc định dọc → clip ngang bị đọc sai thành sọc)."""
+        f = self.project.style.get("frame")
+        pl = self.project.plan
+        if f and pl is not None and (pl.width, pl.height) != (int(f[0]), int(f[1])):
+            pl.width, pl.height = int(f[0]), int(f[1])
 
     def save(self):
+        self.fit_frame()
         self.dir.mkdir(parents=True, exist_ok=True)
         tmp = self.dir / "project.json.tmp"
         tmp.write_text(self.project.model_dump_json(indent=1), encoding="utf-8")

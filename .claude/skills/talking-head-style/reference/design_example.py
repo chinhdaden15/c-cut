@@ -14,6 +14,8 @@ c = P.Ctx("bta")
 dur = c.project.source.duration
 pl = c.project.plan or Plan()
 c.project.plan = pl
+c.fit_frame()          # kế hoạch theo khung clip gốc (ngang 1920×1080 / dọc 1080×1920)
+c.project.plan = pl
 jump_zoom = []
 if c.project.style.get("voice_preprocessed"):   # nguồn đã cắt thô sẵn → giữ nguyên 1 đoạn
     pl.segments = [E(id="s00", source_in=0.0, source_out=round(dur - 0.02, 3), reason="nguồn đã cắt thô sẵn", order=0)]
