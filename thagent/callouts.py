@@ -850,7 +850,7 @@ def check(plan, anchors_tl: list[dict], W: int, H: int, fps: int, open_close: tu
                                      "dời callout ra ngoài cảnh MG hoặc bỏ"))
                 break
     for c in cos:                                          # callout và chữ nhấn cùng lúc → đè nhau ở dải cổ
-        for g in plan.text_groups:
+        for g in getattr(plan, "text_groups", None) or []:
             if g.enabled and g.zone == "chest" and min(int(c["end"]), g.end) - max(int(c["start"]), g.start) > 6:
                 out.append(("error", f"callout {c.get('id')} {Tm.tc(int(c['start']))} hiện cùng lúc chữ nhấn {g.id} ({Tm.tc(g.start)}–{Tm.tc(g.end)}) "
                                      "— chồng chữ; dời callout sang lúc không có chữ nhấn hoặc bỏ một bên"))
