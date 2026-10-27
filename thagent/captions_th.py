@@ -4,7 +4,7 @@
   "hiệu ứng động"); không hiện cả câu.
 - Vị trí: ngay DƯỚI CẰM, giữa khung (dải cổ) — gần mặt, dễ xem. Trong các đoạn MG: KHÔNG phụ đề.
 - Có chữ nhấn / callout đang hiện ở dải cổ → phụ đề tạm ẩn (không chồng chữ).
-- Chữ trắng, nét vừa (SemiBold), không nền, bóng mờ nhẹ.
+- Chữ trắng, nét vừa (SemiBold), không nền, bóng mờ nhẹ; hiện CẮT THẲNG (không mờ / phóng), đổi từ đúng lúc nói.
 - Tắt: plan.captions = False.
 """
 from __future__ import annotations
@@ -108,6 +108,6 @@ def draw(buf: np.ndarray, caps, f: int, anchors_tl=None, busy: bool = False, low
                 y = H - (SAFE_V if H > W else SAFE_H)["bottom"] - spr.shape[0] + 24
             else:
                 y = neck_y(anchors_tl or [], a, b, H)
-            k = min(1.0, (f - a + 1) / 2, (b - f) / 2)
+            k = 1.0                                         # cắt thẳng như mẫu: không mờ / phóng — nhịp đổi từ đúng lời tạo độ cuốn
             over(buf, spr * k, (W - spr.shape[1]) // 2, int(y - 24))
             return
