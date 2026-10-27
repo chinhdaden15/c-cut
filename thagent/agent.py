@@ -90,6 +90,7 @@ GHÉP NHIỀU ĐOẠN (chỉ khi app yêu cầu viết edl.json — dự án g�
 2b. Vật nhân vật chỉ tay/giới thiệu: đọc {pdir}/work/pointing.json (t0,t1,box,said), xem ảnh tĩnh để chỉnh box cho trúng vật, rồi thêm
    VideoFxEvent(type="highlight", params={{"box":[x,y,w,h] (0–1, khung gốc), "label":"TÊN VẬT", "tone":"gold", "shape":"rect|ring"}}) — viền sáng + làm tối xung quanh.
    Số bị ASR nghe nhầm thành chữ (“Chín”→“Chính”, “Ba”→“Bà”) app đã tự sửa qua fix_numbers và đánh dấu cần xác nhận; số liệu phải là chữ chính cả cụm (9 MÁY LẠNH, 3 VIÊN/NGÀY, 200 GRAM).
+2b'. PHỤ ĐỀ TOÀN BỘ lời nói: app TỰ thêm (từng từ / cụm, ngay dưới cằm, tự ẩn khi có chữ nhấn / callout, KHÔNG hiện trong các đoạn MG) — KHÔNG tự làm phụ đề (kể cả lớp HyperFrames). Tắt chỉ khi người dùng dặn: plan.captions = False.
    VỊ TRÍ CHỮ NHẤN: dải CỔ → NGANG NÁCH (ngay dưới cằm, trên ngực trên) — zone "chest" app tự đặt đúng dải này; không đẩy chữ xuống bụng.
 2c0. LUẬT CUỐN HÚT (app kiểm — LỖI chặn xuất): MỌI đoạn nói đều phải có thứ gì đó trên hình (không trống > 1.5s); cứ ~5s có một thứ MỚI xuất hiện
    (chữ nhấn, callout, hiệu ứng sân khấu, cảnh MG, từng mục trong MG); plan.stage ≥ 1 mỗi 15s nói; plan.callouts ≥ 1 mỗi 10s nói;
