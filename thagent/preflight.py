@@ -96,7 +96,7 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     trimmed = trim_tail_gaze(c)
     pl = c.project.plan
     T.build_mapping(pl)
-    R.use_frame(pl.width, pl.height)
+    R.use_frame(pl.width, pl.height, bool(pl.captions and c.project.words))
     fps, out = pl.fps, []
     add = lambda sev, msg: out.append((sev, msg))
     if trimmed:

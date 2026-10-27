@@ -285,7 +285,7 @@ def _t_compare(sc, V, tone):
         left = f"calc(50% + {(-cw - gap/2) if i == 0 else gap/2}px*var(--s))"
         out += f"""<div class="card k{i}" style="left:{left};top:calc(50% - {ch/2}px*var(--s));width:{_px(cw)};height:{_px(ch)};text-align:center">
 <div style="margin-top:{_px(60)};display:inline-block;padding:{_px(10)} {_px(30)};border-radius:999px;font-weight:900;font-size:{_px(40)};background:{bgc}">{E(it.get('label', 'TRƯỚC' if i == 0 else 'SAU'))}</div>
-<div class="t1 {col}" style="margin-top:{_px(70)};font-size:{_px(fit(it.get('value'), 104, 7))};white-space:nowrap">{E(it.get('value'))}</div><div class=sub style="margin-top:{_px(30)};font-size:{_px(40)}">{E(it.get('sub', ''))}</div></div>"""
+<div class="t1 {col}" style="margin-top:{_px(70)};font-size:{_px(fit(it.get('value'), 104, 5 if V else 7))};white-space:nowrap">{E(it.get('value'))}</div><div class=sub style="margin-top:{_px(30)};font-size:{_px(40)}">{E(it.get('sub', ''))}</div></div>"""
     out += f"""<div class=ar style="position:absolute;left:calc(50% - 50px*var(--s));top:calc(50% - 50px*var(--s));width:{_px(100)};height:{_px(100)};border-radius:50%;background:#FFB000;color:#000;
 font-weight:900;font-size:{_px(64)};display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(255,176,0,.6)">→</div>"""
     js = """tl.from(q('.k0'),{x:-200,opacity:0,duration:.5,ease:'back.out(1.5)'},.05).from(q('.ar'),{scale:0,duration:.4,ease:'back.out(2.5)'},.45)

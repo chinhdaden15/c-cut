@@ -31,7 +31,9 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
     c = P.Ctx(pid)
     pl = c.project.plan
     W, H = pl.width, pl.height                       # khung dựng thật (ngang / dọc theo clip gốc)
-    R.use_frame(W, H)
+    from . import captions_th as CAP
+    caps = CAP.chunks(pl, c.project.words) if pl.captions else None
+    R.use_frame(W, H, bool(caps))
     T.build_mapping(pl)
     from .channels import theme
     theme(pl.mg, c.dir)
@@ -100,6 +102,11 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
         o = o * (1 - fr[..., 3:4]) + fr[..., :3]
         MG.chain(pl.mg)
         o = R.overlay_mg(o, pl, f)
+        if caps:
+            cl = np.zeros((H, W, 4), np.float32)
+            busy = (any(g.enabled and g.start <= f < g.end for g in pl.text_groups) or any(x["start"] <= f < x["end"] for x in cos)) and not full2
+            CAP.draw(cl, caps, f, atl, busy, low=full2)
+            o = o * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = R.flash_at(pl, f)
         if fl > 0:
             o = o + (1 - o) * fl

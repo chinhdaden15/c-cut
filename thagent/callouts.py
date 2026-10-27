@@ -41,9 +41,9 @@ SAFE_V = dict(SAFE)
 SAFE_H = {"top": 70, "bottom": 120, "side": 120}          # khổ ngang 1920×1080: chừa lề trên / dưới (thanh UI) + hai bên
 
 
-def use_frame(W: int, H: int):
-    """đặt khung an toàn theo hướng khung đang dựng (dùng chung: chữ, callout, sân khấu, thẻ)."""
-    SAFE.update(SAFE_H if W > H else SAFE_V)
+def use_frame(W: int, H: int, captions: bool = False):
+    """đặt khung an toàn theo hướng khung đang dựng (dùng chung: chữ, callout, sân khấu, thẻ); có phụ đề → chừa dải phụ đề dưới cùng."""
+    SAFE.update(SAFE_H if W > H else SAFE_V)        # phụ đề kiểu từng từ nằm ở dải cổ → không chừa dải đáy
 FACE_PAD = 0.05            # nới khung mặt mỗi phía (tỉ lệ khung) — chữ/ảnh không được chạm vùng này
 ENTER, EXIT = 8, 6
 

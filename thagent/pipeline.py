@@ -252,10 +252,12 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
         from . import mg2 as MG2
         c.log(f"Motion Graphics: {len(plan.mg2)} cảnh (HyperFrames, render 1 lần, lưu đệm)")
         hf_items += MG2.prerender(plan, c.path("work", "x").parent, R.timeline_anchors(plan, anchors), c.log)
+    from . import captions_th as CAP
     c.log(f"Compositing frame {fr[0]}–{fr[1]}")
     layout = R.composite(plan, rc, anchors, str(vdir / "video_noaudio.mp4"), fr, progress=c.log,
                          snapshots=snaps, snap_dir=vdir, cancel=c.cancel, hf_items=hf_items,
-                         wide_out=str(vdir / "video_wide_noaudio.mp4") if wide else None)
+                         wide_out=str(vdir / "video_wide_noaudio.mp4") if wide else None,
+                         caps=CAP.chunks(plan, c.project.words) if plan.captions else None)
     c.log("Phối âm voice + SFX, chuẩn loudness")
     rep = R.mix_audio(plan, rc["voice"], SFX_DIR, man, str(vdir / "mix.wav"), fr)
     out = vdir / f"{c.project.id}_{label}.mp4"

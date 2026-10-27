@@ -235,12 +235,13 @@ def resolve_layout(plan: Plan, anchors_tl: list[dict], W: int, H: int) -> dict[s
             # đầu sát mép trên (quay cận) → chữ bị đầu che quá nửa → đưa cả cụm xuống trước ngực, không để mất chữ
             if g.layer == "behind_subject" and (ay + y1 - head_top) / max(gh, 1) > 0.5:
                 MOVED_DOWN.add(g.id)
-                down[g.id] = (max(zy(med("chest_y")), zy(med("face_bottom")) - y0 + 24), y0, y1)
+                down[g.id] = (zy(float(np.nanpercentile([a["face_bottom"] for a in fr], 90))) - y0 + 24, y0, y1)
                 ay = down[g.id][0]
         elif g.zone == "chest":
-            chest = zy(med("chest_y"))
-            face_bottom = zy(med("face_bottom"))
-            ay = max(chest, face_bottom - y0 + 24)
+            # dải CỔ → NGANG NÁCH (ngay dưới cằm, trên ngực trên): gần mặt, dễ xem — không đẩy xuống ngực dưới
+            face_bottom = zy(float(np.nanpercentile([a["face_bottom"] for a in fr], 90)))
+            fh = float(np.nanmedian([a["face_h"] for a in fr])) * H * z
+            ay = face_bottom - y0 + max(24, fh * 0.12)
         else:
             ay = H * 0.76
         ay = min(ay, H - SAFE["bottom"] - y1)
@@ -376,9 +377,9 @@ class Wide:
 
 def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, frame_range=None,
               progress=None, snapshots: list[int] | None = None, snap_dir: Path | None = None,
-              cancel=None, hf_items: list[dict] | None = None, wide_out: str | None = None):
+              cancel=None, hf_items: list[dict] | None = None, wide_out: str | None = None, caps=None):
     W, H, fps = plan.width, plan.height, plan.fps
-    use_frame(W, H)
+    use_frame(W, H, bool(caps))
     anchors_tl = timeline_anchors(plan, anchors_src)
     pos = resolve_layout(plan, anchors_tl, W, H)
     groups = [g for g in plan.text_groups if g.enabled]
@@ -451,6 +452,13 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         out = out * (1 - front[..., 3:4]) + front[..., :3]
         pre = out
         out = overlay_mg(out, plan, f)
+        if caps:                                       # phụ đề toàn bộ lời nói — trên cùng (cả lúc có MG)
+            from . import captions_th as CAP
+            cl = np.zeros((H, W, 4), np.float32)
+            busy = (bool(active) or any(c["start"] <= f < c["end"] for c in cos)) and not full2   # chữ nhấn / callout đang hiện → ẩn phụ đề
+            CAP.draw(cl, caps, f, anchors_tl, busy, low=full2)
+            if cl[..., 3].any():
+                out = out * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = flash_at(plan, f)
         if WD and f >= a0:
             mgm = None
