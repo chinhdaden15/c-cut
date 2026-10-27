@@ -15,4 +15,3 @@ uvicorn
 python-multipart
 pydantic>=2
 # tùy chọn: anthropic (bật planner Claude khi có ANTHROPIC_API_KEY)
-pyvi==0.1.1

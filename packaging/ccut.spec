@@ -10,8 +10,7 @@ VERSION = os.environ.get("CCUT_VERSION", "1.1")
 
 datas, binaries, hidden = [], [], []
 for pkg in ("faster_whisper", "ctranslate2", "onnxruntime", "mediapipe", "webview", "tokenizers", "av",
-            "vieneu", "vieneu_utils", "sea_g2p", "kaldi_native_fbank", "soxr", "soundfile", "arabic_reshaper",
-            "pyvi", "sklearn_crfsuite", "pycrfsuite"):     # pyvi: tách từ tiếng Việt cho phụ đề từng từ (mô hình đi kèm gói)
+            "vieneu", "vieneu_utils", "sea_g2p", "kaldi_native_fbank", "soxr", "soundfile", "arabic_reshaper"):
     d, b, h = collect_all(pkg)
     datas += d; binaries += b; hidden += h
 if sys.platform == "win32":
