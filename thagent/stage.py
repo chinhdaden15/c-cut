@@ -6,7 +6,8 @@ chỉ nằm ở mép / hai bên, tránh mặt.
 
 Kind (tham số):
   giant_text  text — chữ khổng lồ viền neon 3 dòng sau lưng, trượt ngang ngược chiều (từ khoá của đoạn) — LOÉ 1.5s
-  orbit_icons icons ["3d:<id>", …] (2–5) — icon 3D lơ lửng hai bên, cái sau lưng mờ (độ sâu), cái trước rõ
+  orbit_icons icons ["3d:<id>", …] (2–5) — icon 3D lơ lửng hai bên — CHỈ khi lời nói nhắc ĐÚNG các vật đó (icon không liên quan = xấu);
+              mặc định dùng giant_text / big_number / marquee (chữ viền sáng sau lưng)
   bokeh       — hạt sáng trôi + ánh sáng màu loang phía sau (nền cho đoạn nói dài)
   marquee     text — 2 băng chữ nghiêng chạy ngược chiều sau lưng (tên sản phẩm, slogan, CTA) — LOÉ 1.5s
   spotlight   — nền tối + đèn rọi vào người + tia tốc độ (hook, câu bẻ lái)

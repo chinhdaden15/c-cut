@@ -5,7 +5,7 @@ mọi đoạn nói đều phải có thứ gì đó trên hình, cứ ~5s có m�
 2. Nhịp 5s: khoảng giữa hai lần có thứ MỚI xuất hiện (nhóm chữ, callout, hiệu ứng sân khấu, cảnh MG, từng mục trong cảnh MG) ≤ 5s.
 3. Hiệu ứng quanh / sau lưng (plan.stage): ≥ 1 lần mỗi 15s nói (ngoài cảnh MG che kín).
 4. Callout có icon (plan.callouts, tính cả MG2 chồng cạnh người: chips / iconrow): ≥ 1 cái mỗi 10s nói (ngoài cảnh MG che kín).
-5. Liệt kê ("first / second", "thứ nhất / thứ hai", "một là / hai là"…) → phải có đồ hoạ liệt kê đúng lúc đó
+5. Liệt kê — từ liệt kê (first/second/tip/thứ nhất…) phải là CHỮ CHÍNH to; và ("first / second", "thứ nhất / thứ hai", "một là / hai là"…) → phải có đồ hoạ liệt kê đúng lúc đó
    (MG2 checklist / notif / chips / iconrow / compare hoặc callout checklist / trio / step / stat_pair / dos_donts / photo_strip).
 """
 from __future__ import annotations
@@ -49,6 +49,11 @@ def _entries(plan, fps):
     for seg in plan.mg:
         e += [int(s["start"]) for s in seg.get("scenes", [])]
     return sorted(set(e))
+
+
+def _key(t: str) -> str:
+    t = re.sub(r"[^\w ]", "", str(t).lower())
+    return {"firstly": "first", "secondly": "second", "thirdly": "third"}.get(t.strip(), t.strip())
 
 
 def check(plan, words, fps: int) -> list[tuple[str, str]]:
@@ -112,12 +117,32 @@ def check(plan, words, fps: int) -> list[tuple[str, str]]:
         out.append(("error", f"chỉ {n_co} callout cho {ts:.0f}s nói — cần ≥ {need_co} (1 mỗi 10s): chữ + icon 3D, trước/sau, cảnh báo, "
                              "số lớn, checklist…"))
     # 5) liệt kê phải có đồ hoạ liệt kê
-    marks = []
+    marks, marks_w = [], []
     for i, (a, b, t) in enumerate(talk):
         one = re.sub(r"[^\w\s.)]", "", t.lower()).strip()
         two = (one + " " + re.sub(r"[^\w\s]", "", talk[i + 1][2].lower())).strip() if i + 1 < len(talk) else one
         if ENUM.match(one) or ENUM.match(two):
             marks.append(a)
+            marks_w.append((a, one if ENUM.match(one) else two))
+    # 5b) từ liệt kê ("Second", "Tip", "Thứ hai"…) phải là CHỮ CHÍNH to, nổi bật — không chỉ dòng dẫn nhỏ
+    for f, word in marks_w:
+        big = False
+        for g in plan.text_groups:
+            if g.enabled and g.start - fps <= f < g.end:
+                for sp in g.spans:
+                    if sp.style in ("neon", "outline", "pill") and sp.size >= 80 and _key(word) in _key(sp.text):
+                        big = True
+        for c in plan.callouts:
+            if c.get("enabled", True) and int(c["start"]) - fps <= f < int(c["end"]) and c.get("kind") in ("step", "big_number", "two_tier", "icon_keyword") \
+                    and _key(word) in _key(" ".join(str(c.get(k, "")) for k in ("text", "step"))):
+                big = True
+        for m in plan.mg2:                                   # tiêu đề / chữ chính lớn của cảnh MG chứa từ liệt kê
+            if m.get("enabled", True) and int(m["start"]) - fps <= f < int(m["end"]) \
+                    and _key(word) in _key(" ".join(str(m.get(k, "")) for k in ("title", "text"))):
+                big = True
+        if not big:
+            out.append(("error", f"{T.tc(f)}: từ liệt kê “{word}” chưa làm nổi bật — đặt thành CHỮ CHÍNH to (vd “SECOND”, “TIP #2”, “THỨ HAI”) "
+                                 "đúng lúc nói, không để ở dòng dẫn nhỏ"))
     if len(marks) >= 2:
         lists = [(int(m["start"]), int(m["end"])) for m in plan.mg2 if m.get("enabled", True) and m.get("kind") in LIST_MG2]
         lists += [(int(c["start"]), int(c["end"])) for c in plan.callouts if c.get("enabled", True) and c.get("kind") in LIST_CO]

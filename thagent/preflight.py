@@ -152,7 +152,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
         last = max(g.start + (max(s.word_delays) if s.word_delays else s.delay_frames) + 9
                    for s in g.spans if s.style != "icon")
         if (g.end - g.exit_frames - last) / fps < 1.5:   # chữ chính giữ ≥1.5s
-            add("warn", f"{g.id}: chỉ giữ {(g.end - g.exit_frames - last) / fps:.2f}s sau khi hiện đủ")
+            add("error", f"{g.id}: chữ chính chỉ giữ {(g.end - g.exit_frames - last) / fps:.2f}s sau khi hiện đủ — chưa kịp đọc đã mất; "
+                         "kéo dài nhóm / rút ngắn chữ (giữ ≥ 1.5s)")
         # element (icon) không được đè chữ
         texts = [s for s in g.spans if s.style != "icon"]
         from . import neon

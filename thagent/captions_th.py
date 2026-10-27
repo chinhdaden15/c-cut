@@ -4,7 +4,7 @@
   "hiệu ứng động"); không hiện cả câu.
 - Vị trí: ngay DƯỚI CẰM, giữa khung (dải cổ) — gần mặt, dễ xem. Trong các đoạn MG: KHÔNG phụ đề.
 - Có chữ nhấn / callout đang hiện ở dải cổ → phụ đề tạm ẩn (không chồng chữ).
-- Chữ trắng, nét vừa (SemiBold), không nền, bóng mờ nhẹ; hiện CẮT THẲNG (không mờ / phóng), đổi từ đúng lúc nói.
+- Chữ TRẮNG ĐẬM + quầng sáng trắng mờ (theo mẫu người dùng duyệt); cụm 1–3 từ, giữ ≥ 0.5s; hiện CẮT THẲNG, đổi đúng lúc nói.
 - Tắt: plan.captions = False.
 """
 from __future__ import annotations
@@ -45,8 +45,8 @@ def _group_vi(tl, fps) -> list[list]:
     return groups
 
 
-MIN_S = 0.6                         # cụm hiện < 0.6s (chưa kịp đọc) → ghép thêm cụm sau
-MERGE_MAX = {"v": 24, "h": 28}     # ký tự tối đa của cụm sau khi ghép (một dòng)
+MIN_S = 0.5                         # cụm hiện < 0.5s (chưa kịp đọc) → ghép thêm cụm sau
+MERGE_MAX = {"v": 14, "h": 20}     # cụm ngắn 1–3 từ như mẫu (Joseph): "recent", "have", "a lot of"
 
 
 def _merge_short(groups, fps, mx: int = 24) -> list[list]:
@@ -97,21 +97,25 @@ def chunks(plan, words) -> list[tuple[int, int, str]]:
         b = min(nxt, max(g[-1][1] + int(plan.fps * 0.35), a + int(plan.fps * MIN_S)))   # giữ đủ để đọc nếu phía sau còn trống
         t = re.sub(r"(\d) ([.,]?\d)", r"\1\2", " ".join(x[2] for x in g))      # số bị chép lời tách: "5 ,500" → "5,500"
         t = re.sub(r"(\d) ([.,\-–]\d)", r"\1\2", t)
+        t = re.sub(r" -(\w)", r"-\1", t)                                  # "hard -working" → "hard-working"
         out.append((a, max(b, a + 5), re.sub(r"[.,;:!?…]+$", "", t)))
     return out
 
 
 @lru_cache(maxsize=512)
 def sprite(text: str, V: bool) -> np.ndarray:
+    """chữ TRẮNG ĐẬM + quầng sáng trắng mờ (theo mẫu người dùng duyệt) + bóng tối rất nhẹ cho nền sáng."""
     from . import neon as N, fonts as FT
     size = SIZE["v" if V else "h"]
-    m = N._mask(FT.shape_line(text), "semi", size)
-    pad = 24
+    m = N._mask(FT.shape_line(text), "display_bold", size)
+    pad = 34
     a = np.pad(np.clip(m, 0, 1), pad)
-    sh = np.roll(cv2.GaussianBlur(a, (0, 0), 5), 3, 0) * 0.55            # bóng mờ nhẹ, lệch xuống
+    glow = cv2.GaussianBlur(a, (0, 0), 9) * 0.55                          # quầng sáng trắng
+    sh = np.roll(cv2.GaussianBlur(a, (0, 0), 4), 3, 0) * 0.35            # bóng tối nhẹ
     out = np.zeros(a.shape + (4,), np.float32)
-    out[..., 3] = np.clip(np.maximum(a, sh), 0, 1)
-    out[..., :3] = a[..., None]                                            # chữ trắng (premultiplied), bóng = đen
+    al = np.clip(np.maximum.reduce([a, glow, sh]), 0, 1)
+    out[..., 3] = al
+    out[..., :3] = np.clip(np.maximum(a, glow), 0, 1)[..., None]           # trắng (premultiplied); phần bóng = tối
     return out
 
 

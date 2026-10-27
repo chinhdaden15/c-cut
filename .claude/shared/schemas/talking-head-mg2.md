@@ -18,7 +18,7 @@ Kind (tham số):
   chart      value_from, value_to, suffix "%", label, title, sub, icon        — đồ thị tự vẽ, số chạy
   money      value_from, value_to, decimals, unit "tỷ" | prefix "$", title, sub, badge, icon — số tiền chạy + thẻ phụ
   notif      items [{icon, title, text}] (2–4)                                 — chồng thông báo trượt xuống
-  question   lead "Câu hỏi:", text, sub, icon                                  — thẻ câu hỏi, icon 3D lật vào
+  question   image (ẢNH MINH HOẠ đúng ý câu hỏi — bắt buộc), lead "Câu hỏi:", text, sub, icon — thẻ câu hỏi: ảnh trong khung + dấu ? 3D
   photos     title, images [{src, label}] (1–3), note "Hình ảnh minh họa"      — ảnh xếp nghiêng có nhãn
   doc        title, heading, highlight, icon                                   — tài liệu, dòng quan trọng tô sáng
   iconrow    icons [3d:…] (3–5), lead, text                                    — hàng huy hiệu tròn bật lên trên đầu (bg none)

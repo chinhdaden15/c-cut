@@ -13,7 +13,7 @@ Kind (tham số):
   chart      value_from, value_to, suffix "%", label, title, sub, icon        — đồ thị tự vẽ, số chạy
   money      value_from, value_to, decimals, unit "tỷ" | prefix "$", title, sub, badge, icon — số tiền chạy + thẻ phụ
   notif      items [{icon, title, text}] (2–4)                                 — chồng thông báo trượt xuống
-  question   lead "Câu hỏi:", text, sub, icon                                  — thẻ câu hỏi, icon 3D lật vào
+  question   image (ẢNH MINH HOẠ đúng ý câu hỏi — bắt buộc), lead "Câu hỏi:", text, sub, icon — thẻ câu hỏi: ảnh trong khung + dấu ? 3D
   photos     title, images [{src, label}] (1–3), note "Hình ảnh minh họa"      — ảnh xếp nghiêng có nhãn
   doc        title, heading, highlight, icon                                   — tài liệu, dòng quan trọng tô sáng
   iconrow    icons [3d:…] (3–5), lead, text                                    — hàng huy hiệu tròn bật lên trên đầu (bg none)
@@ -205,9 +205,19 @@ def _t_question(sc, V, tone):
     w = 860 if V else 900
     h = 860 if V else 760
     g = {"gold": "#FFB000,#FF6B3D", "blue": "#2E7BFF,#7B4BFF", "red": "#FF4B6B,#FF9A3D"}[tone]
+    qi = icon_uri(sc.get("icon") or "3d:f-red-question-mark")
+    if sc.get("image"):                                 # ảnh minh hoạ trong khung + dấu ? 3D nhỏ ở góc
+        head = (f'<div class=pnl style="position:absolute;left:{_px(40)};right:{_px(40)};top:{_px(40)};height:52%;border-radius:{_px(28)};overflow:hidden">'
+                f'<img src="{_uri(sc["image"])}" style="width:100%;height:100%;object-fit:cover;display:block"></div>'
+                f'<div style="position:absolute;right:{_px(56)};top:{_px(56)};padding:{_px(6)} {_px(16)};border-radius:10px;background:rgba(0,0,0,.55);'
+                f'font-size:{_px(24)};font-weight:600">{E(sc.get("note") or _label())}</div>'
+                f'<img class=q src="{qi}" style="position:absolute;width:{_px(150)};left:{_px(60)};top:calc(52% - 40px*var(--s))">')
+    else:
+        head = (f'<div class=pnl style="position:absolute;left:{_px(40)};right:{_px(40)};top:{_px(40)};height:52%;border-radius:{_px(28)};'
+                f'background:linear-gradient(135deg,{g} 60%,#FFB86B)"></div>'
+                f'<img class=q src="{qi}" style="position:absolute;width:{_px(300)};left:calc(50% - 150px*var(--s));top:{_px(70)}">')
     html = f"""<div class=card style="left:calc(50% - {w/2}px*var(--s));top:calc(50% - {h/2}px*var(--s));width:{_px(w)};height:{_px(h)}">
-<div class=pnl style="position:absolute;left:{_px(40)};right:{_px(40)};top:{_px(40)};height:52%;border-radius:{_px(28)};background:linear-gradient(135deg,{g} 60%,#FFB86B)"></div>
-{f'<img class=q src="{icon_uri(sc.get("icon") or "3d:f-red-question-mark")}" style="position:absolute;width:{_px(300)};left:calc(50% - 150px*var(--s));top:{_px(70)}">'}
+{head}
 <div style="position:absolute;left:{_px(50)};right:{_px(40)};bottom:{_px(36)};display:flex;flex-direction:column;gap:{_px(10)}">
 <div style="font-style:italic;font-weight:600;font-size:{_px(52)};opacity:.9">{E(sc.get('lead', 'Câu hỏi:'))}</div>
 <div class="t1 {tone}" style="font-size:{_px(fit(sc.get('text'), 64, 22))}">{E(sc.get('text'))}</div>
@@ -275,25 +285,32 @@ background:radial-gradient(circle at 35% 30%,{TONES[tone][0]},{TONES[tone][2]} 6
 <div class="t1 {tone} kk" style="font-size:{_px(fit(sc.get('text'), 104, 14 if V else 24))}">{E(sc.get('text', ''))}</div></div>"""
     ds = delays(sc, n, .1, .14)
     js = "".join(f"tl.from(q('.b{i}'),{{y:60,scale:0,duration:.45,ease:'back.out(2.2)'}},{t}).to(q('.b{i}'),{{y:-10,duration:.9,yoyo:true,repeat:2,ease:'sine.inOut'}},{t + .9});"
-                 for i, t in enumerate(ds)) + f"tl.from(q('.kk'),{{scale:1.4,opacity:0,duration:.35,ease:'power3.out'}},{(ds[-1] if ds else 0) + .3});"
+                 for i, t in enumerate(ds)) + "tl.from(q('.kk'),{scale:1.4,opacity:0,duration:.35,ease:'power3.out'},.2);"   # chữ chính hiện NGAY đầu cảnh
     return out, js
 
 
 def _t_chips(sc, V, tone, face=None):
     its = (sc.get("items") or [])[:4]
     side = sc.get("side") or "left"
-    W, H = (1080, 1920) if V else (1920, 1080)
-    if face:
-        y0 = face[3] + (40 if V else -260)
-        x = 70 if side == "left" and V else (face[2] + 60 if not V and side == "right" else (70 if side == "left" else W - 520))
-        if not V and side == "left":
-            x = max(120, face[0] - 520)
+    W = 1080 if V else 1920
+    cols = ('gold', 'blue', 'red', 'gold')
+    chip = lambda i, it, style: f"""<div class="chip c{i}" style="position:relative;{style}border-color:{TONES[cols[i]][2]}88;font-size:{_px(fit(it.get('text'), 46, 18))}">
+{f'<img src="{icon_uri(it.get("icon"))}">' if it.get('icon') else ''}{E(it.get('text'))}</div>"""
+    if V:                                                    # khổ dọc: cột chip GIỮA khung ngay dưới cằm — tránh cột nút phải + dải dưới của nền tảng
+        y0 = (face[3] + 40) if face else 1000
+        out = f"""<div style="position:absolute;left:0;right:0;top:{_px(y0)};display:flex;flex-direction:column;align-items:center;gap:{_px(22)}">""" + \
+              "".join(chip(i, it, "") for i, it in enumerate(its)) + "</div>"
+        d = 0
     else:
-        y0, x = (980, 70) if V else (380, 1280)
-    out = "".join(f"""<div class="chip c{i}" style="left:{_px(x)};top:{_px(y0 + i*130)};border-color:{TONES[('gold', 'blue', 'red', 'gold')[i]][2]}88;font-size:{_px(fit(it.get('text'), 46, 18))}">
-{f'<img src="{icon_uri(it.get("icon"))}">' if it.get('icon') else ''}{E(it.get('text'))}</div>""" for i, it in enumerate(its))
-    d = -260 if (side == "left") else 260
-    js = "".join(f"tl.from(q('.c{i}'),{{x:{d},opacity:0,duration:.5,ease:'back.out(1.6)'}},{t});" for i, t in enumerate(delays(sc, len(its), .15, .3)))
+        if face:
+            y0 = face[3] - 260
+            x = (face[2] + 60) if side == "right" else max(120, face[0] - 520)
+        else:
+            y0, x = 380, 1280
+        out = "".join(f"""<div style="position:absolute;left:{_px(x)};top:{_px(y0 + i*130)}">{chip(i, it, "")}</div>""" for i, it in enumerate(its))
+        d = -260 if side == "left" else 260
+    js = "".join(f"tl.from(q('.c{i}'),{{{f'x:{d},' if d else 'y:40,scale:.85,'}opacity:0,duration:.5,ease:'back.out(1.6)'}},{t});"
+                 for i, t in enumerate(delays(sc, len(its), .15, .3)))
     return out, js
 
 
@@ -498,6 +515,8 @@ def check(plan, fps: int, open_close: tuple[int, int] | None = None, demo: list[
         if s.get("at") and full(s) and s["kind"] in ("notif", "chips", "iconrow") and at_seconds(s, fps) and min(at_seconds(s, fps)) > 0.8:
             out.append(("error", f"{tag}: mục đầu tiên hiện lúc {min(at_seconds(s, fps)):.1f}s — cảnh trống quá lâu; mục đầu phải hiện trong 0.8s đầu "
                                  "(bắt đầu cảnh đúng lúc nói mục đầu)"))
+        if s["kind"] == "question" and not s.get("image"):
+            out.append(("error", f"{tag}: thẻ câu hỏi phải có \"image\" — ảnh minh hoạ đúng ý câu hỏi trong khung (không để mỗi icon)"))
         if s["kind"] == "custom" and not s.get("html"):
             out.append(("error", f"{tag}: custom thiếu html"))
         if open_close and full(s) and (int(s["start"]) < open_close[0] or int(s["end"]) > open_close[1]):
