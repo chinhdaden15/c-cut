@@ -186,7 +186,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     # 4a) callout / chữ + icon / ảnh kẹp: không chạm mặt, trong khung an toàn; chữ nổi bật dày ~4s/lần (≤5s)
     from . import callouts as CO
     out.extend(CO.check(pl, atl, pl.width, pl.height, fps, open_close(pl, c.project.words, fps)))
-    out.extend(CO.density(pl, fps))
+    from . import engage as EG                   # luật cuốn hút: phủ kín lời nói, ~5s một thứ mới, đủ sân khấu / callout, liệt kê
+    out.extend(EG.check(pl, c.project.words, fps))
     from . import stage as STG
     out.extend(STG.check(pl, fps))
     from . import mg2 as MG2                     # Motion Graphics thế hệ 2: mẫu / nền / ảnh / nhịp ~10s (trừ đoạn trình diễn vật)

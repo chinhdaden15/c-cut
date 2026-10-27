@@ -843,6 +843,18 @@ def check(plan, anchors_tl: list[dict], W: int, H: int, fps: int, open_close: tu
                     out.append(("error", f"{tag}: không có ảnh {p}"))
             if open_close and (int(c["start"]) < open_close[0] or int(c["end"]) > open_close[1]):
                 out.append(("error", f"{tag}: ảnh trong đoạn mở đầu / kết — hai đoạn này chỉ hình người + chữ"))
+    for c in cos:                                          # callout cùng lúc cảnh MG2 → đè nhau / lặp nội dung
+        for m in getattr(plan, "mg2", None) or []:
+            if m.get("enabled", True) and min(int(c["end"]), int(m["end"])) - max(int(c["start"]), int(m["start"])) > 6:
+                out.append(("error", f"callout {c.get('id')} {Tm.tc(int(c['start']))} hiện cùng lúc cảnh MG {m['id']} — đè nhau; "
+                                     "dời callout ra ngoài cảnh MG hoặc bỏ"))
+                break
+    for c in cos:                                          # callout và chữ nhấn cùng lúc → đè nhau ở dải cổ
+        for g in plan.text_groups:
+            if g.enabled and g.zone == "chest" and min(int(c["end"]), g.end) - max(int(c["start"]), g.start) > 6:
+                out.append(("error", f"callout {c.get('id')} {Tm.tc(int(c['start']))} hiện cùng lúc chữ nhấn {g.id} ({Tm.tc(g.start)}–{Tm.tc(g.end)}) "
+                                     "— chồng chữ; dời callout sang lúc không có chữ nhấn hoặc bỏ một bên"))
+                break
     for a, b in zip(cos, cos[1:]):
         if a["start"] < b["start"] < a["end"] and a.get("layer", "front") == b.get("layer", "front"):
             out.append(("error", f"callout {a['id']} và {b['id']} chồng nhau cùng lớp — cái trước rời trước khi cái sau vào"))

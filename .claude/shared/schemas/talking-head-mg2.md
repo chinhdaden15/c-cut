@@ -25,6 +25,8 @@ Kind (tham số):
   chips      items [{icon, text}] (2–4), side "left"|"right"                   — chip nhãn cạnh người nói (bg none)
   compare    a {label, value, sub}, b {label, value, sub}                      — trước / sau
   checklist  title, items [text…] (2–5)                                         — tích từng mục
+  ("at": [GIÂY tính từ đầu cảnh…, vd [0.5, 1.6, 2.8]] — KHÔNG phải frame — cho notif / iconrow / chips / checklist / photos;
+   mỗi mục hiện đúng lúc nói, mục cuối hiện trước khi cảnh hết ≥ 0.8s)
   custom     html, css, js (GSAP: biến `tl`, `sel`) — Claude TỰ THIẾT KẾ theo chủ đề; dùng lớp sẵn .card .t1 .gold .blue .red .sub
              .chip .ic .sweep, biến --s (tỉ lệ khung), {{icon:3d:id}} → ảnh icon 3D. Giữ luật: nền đơn giản, ≤ 3 khối, chữ ≥ 34px×s.
 Icon: "3d:<id>" từ kho chung (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /

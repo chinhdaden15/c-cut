@@ -20,7 +20,8 @@ Kind (tham số):
   chips      items [{icon, text}] (2–4), side "left"|"right"                   — chip nhãn cạnh người nói (bg none)
   compare    a {label, value, sub}, b {label, value, sub}                      — trước / sau
   checklist  title, items [text…] (2–5)                                         — tích từng mục
-  ("at": [giây từ đầu cảnh…] cho notif / iconrow / chips / checklist / photos — mỗi mục hiện đúng lúc nói)
+  ("at": [GIÂY tính từ đầu cảnh…, vd [0.5, 1.6, 2.8]] — KHÔNG phải frame — cho notif / iconrow / chips / checklist / photos;
+   mỗi mục hiện đúng lúc nói, mục cuối hiện trước khi cảnh hết ≥ 0.8s)
   custom     html, css, js (GSAP: biến `tl`, `sel`) — Claude TỰ THIẾT KẾ theo chủ đề; dùng lớp sẵn .card .t1 .gold .blue .red .sub
              .chip .ic .sweep, biến --s (tỉ lệ khung), {{icon:3d:id}} → ảnh icon 3D. Giữ luật: nền đơn giản, ≤ 3 khối, chữ ≥ 34px×s.
 Icon: "3d:<id>" từ kho chung (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
@@ -109,6 +110,23 @@ def E(s) -> str:
     return _h.escape(str(s or ""))
 
 
+def at_seconds(sc: dict, fps: float = 30) -> list[float]:
+    """mốc "at" → giây tính từ đầu cảnh. Chấp nhận cả giây (đúng chuẩn), frame tính từ đầu cảnh, hoặc frame timeline
+    (Claude hay nhầm đơn vị — trước đây mốc tính bằng frame làm các mục hẹn hiện sau khi cảnh đã hết)."""
+    at = [float(v) for v in sc.get("at") or []]
+    if not at:
+        return []
+    a0, a1 = int(sc.get("start", 0)), int(sc.get("end", 0))
+    D = (a1 - a0) / fps if a1 > a0 else max(at) + 1
+    if max(at) <= D + 0.05:
+        return at                                         # giây
+    if all(a0 <= v <= a1 for v in at):
+        return [(v - a0) / fps for v in at]               # frame timeline
+    if max(at) <= a1 - a0:
+        return [v / fps for v in at]                      # frame tính từ đầu cảnh
+    return at
+
+
 def delays(sc: dict, n: int, first: float, gap: float) -> list[float]:
     """mốc hiện từng mục (giây từ đầu cảnh): "at" [giây…] đặt đúng lúc nói từng mục, thiếu thì lần lượt cách `gap`."""
     at = list(sc.get("at") or [])
@@ -167,15 +185,18 @@ tl.from(q('.num'),{{scale:1.5,opacity:0,duration:.4,ease:'power3.out'}},.2)
 
 def _t_notif(sc, V, tone):
     rows = (sc.get("items") or [])[:4]
-    w = 900 if V else 860
-    x = f"calc(50% - {w/2}px*var(--s))" if V else "calc(52%)"
-    y0 = 260 if V else 170
+    n = max(1, len(rows))
+    w = 960 if V else 980
+    rh, gap = (200, 36) if V else (170, 28)
+    H = 1920 if V else 1080
+    y0 = (H - (n * rh + (n - 1) * gap)) / 2                     # cả chồng căn giữa theo chiều dọc
+    x = f"calc(50% - {w/2}px*var(--s))"
     out = ""
     for i, it in enumerate(rows):
-        out += f"""<div class="card n n{i}" style="left:{x};top:{_px(y0 + i*190)};width:{_px(w)};height:{_px(160)};border-radius:{_px(34)}">
-{f'<img src="{icon_uri(it.get("icon"))}" style="position:absolute;left:{_px(26)};top:{_px(24)};width:{_px(112)}">' if it.get('icon') else ''}
-<div style="position:absolute;left:{_px(160)};top:{_px(30)};font-weight:800;font-size:{_px(44)}">{E(it.get('title'))}</div>
-<div class=sub style="position:absolute;left:{_px(160)};top:{_px(88)};font-size:{_px(fit(it.get('text'), 34, 36))};white-space:nowrap">{E(it.get('text'))}</div></div>"""
+        out += f"""<div class="card n n{i}" style="left:{x};top:{_px(y0 + i*(rh + gap))};width:{_px(w)};height:{_px(rh)};border-radius:{_px(38)}">
+{f'<img src="{icon_uri(it.get("icon"))}" style="position:absolute;left:{_px(30)};top:{_px((rh-130)/2)};width:{_px(130)}">' if it.get('icon') else ''}
+<div style="position:absolute;left:{_px(190)};top:{_px(rh*0.2)};font-weight:800;font-size:{_px(fit(it.get('title'), 54, 22))}">{E(it.get('title'))}</div>
+<div class=sub style="position:absolute;left:{_px(190)};top:{_px(rh*0.55)};font-size:{_px(fit(it.get('text'), 38, 34))};white-space:nowrap">{E(it.get('text'))}</div></div>"""
     js = "".join(f"tl.from(q('.n{i}'),{{y:-160,opacity:0,scale:.92,duration:.5,ease:'back.out(1.6)'}},{t});" for i, t in enumerate(delays(sc, len(rows), .15, .45)))
     return out, js
 
@@ -356,7 +377,7 @@ def sound_events(plan) -> list:
             continue
         a0 = int(sc["start"])
         D = (int(sc["end"]) - a0) / plan.fps
-        for i, (t, asset, g) in enumerate(sfx(sc, D)):
+        for i, (t, asset, g) in enumerate(sfx(dict(sc, at=at_seconds(sc, plan.fps)) if sc.get("at") else sc, D)):
             out.append(SoundEvent(id=f"mg2_{sc['id']}_{i}", asset=asset, linked_event=sc["id"], hit=a0 + int(round(t * plan.fps)),
                                   gain_db=g, priority=5 if i == 0 else 3))
     return out
@@ -370,8 +391,10 @@ def full(sc: dict) -> bool:
     return bg_of(sc) != "none"
 
 
-def layer(sc: dict, W: int, H: int, D: float, face=None) -> dict:
+def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dict:
     """một cảnh → lớp html HyperFrames (dùng chung: Talking Head plan.mg2, Voice to Motion Kit.mg)."""
+    if sc.get("at"):
+        sc = dict(sc, at=at_seconds(sc, fps))
     V = H > W
     tone = sc.get("tone") if sc.get("tone") in TONES else "gold"
     fn = T[sc["kind"]]
@@ -402,7 +425,7 @@ def spec(plan, sc: dict, out: Path, face=None) -> dict:
     W, H, fps = plan.width, plan.height, plan.fps
     D = round((int(sc["end"]) - int(sc["start"])) / fps, 3)
     return {"job_id": f"mg2-{sc['id']}", "width": W, "height": H, "fps": fps, "duration": D, "background": "transparent",
-            "output": {"path": str(out), "format": "mov"}, "layers": [layer(sc, W, H, D, face)]}
+            "output": {"path": str(out), "format": "mov"}, "layers": [layer(sc, W, H, D, face, fps)]}
 
 
 def _face_px(plan, anchors_tl, sc):
@@ -466,6 +489,15 @@ def check(plan, fps: int, open_close: tuple[int, int] | None = None, demo: list[
         for im in s.get("images") or []:
             if not Path(im.get("src", "")).is_file():
                 out.append(("error", f"{tag}: không có ảnh {im.get('src')}"))
+        if s.get("at"):
+            ats = at_seconds(s, fps)
+            late = [round(t, 2) for t in ats if t > d - 0.4]
+            if late or any(t < 0 for t in ats):
+                out.append(("error", f"{tag}: mốc \"at\" {s['at']} → mục hiện lúc {late or ats}s, ngoài cảnh dài {d:.1f}s — ghi GIÂY tính từ "
+                                     "đầu cảnh (vd [0.5, 1.6, 2.8]), mục cuối hiện trước khi cảnh hết ≥ 0.8s"))
+        if s.get("at") and full(s) and s["kind"] in ("notif", "chips", "iconrow") and at_seconds(s, fps) and min(at_seconds(s, fps)) > 0.8:
+            out.append(("error", f"{tag}: mục đầu tiên hiện lúc {min(at_seconds(s, fps)):.1f}s — cảnh trống quá lâu; mục đầu phải hiện trong 0.8s đầu "
+                                 "(bắt đầu cảnh đúng lúc nói mục đầu)"))
         if s["kind"] == "custom" and not s.get("html"):
             out.append(("error", f"{tag}: custom thiếu html"))
         if open_close and full(s) and (int(s["start"]) < open_close[0] or int(s["end"]) > open_close[1]):
