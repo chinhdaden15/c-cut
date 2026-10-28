@@ -76,6 +76,7 @@ BASE_CSS = """
 .light .card{background:rgba(255,255,255,.94);color:#2a2320;border-color:rgba(0,0,0,.06)}
 .sweep{position:absolute;z-index:1!important;top:0;bottom:0;width:30%;left:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-18deg)}
 .t1{font-weight:900;letter-spacing:-.01em;line-height:1.02}
+.tt{color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.55)}.pn{color:rgba(255,255,255,.75)}.light .tt{color:#2a2320;text-shadow:none}.light .pn{color:#6b5a48}   /* chữ ảnh xếp: sáng trên nền tối, tối trên nền kem */
 .gold{background:linear-gradient(#FFE47A,#FF9A1F);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 calc(18px*var(--s)) rgba(255,154,0,.55))}
 .blue{background:linear-gradient(#A6EEFF,#1E86FF);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 calc(18px*var(--s)) rgba(30,144,255,.55))}
 .red{background:linear-gradient(#FF9A86,#FF2B3A);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 calc(18px*var(--s)) rgba(255,43,58,.5))}
@@ -242,8 +243,8 @@ def _t_photos(sc, V, tone):
 background:#fff;border-radius:{_px(18)};box-shadow:0 {_px(30)} {_px(60)} rgba(60,40,20,.25);transform:rotate({rot}deg)">
 <img src="{_uri(im['src'])}" style="width:100%;display:block;border-radius:{_px(10)};aspect-ratio:4/3;object-fit:cover">
 <div style="position:absolute;left:0;right:0;bottom:{_px(18)};text-align:center;color:#3a2e25;font-weight:800;font-size:{_px(40)}">{E(im.get('label'))}</div></div>"""
-    out += f"""<div class="t1 tt" style="position:absolute;width:100%;text-align:center;top:{_px(190 if V else 80)};color:#2a2320;font-size:{_px(fit(sc.get('title'), 96, 16 if V else 28))}">{E(sc.get('title', ''))}</div>
-<div class=sub style="position:absolute;right:{_px(70)};bottom:{_px(60)};color:#6b5a48;font-size:{_px(26)}">{E(sc.get('note') or _label())}</div>"""
+    out += f"""<div class="t1 tt" style="position:absolute;width:100%;text-align:center;top:{_px(190 if V else 80)};font-size:{_px(fit(sc.get('title'), 96, 16 if V else 28))}">{E(sc.get('title', ''))}</div>
+<div class="sub pn" style="position:absolute;right:{_px(70)};bottom:{_px(60)};font-size:{_px(26)}">{E(sc.get('note') or _label())}</div>"""
     js = "tl.from(q('.tt'),{y:-40,opacity:0,duration:.45,ease:'power3.out'},0);" + "".join(
         f"tl.from(q('.ph{i}'),{{x:{-500 if i % 2 == 0 else 500},rotation:{-30 if i % 2 == 0 else 30},opacity:0,duration:.65,ease:'back.out(1.3)'}},{t})"
         f".to(q('.ph{i}'),{{y:'{'-' if i % 2 == 0 else '+'}=14',duration:1.4,yoyo:true,repeat:1,ease:'sine.inOut'}},{t + .8});" for i, t in enumerate(delays(sc, n, .2, .35)))

@@ -10,7 +10,7 @@ Mọi thứ "sau lưng" vẽ vào lớp behind (nhân vật tách nền đè lê
 chỉ nằm ở mép / hai bên, tránh mặt.
 
 Kind (tham số):
-  giant_text  text — chữ khổng lồ viền neon 3 dòng sau lưng, trượt ngang ngược chiều (từ khoá của đoạn) — LOÉ 1.5s
+  giant_text  text — MỘT từ KHỔNG LỒ viền mảnh nghiêng 10° sau lưng, tràn hết bề ngang (cắt mép chút được); app tự phủ đen nền sau người 55%, zoom 1.5× và kéo khung cho mặt ở ~30% chiều cao — chọn từ NGẮN 1–2 chữ, start ĐÚNG lúc nói từ đó (không sớm) — LOÉ 1.5s
   orbit_icons icons ["3d:<id>", …] (2–5) — icon 3D lơ lửng hai bên — CHỈ khi lời nói nhắc ĐÚNG các vật đó (icon không liên quan = xấu);
               mặc định dùng giant_text / big_number / marquee (chữ viền sáng sau lưng)
   bokeh       — hạt sáng trôi + ánh sáng màu loang phía sau (nền cho đoạn nói dài)

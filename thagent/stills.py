@@ -41,6 +41,8 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
     from . import callouts as _CO
     _CO.attach_objects(anchors, c.path("work", "gaze.json"), pl.fps)
     atl = R.timeline_anchors(pl, anchors)
+    from . import stage as _STG
+    _STG.fit_zoom(pl, atl, pl.height)
     pos = R.resolve_layout(pl, atl, W, H)
     cards = [v for v in pl.visuals if v.enabled and v.status == "ready" and v.file]
     cpos = {v.id: R.card_layout(pl, v, atl, W, H) for v in cards}
@@ -104,11 +106,11 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
         o = R.overlay_mg(o, pl, f)
         if caps:
             cl = np.zeros((H, W, 4), np.float32)
-            busy = (any(g.enabled and g.start <= f < g.end for g in pl.text_groups) or any(x["start"] <= f < x["end"] for x in cos)) and not full2
+            busy = (any(x["start"] <= f < x["end"] for x in cos) or any(m.get("enabled", True) and not MG2.full(m) and int(m["start"]) <= f < int(m["end"]) for m in pl.mg2)) and not full2
             MG.chain(pl.mg)
-            busy = busy or any(x <= f < y for x, y in [(int(m["start"]), int(m["end"])) for m in pl.mg2 if m.get("enabled", True)]
-                               + [MG.covered_range(m) for m in pl.mg])         # đoạn MG: không phụ đề
-            CAP.draw(cl, caps, f, atl, busy)
+            low = full2 or any(x <= f < y for x, y in [MG.covered_range(m) for m in pl.mg])   # cảnh MG che kín: phụ đề ở dải dưới
+            top, skip = R.caption_lead([] if low else pl.text_groups, pos, f)
+            CAP.draw(cl, caps, f, atl, busy, low, top, skip)
             o = o * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = R.flash_at(pl, f)
         if fl > 0:

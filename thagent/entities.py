@@ -44,6 +44,19 @@ def load(pdir) -> list[dict] | None:
         return None
 
 
+def _saturation(path) -> float | None:
+    """độ bão hoà màu trung bình (0..1) — ảnh trắng đen / ngả màu cũ ≈ 0."""
+    try:
+        import cv2
+        im = cv2.imread(str(path))
+        if im is None:
+            return None
+        hsv = cv2.cvtColor(cv2.resize(im, (160, 120)), cv2.COLOR_BGR2HSV)
+        return float(hsv[..., 1].mean()) / 255
+    except Exception:
+        return None
+
+
 def sources(pdir) -> dict:
     f = Path(pdir) / "assets_web" / "illus_sources.json"
     try:
@@ -195,6 +208,10 @@ def check(pdir, words: list[tuple[str, float]], scenes: list[dict], real_ok, uni
     for s in img_scenes:
         files = [im["file"] for im in s["images"] if (Path(pdir) / "assets_web" / im["file"]).exists()]
         for fl in files:
+            sat = _saturation(Path(pdir) / "assets_web" / fl)
+            if sat is not None and sat < 0.07:
+                out.append(("error", f"{s['id']}: ảnh {fl} trắng đen / màu bạc như ảnh cũ (độ bão hoà {sat:.2f}) — minh hoạ phải là ảnh "
+                                     "HIỆN ĐẠI, CÓ MÀU, đúng bối cảnh bây giờ (ưu tiên Việt Nam / châu Á); thay ảnh khác"))
             if not desc.get(fl):
                 out.append(("error", f"{s['id']}: ảnh {fl} chưa mô tả trong assets_web/illus_check.json — Read ảnh rồi ghi "
                                      '{"' + fl + '": {"noi_dung_anh": "những gì THẬT SỰ thấy trong ảnh", "cau_noi": "…", "khop": true}}'))

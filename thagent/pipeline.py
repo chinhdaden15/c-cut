@@ -196,6 +196,42 @@ def denoise_voice(src: str, out: str, log=print, sr=48000):
     Path(tmp).unlink(missing_ok=True)
 
 
+def _render_key(c: Ctx, plan: Plan) -> str:
+    """mọi thứ ngoài các mục chữ/thẻ: code dựng, khung, đoạn cắt, phụ đề, lời — đổi thì phải dựng lại cả clip."""
+    import hashlib
+    h = hashlib.md5()
+    for f in sorted(Path(__file__).parent.rglob("*.py")):
+        h.update(f.read_bytes())
+    h.update(plan.model_dump_json(include={"width", "height", "fps", "segments", "captions", "duration_frames"}).encode())
+    h.update(json.dumps([w.model_dump() for w in c.project.words], default=str).encode())
+    h.update(json.dumps(c.project.style, sort_keys=True, default=str).encode())
+    return h.hexdigest()
+
+
+def _reuse(c: Ctx, plan: Plan, fr, wide) -> dict:
+    """bản dựng trước còn đệm + cùng khoá → chỉ vẽ lại đoạn có mục đổi."""
+    cd = c.path("work", "render_cache")
+    cd.mkdir(parents=True, exist_ok=True)
+    key = _render_key(c, plan)
+    r = {"sig_out": str(cd / "sigs.new.json"), "key": key}
+    try:
+        meta = json.loads((cd / "meta.json").read_text())
+        if (meta["key"] == key and list(meta["frames"]) == list(fr) and not wide and (cd / "video.mp4").exists()
+                and not c.project.style.get("full_render")):
+            r["video"] = str(cd / "video.mp4")
+            r["sigs"] = json.loads((cd / "sigs.json").read_text())
+    except (OSError, ValueError, KeyError):
+        pass
+    return r
+
+
+def _keep_cache(c: Ctx, reuse: dict, vdir: Path, fr) -> None:
+    cd = c.path("work", "render_cache")
+    shutil.copyfile(vdir / "video_noaudio.mp4", cd / "video.mp4")
+    Path(reuse["sig_out"]).replace(cd / "sigs.json")
+    (cd / "meta.json").write_text(json.dumps({"key": reuse["key"], "frames": list(fr)}))
+
+
 def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None) -> dict:
     from .license import require
     require("talking-head-style", c.dir, c.log)          # skill bán: đã mua hoặc còn lượt thử (1 lượt = 1 dự án)
@@ -253,11 +289,13 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
         c.log(f"Motion Graphics: {len(plan.mg2)} cảnh (HyperFrames, render 1 lần, lưu đệm)")
         hf_items += MG2.prerender(plan, c.path("work", "x").parent, R.timeline_anchors(plan, anchors), c.log)
     from . import captions_th as CAP
+    reuse = _reuse(c, plan, fr, wide)
     c.log(f"Compositing frame {fr[0]}–{fr[1]}")
     layout = R.composite(plan, rc, anchors, str(vdir / "video_noaudio.mp4"), fr, progress=c.log,
                          snapshots=snaps, snap_dir=vdir, cancel=c.cancel, hf_items=hf_items,
                          wide_out=str(vdir / "video_wide_noaudio.mp4") if wide else None,
-                         caps=CAP.chunks(plan, c.project.words) if plan.captions else None)
+                         caps=CAP.chunks(plan, c.project.words) if plan.captions else None, reuse=reuse)
+    _keep_cache(c, reuse, vdir, fr)
     c.log("Phối âm voice + SFX, chuẩn loudness")
     rep = R.mix_audio(plan, rc["voice"], SFX_DIR, man, str(vdir / "mix.wav"), fr)
     out = vdir / f"{c.project.id}_{label}.mp4"

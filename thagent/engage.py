@@ -48,6 +48,7 @@ def _entries(plan, fps):
         e += [a] + [a + int(t * fps) for t in ts if a + t * fps < b]
     for seg in plan.mg:
         e += [int(s["start"]) for s in seg.get("scenes", [])]
+        e += [int(el["t"]) for s in seg.get("scenes", []) for el in s.get("elements", []) if el.get("t") is not None]   # từng chi tiết MG hiện ra
     return sorted(set(e))
 
 
@@ -116,6 +117,21 @@ def check(plan, words, fps: int) -> list[tuple[str, str]]:
     if n_co < need_co:
         out.append(("error", f"chỉ {n_co} callout cho {ts:.0f}s nói — cần ≥ {need_co} (1 mỗi 10s): chữ + icon 3D, trước/sau, cảnh báo, "
                              "số lớn, checklist…"))
+    # 2b) 10s đầu (hook): MỖI câu phải có chữ nhấn / callout / MG RIÊNG xuất hiện trong lúc nói câu đó
+    ents = _entries(plan, fps)
+    sent = []
+    for a, b, t in talk:
+        if a >= 10 * fps:
+            break
+        if not sent or sent[-1][2]:
+            sent.append([a, b, False, t])
+        else:
+            sent[-1][1] = b; sent[-1][3] += " " + t
+        sent[-1][2] = t[-1:] in ".!?…,"
+    for a, b, _, t in sent:
+        if b - a >= fps and not any(a - 6 <= e <= b for e in ents):
+            out.append(("error", f"{T.tc(a)}: câu mở đầu “{t[:50]}” chưa có chữ nhấn riêng — 10s đầu mỗi câu khẳng định / đối lập "
+                                 "phải có CHỮ CHÍNH to của chính nó (phụ đề làm dòng dẫn), không để một nhóm chữ phủ hai câu"))
     # 5) liệt kê phải có đồ hoạ liệt kê
     marks, marks_w = [], []
     for i, (a, b, t) in enumerate(talk):
@@ -140,6 +156,12 @@ def check(plan, words, fps: int) -> list[tuple[str, str]]:
             if m.get("enabled", True) and int(m["start"]) - fps <= f < int(m["end"]) \
                     and _key(word) in _key(" ".join(str(m.get(k, "")) for k in ("title", "text"))):
                 big = True
+        for seg in plan.mg:                                  # MG cũ: cảnh có chữ "big" là số / từ liệt kê (vd "ĐIỀU 1", "THỨ HAI")
+            for sc in seg.get("scenes", []):
+                if int(sc["start"]) - fps <= f < int(sc["end"]) and any(
+                        el.get("type") == "big" and (re.search(r"\d", str(el.get("text", ""))) or _key(word) in _key(el.get("text", "")))
+                        for el in sc.get("elements", [])):
+                    big = True
         if not big:
             out.append(("error", f"{T.tc(f)}: từ liệt kê “{word}” chưa làm nổi bật — đặt thành CHỮ CHÍNH to (vd “SECOND”, “TIP #2”, “THỨ HAI”) "
                                  "đúng lúc nói, không để ở dòng dẫn nhỏ"))

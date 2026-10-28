@@ -5,7 +5,7 @@ Mọi thứ "sau lưng" vẽ vào lớp behind (nhân vật tách nền đè lê
 chỉ nằm ở mép / hai bên, tránh mặt.
 
 Kind (tham số):
-  giant_text  text — chữ khổng lồ viền neon 3 dòng sau lưng, trượt ngang ngược chiều (từ khoá của đoạn) — LOÉ 1.5s
+  giant_text  text — MỘT từ KHỔNG LỒ viền mảnh nghiêng 10° sau lưng, tràn hết bề ngang (cắt mép chút được); app tự phủ đen nền sau người 55%, zoom 1.5× và kéo khung cho mặt ở ~30% chiều cao — chọn từ NGẮN 1–2 chữ, start ĐÚNG lúc nói từ đó (không sớm) — LOÉ 1.5s
   orbit_icons icons ["3d:<id>", …] (2–5) — icon 3D lơ lửng hai bên — CHỈ khi lời nói nhắc ĐÚNG các vật đó (icon không liên quan = xấu);
               mặc định dùng giant_text / big_number / marquee (chữ viền sáng sau lưng)
   bokeh       — hạt sáng trôi + ánh sáng màu loang phía sau (nền cho đoạn nói dài)
@@ -53,6 +53,62 @@ def _outline(text: str, size: int, color: str, width: int = 4, fill: float = 0.0
     out[..., :3] = _hex(color) * a[..., None]
     out[..., 3] = a
     return out
+
+
+def _thin(text: str, size: int, color: str) -> np.ndarray:
+    """viền mảnh ~5px, phát sáng nhẹ, lòng chữ trong suốt."""
+    m8 = np.pad((N._mask(text, "display", size) > 0.4).astype(np.uint8) * 255, 40)
+    e = cv2.morphologyEx(m8, cv2.MORPH_GRADIENT, np.ones((5, 5), np.uint8)).astype(np.float32) / 255
+    a = np.clip(e + cv2.GaussianBlur(e, (0, 0), 4) * 0.5, 0, 1)
+    out = blank(*a.shape)
+    out[..., :3] = _hex(color) * a[..., None]
+    out[..., 3] = a
+    return out
+
+
+def _tilt(t: np.ndarray, ang: float = 10) -> np.ndarray:
+    h, w = t.shape[:2]
+    d = int(np.hypot(h, w)) + 2
+    p = blank(d, d)
+    p[(d - h) // 2:(d - h) // 2 + h, (d - w) // 2:(d - w) // 2 + w] = t
+    return _tight(cv2.warpAffine(p, cv2.getRotationMatrix2D((d / 2, d / 2), ang, 1), (d, d)), 4)
+
+
+@lru_cache(maxsize=16)
+def _giant(txt: str, col: str, W: int, H: int) -> np.ndarray:
+    """chữ khổng lồ viền mảnh, nghiêng 10°, tràn hết bề ngang (cắt mép chút được); cụm 2 chữ mà một dòng quá thấp → xếp 2 dòng chồng sát."""
+    return _tilt(_giant0(txt, col, W, H))
+
+
+def _giant0(txt: str, col: str, W: int, H: int) -> np.ndarray:
+    def one(line):
+        t = _tight(_outline(line, 200, col, 6, 0.35))
+        size = int(min(200 * W * 1.04 / t.shape[1], 200 * H * 0.42 / t.shape[0]))
+        return _tight(_thin(line, size, col))
+    t = one(txt)
+    ws = txt.split()
+    if len(ws) >= 2 and t.shape[0] < H * 0.16:
+        k = max(range(1, len(ws)), key=lambda i: -abs(len(" ".join(ws[:i])) - len(" ".join(ws[i:]))))
+        rows = [_tight(_outline(r, 200, col, 6, 0.35)) for r in (" ".join(ws[:k]), " ".join(ws[k:]))]
+        sc = min(W * 1.04 / max(r.shape[1] for r in rows), H * 0.21 / max(r.shape[0] for r in rows))
+        size = int(200 * sc)
+        rows = [_tight(_thin(r, size, col), 8) for r in (" ".join(ws[:k]), " ".join(ws[k:]))]
+        w = max(r.shape[1] for r in rows)
+        out = blank(sum(r.shape[0] for r in rows), w)
+        y = 0
+        for r in rows:
+            over(out, r, (w - r.shape[1]) // 2, y)
+            y += r.shape[0]
+        t = out
+    return t
+
+
+def _tight(t: np.ndarray, pad: int = 24) -> np.ndarray:
+    """cắt lề trống quanh chữ (đo cỡ theo nét thật, không theo khung ảnh)."""
+    ys, xs = np.where(t[..., 3] > 0.03)
+    if not len(ys):
+        return t
+    return t[max(0, ys.min() - pad):ys.max() + pad + 1, max(0, xs.min() - pad):xs.max() + pad + 1]
 
 
 @lru_cache(maxsize=64)
@@ -141,7 +197,7 @@ def span(st: dict) -> tuple[int, int]:
     return a, b
 
 
-def draw(st: dict, f: int, behind: np.ndarray, front: np.ndarray, anchors_tl: list[dict], fps: int = 30, total: int = 0):
+def draw(st: dict, f: int, behind: np.ndarray, front: np.ndarray, anchors_tl: list[dict], fps: int = 30, total: int = 0, zm=(1.0, 0.5, 0.4)):
     a, b = span(st)
     if not (a <= f < b):
         return
@@ -155,11 +211,18 @@ def draw(st: dict, f: int, behind: np.ndarray, front: np.ndarray, anchors_tl: li
     cx, cy, fh = _stable_head(anchors_tl, a, b, W, H)
     fh = round(fh / 20) * 20
     if k == "giant_text":
-        rows = [(cy - fh * 1.25, 0.35, 1), (cy - fh * 0.1, 0.95, -1), (cy + fh * 1.05, 0.35, 1)]
-        for y, al, d in rows:
-            row, per = _strip(st.get("text", ""), int(fh * 0.95), col, 80, 0, W)
-            x = -per + (d * loc * 2.2) % per
-            putf(behind, row, x - per, y - row.shape[0] / 2, al * e)
+        txt = st.get("text", "").upper()                       # MỘT từ KHỔNG LỒ: rộng ~90% khung, cao tới ~¼ khung (như mẫu "REMOTE")
+        t = _giant(txt, col, W, H)
+        z = 0.88 + 0.12 * min(1.0, (loc + 1) / 6) + 0.0015 * loc   # nảy vào rồi phóng rất chậm
+        if abs(z - 1) > 1e-3:
+            t = cv2.resize(t, (max(1, int(t.shape[1] * z)), max(1, int(t.shape[0] * z))), interpolation=cv2.INTER_LINEAR)
+        z0, zcx, zcy = zm                                       # khung đang zoom → mặt dời / to theo
+        cy, fh = z0 * cy + (1 - z0) * zcy * H, fh * z0
+        y = min(cy + fh * 0.35 - t.shape[0] / 2, cy + fh * 0.55 - t.shape[0])                    # ngang mặt–cằm: chữ lộ rõ hai bên người, không nấp sau đầu
+        dim = blank(H, W)                                      # phủ đen sau lưng người nói → chữ sáng, nổi
+        dim[..., 3] = 0.55
+        putf(behind, dim, 0, 0, e)
+        putf(behind, t, (W - t.shape[1]) / 2, y, e)
     elif k == "orbit_icons":
         ics = (st.get("icons") or [])[:5]
         slots = [(0.12, -0.55, True), (0.86, -0.8, True), (0.88, 0.75, False), (0.1, 0.95, False), (0.84, 1.9, False)]
@@ -263,6 +326,20 @@ ACCENT = {"spotlight": ("out", 1.16, 0.22, "hit_02", -12), "giant_text": ("punch
           "bokeh": (None, 0, 0.10, "shimmer_light", -17)}
 
 
+GIANT_ZOOM = 1.5
+GIANT_FACE_Y = 0.30          # sau khi zoom, tâm mặt đặt ở ~30% chiều cao → khoảng trống trên đầu cân, người không bị đẩy xuống
+
+
+def fit_zoom(plan, anchors_tl, H: int) -> None:
+    """chọn tâm zoom dọc cho từng chữ sau lưng để mặt (đã phóng) nằm đúng GIANT_FACE_Y — zoom + kéo khung lên."""
+    for st in getattr(plan, "stage", None) or []:
+        if st.get("kind") == "giant_text":
+            a, b = span(st)
+            _, cy, _ = _stable_head(anchors_tl, a, b, 1, H)
+            z = GIANT_ZOOM
+            st["_zcy"] = min(1.0, max(0.0, (GIANT_FACE_Y * H - z * cy) / ((1 - z) * H)))
+
+
 def _accent(st):
     a = ACCENT.get(st.get("kind"))
     if not a or st.get("accent") is False or not st.get("enabled", True):
@@ -278,6 +355,9 @@ def zoom_events(plan) -> list:
         a = _accent(st)
         if a and a[0]:
             s0 = int(st["start"])
+            if st.get("kind") == "giant_text":          # chữ sau lưng: zoom vào người suốt lúc chữ hiện → bớt trống phía trên, chữ tràn khung
+                out.append(NS(type="zoom", enabled=True, start=s0, end=int(st["end"]), params={"scale": GIANT_ZOOM, "mode": "punch", "cx": 0.5, "cy": st.get("_zcy", 0.6)}))
+                continue
             out.append(NS(type="zoom", enabled=True, start=s0, end=s0 + (14 if a[0] == "punch" else min(60, int(st["end"]) - s0)),
                           params={"scale": a[1], "mode": a[0], "cx": 0.5, "cy": 0.32}))
     return out
@@ -296,9 +376,11 @@ def sound_events(plan) -> list:
 
 
 def draw_all(plan, f: int, behind, front, anchors_tl, fps: int = 30):
+    from .render import zoom_at
+    zm = zoom_at(plan, f)
     for st in getattr(plan, "stage", None) or []:
         if st.get("enabled", True):
-            draw(st, f, behind, front, anchors_tl, fps, plan.duration_frames)
+            draw(st, f, behind, front, anchors_tl, fps, plan.duration_frames, zm)
 
 
 def check(plan, fps: int) -> list[tuple[str, str]]:

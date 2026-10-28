@@ -375,12 +375,60 @@ class Wide:
             self.src.close()
 
 
+def caption_lead(groups, pos, f):
+    """chữ nhấn đang hiện trước người (ngực / dưới) → (mép trên, các từ của chữ nhấn): phụ đề nằm ngay trên làm dòng dẫn."""
+    import re
+    top, words = None, set()
+    for g in groups:
+        if g.enabled and g.start <= f < g.end and g.zone != "above_head":
+            if any(sp.style != "icon" and sp.size < 80 for sp in g.spans):
+                return -1, None                                    # chữ nhấn đã có dòng dẫn riêng → ẩn phụ đề (không 3 tầng)
+            y = pos[g.id][1] + group_extent(g, skip_icons=True)[1]
+            top = y if top is None else min(top, y)
+            for sp in g.spans:
+                words |= {re.sub(r"[^\w]", "", w.lower()) for w in str(sp.text).split()}
+    return top, words
+
+
+def frame_sigs(plan: Plan, pos: dict, colay: dict) -> dict:
+    """chữ ký từng mục vẽ lên hình: id → [đầu, cuối, hash] (kèm vị trí đã xếp) — so với bản trước để biết đoạn nào phải vẽ lại."""
+    import hashlib
+    out = {}
+    def put(key, a, b, obj):
+        out[key] = [int(a), int(b), hashlib.md5(json.dumps(obj, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()]
+    for g in plan.text_groups:
+        put("g:" + g.id, g.start, g.end, [g.model_dump(), pos.get(g.id)])
+    for c in plan.callouts:
+        put("c:" + c["id"], c["start"], c["end"], [c, colay.get(c["id"])])
+    for k, lst in (("s", plan.stage), ("m", plan.mg), ("m2", plan.mg2), ("h", plan.hf)):
+        for i, x in enumerate(lst):
+            d = x if isinstance(x, dict) else x.model_dump()
+            put(f"{k}:{d.get('id', i)}", d.get("start", 0), d.get("end", plan.duration_frames), d)
+    for k, lst in (("v", plan.visuals), ("fx", plan.fx)):
+        for x in lst:
+            put(f"{k}:{x.id}", x.start, x.end, x.model_dump())
+    return out
+
+
+def dirty_frames(old: dict, new: dict, pad: int = 30) -> set[int]:
+    """frame cần vẽ lại = khoảng của mọi mục thêm / bớt / đổi (± pad cho zoom, loé, chuyển cảnh)."""
+    d = set()
+    for k in set(old) | set(new):
+        if old.get(k) != new.get(k):
+            for a, b, _ in (x for x in (old.get(k), new.get(k)) if x):
+                d.update(range(max(0, a - pad), b + pad))
+    return d
+
+
 def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, frame_range=None,
               progress=None, snapshots: list[int] | None = None, snap_dir: Path | None = None,
-              cancel=None, hf_items: list[dict] | None = None, wide_out: str | None = None, caps=None):
+              cancel=None, hf_items: list[dict] | None = None, wide_out: str | None = None, caps=None, reuse=None):
+    """reuse = {"video": bản trước, "sigs": chữ ký bản trước, "sig_out": nơi lưu chữ ký mới} — chỉ vẽ lại đoạn đổi, còn lại chép từ bản trước."""
     W, H, fps = plan.width, plan.height, plan.fps
     use_frame(W, H, bool(caps))
     anchors_tl = timeline_anchors(plan, anchors_src)
+    from . import stage as _STG
+    _STG.fit_zoom(plan, anchors_tl, H)
     pos = resolve_layout(plan, anchors_tl, W, H)
     groups = [g for g in plan.text_groups if g.enabled]
     MG.chain(plan.mg)
@@ -393,6 +441,15 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
     mg2cov = MG2.covers(plan)
     mgspans = [(int(m["start"]), int(m["end"])) for m in plan.mg2 if m.get("enabled", True)] + [MG.covered_range(m) for m in plan.mg]
     a0, a1 = frame_range or (0, plan.duration_frames)
+    dirty, prev = None, None
+    if reuse:
+        sigs = frame_sigs(plan, pos, colay)
+        Path(reuse["sig_out"]).write_text(json.dumps(sigs))
+        if reuse.get("video") and reuse.get("sigs") is not None and not wide_out:
+            dirty = dirty_frames(reuse["sigs"], sigs)
+            prev = _frames(reuse["video"], W, H)
+            if progress:
+                progress(f"Dựng lại theo đoạn: vẽ {len(dirty & set(range(a0, a1)))}/{a1 - a0} frame, còn lại lấy từ bản trước")
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
                             "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "17",
                             "-pix_fmt", "yuv420p", "-movflags", "+faststart", out_video], stdin=subprocess.PIPE)
@@ -411,6 +468,10 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             break
         if cancel and cancel():
             enc.kill(); raise RuntimeError("cancelled")
+        old = next(prev, None) if prev is not None else None
+        if old is not None and f not in dirty:          # đoạn không đổi → chép nguyên frame bản trước
+            enc.stdin.write(old.tobytes()); written += 1; last_frame = old
+            continue
         base = img.astype(np.float32) / 255.0
         alpha = a.astype(np.float32) / 255.0
         z, zcx, zcy = zoom_at(plan, f)
@@ -456,9 +517,11 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         if caps:                                       # phụ đề toàn bộ lời nói — trên cùng (cả lúc có MG)
             from . import captions_th as CAP
             cl = np.zeros((H, W, 4), np.float32)
-            busy = (bool(active) or any(c["start"] <= f < c["end"] for c in cos)) and not full2   # chữ nhấn / callout đang hiện → ẩn phụ đề
-            busy = busy or any(x <= f < y for x, y in mgspans)   # đoạn MG: không phụ đề
-            CAP.draw(cl, caps, f, anchors_tl, busy)
+            busy = any(c["start"] <= f < c["end"] for c in cos) and not full2   # callout đang hiện → ẩn phụ đề
+            busy = busy or any(m.get("enabled", True) and not MG2.full(m) and int(m["start"]) <= f < int(m["end"]) for m in plan.mg2)  # chip cạnh người → ẩn
+            low = full2 or any(x <= f < y for x, y in mgspans)    # cảnh MG che kín: phụ đề chạy ở dải dưới
+            top, skip = caption_lead(active, pos, f) if not low else (None, None)
+            CAP.draw(cl, caps, f, anchors_tl, busy, low, top, skip)
             if cl[..., 3].any():
                 out = out * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = flash_at(plan, f)
@@ -486,6 +549,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         WD.close()
     OV.close()
     vid.close(); alp.close()
+    if prev is not None:
+        prev.close()
     return pos
 
 

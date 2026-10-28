@@ -154,6 +154,9 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
         if (g.end - g.exit_frames - last) / fps < 1.5:   # chữ chính giữ ≥1.5s
             add("error", f"{g.id}: chữ chính chỉ giữ {(g.end - g.exit_frames - last) / fps:.2f}s sau khi hiện đủ — chưa kịp đọc đã mất; "
                          "kéo dài nhóm / rút ngắn chữ (giữ ≥ 1.5s)")
+        big = [s for s in g.spans if s.style != "icon" and s.size >= 70]
+        if len(big) == 1 and len(big[0].text) > 12:   # câu nhấn dài một dòng → chữ bé, khó đọc
+            add("error", f"{g.id}: chữ chính “{big[0].text}” dài một dòng — chia 2 dòng chữ to (2 span, dòng 2 dy ≈ cỡ chữ, trễ ~6 frame)")
         # element (icon) không được đè chữ
         texts = [s for s in g.spans if s.style != "icon"]
         from . import neon
