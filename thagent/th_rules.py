@@ -254,6 +254,12 @@ def apply(plan, words, pdir=None) -> list[str]:
                     if p:
                         it["icon"] = str(Path(p).resolve().relative_to(Path.cwd())) if Path(p).resolve().is_relative_to(Path.cwd()) else p
                         log.append(f"{x['id']}: logo thật “{b}”")
+    # logo thương hiệu chỉ đặt trên nền TỐI cho nổi — cảnh MG nền sáng có logo → đổi sang than chì
+    for sc in plan.mg2:
+        has = any(_is_img(it.get("icon")) for it in [i for i in (sc.get("items") or []) if isinstance(i, dict)] + [sc])
+        if has and (sc.get("bg") == "cream" or sc.get("light")):
+            sc["bg"] = "charcoal"; sc.pop("light", None)
+            log.append(f"{sc['id']}: có logo → nền tối (charcoal) cho logo nổi")
     return log
 
 

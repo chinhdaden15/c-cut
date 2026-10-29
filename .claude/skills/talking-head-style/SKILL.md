@@ -25,7 +25,7 @@ chỉ để tra cứu dự án cũ — KHÔNG dùng cho video mới. Thông số
 7. **Số tiền / %:** NGHE LẠI đoạn đó; đúng đơn vị được nói (`prefix` $/€/£, `unit` đ/triệu/tỷ/%); tiếng Anh `locale: "en"` (2,000);
    Số < 5 chữ số để NGUYÊN ($500, $2,000 — không 0.5K / 2.0K); từ 5 chữ số trở lên mới rút gọn — K / M cho cả tiếng Anh lẫn tiếng Việt (10K, 1.5M / 1,5M); hàng tỷ: tiếng Anh B (2B), tiếng Việt “tỷ” (2 tỷ).
    `hit_at` = giây lúc nói số cuối → số chạy chạm đúng lúc đó + loé sáng + phóng lên + tiếng tiền.
-8. **Tên phần mềm / app / hãng → LOGO THẬT** (Wikimedia, `assets_web/logo_*.png`), không icon 3D thay thế.
+8. **Tên phần mềm / app / hãng → LOGO THẬT** (Wikimedia, `assets_web/logo_*.png`), không icon 3D thay thế. Logo CHỈ đặt trên nền TỐI (kính mờ tối, MG charcoal/blur/spot/dots/gradient) — không nền trắng/kem, không ô trắng; app tự làm glow kiểu editor (logo đen → trắng, logo màu kèm chữ đen → chỉ lấy biểu tượng).
 9. **Video tiếng Anh:** toàn bộ chữ trên hình tiếng Anh. Tay múa khi nói KHÔNG phải trình diễn vật (`gaze_override.json` kind `"talk"`).
 ## ĐỔI MỚI GIỮA CÁC VIDEO — lõi giữ, mặt đổi (1.6.1)
 Lõi KHÔNG đổi: font, 3 tông, phụ đề neo, chữ nhấn đúng mốc, luật số tiền, logo thật, khung kính mờ.
