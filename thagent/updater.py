@@ -36,20 +36,41 @@ def _get(url: str, timeout=15):
     return urllib.request.urlopen(req, timeout=timeout)
 
 
+def _latest_web() -> dict | None:
+    """bản mới nhất qua trang release (không qua API → không dính giới hạn 60 lần/giờ mỗi mạng)."""
+    r = _get(f"https://github.com/{REPO}/releases/latest")
+    tag = r.geturl().rstrip("/").rsplit("/", 1)[-1]
+    if not tag.startswith("v"):
+        return None
+    url = f"https://github.com/{REPO}/releases/download/{tag}/{_asset_name()}"
+    h = urllib.request.urlopen(urllib.request.Request(url, method="HEAD", headers={"User-Agent": "C-Cut"}), timeout=15)
+    return {"version": tag.lstrip("v"), "notes": "", "url": url, "size": int(h.headers.get("Content-Length") or 0)}
+
+
+def _latest_api() -> dict | None:
+    rels = json.load(_get(f"https://api.github.com/repos/{REPO}/releases?per_page=10"))
+    rels = [r for r in rels if not r.get("draft")]
+    best = max(rels, key=lambda r: _ver(r["tag_name"]), default=None)
+    if not best:
+        return None
+    a = next((x for x in best.get("assets", []) if x["name"] == _asset_name()), None)
+    return {"version": best["tag_name"].lstrip("v"), "notes": (best.get("body") or "")[:1500],
+            "url": a and a["browser_download_url"], "size": a and a["size"]}
+
+
 def check(force=False) -> dict:
     from .ccut_api import APP_VERSION
     if force or time.time() - ST["checked"] > 1800:
-        try:
-            rels = json.load(_get(f"https://api.github.com/repos/{REPO}/releases?per_page=10"))
-            rels = [r for r in rels if not r.get("draft")]
-            best = max(rels, key=lambda r: _ver(r["tag_name"]), default=None)
-            if best:
-                a = next((x for x in best.get("assets", []) if x["name"] == _asset_name()), None)
-                ST["latest"] = {"version": best["tag_name"].lstrip("v"), "notes": (best.get("body") or "")[:1500],
-                                "url": a and a["browser_download_url"], "size": a and a["size"]}
-            ST["checked"], ST["error"] = time.time(), None
-        except Exception as e:
-            ST["error"] = f"Không kiểm tra được bản mới: {e}"[:200]
+        err = None
+        for f in (_latest_web, _latest_api):
+            try:
+                L = f()
+                if L:
+                    ST["latest"], err = L, None
+                    break
+            except Exception as e:
+                err = f"Không kiểm tra được bản mới: {e}"[:200]
+        ST["checked"], ST["error"] = (time.time() if err is None else ST["checked"]), err
     L = ST["latest"]
     avail = bool(L and L["url"] and _ver(L["version"]) > _ver(APP_VERSION))
     return {"current": APP_VERSION, "available": avail, "latest": L, "running": ST["running"], "pct": ST["pct"],
