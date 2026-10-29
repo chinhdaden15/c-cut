@@ -415,7 +415,7 @@ def caption_with(caps, active, pos, f, anchors_tl, H, W, zm, inmg=False, groups=
             cur = CAP.current([ck], f, anchors_tl, H, W, zm, skip)
     if not chest:
         return cur, {}
-    y0 = int(CAP.chest_y(anchors_tl, 0, len(anchors_tl), H, zm) - 34)    # vị trí phụ đề cố định cả video
+    y0 = int(CAP.chest_y(anchors_tl, *CAP.shot(anchors_tl, f), H, zm) - 34)    # vị trí phụ đề cố định trong mỗi góc máy
     h = _cap_h(H > W)
     top = min(pos[g.id][1] + group_extent(g, skip_icons=True)[1] for g in chest)
     pad = max(sp.size for g in chest for sp in g.spans if sp.style != "icon") * 1.0

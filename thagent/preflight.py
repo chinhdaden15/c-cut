@@ -26,8 +26,9 @@ COOLDOWN = 4           # giống render.mix_audio
 def _frames(path: str) -> int:
     r = subprocess.run(["ffprobe", "-v", "error", "-count_packets", "-select_streams", "v:0",
                         "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0", path], capture_output=True, text=True)
-    tok = r.stdout.strip().strip(",").split(",")[0]   # một số nguồn trả "1807," (có stream kèm)
-    return int(tok or 0)
+    import re
+    tok = re.findall(r"\d+", r.stdout)                # "1807," / "1110\n\n1110" (nguồn có stream dữ liệu kèm) → số đầu
+    return int(tok[0]) if tok else 0
 
 
 def trim_tail_gaze(c) -> str | None:

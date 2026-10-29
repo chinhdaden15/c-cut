@@ -256,6 +256,35 @@ def chest_y(anchors_tl, a: int, b: int, H: int, zm=(1.0, 0.5, 0.4)) -> float:
     return z * (fb + fh * 0.3) + (1 - z) * zcy * H
 
 
+_SHOTS = {}
+
+
+def shot(anchors_tl, f: int) -> tuple[int, int]:
+    """[a, b) góc máy chứa frame f — clip nhiều góc (cận / rộng): mặt nhảy vị trí đột ngột → góc mới.
+    Phụ đề + chữ nhấn neo cố định TRONG một góc, sang góc khác thì neo theo người ở góc đó."""
+    n = len(anchors_tl or [])
+    if not n:
+        return 0, 0
+    key = (id(anchors_tl), n)
+    if key not in _SHOTS:
+        fb = np.array([x.get("face_bottom") if x.get("face_bottom") is not None else np.nan for x in anchors_tl], float)
+        ok = ~np.isnan(fb)
+        if ok.any():
+            fb = np.interp(np.arange(n), np.arange(n)[ok], fb[ok])
+        cuts, i = [0], 6
+        while i < n - 6:
+            if abs(fb[i + 6] - fb[i - 6]) > 0.07 and i - cuts[-1] > 20:
+                cuts.append(i); i += 20
+            else:
+                i += 1
+        _SHOTS.clear(); _SHOTS[key] = cuts + [n]
+    cs = _SHOTS[key]
+    for a, b in zip(cs, cs[1:]):
+        if a <= f < b:
+            return a, b
+    return cs[-2], cs[-1]
+
+
 def current(caps, f: int, anchors_tl, H: int, W: int, zm=(1.0, 0.5, 0.4), skip: set | None = None):
     """(sprite, x, y) cụm đang nói ở giữa ngực, hoặc None. skip = từ của chữ nhấn đang hiện (không lặp lại ở phụ đề)."""
     for a, b, t in caps or []:
@@ -266,7 +295,7 @@ def current(caps, f: int, anchors_tl, H: int, W: int, zm=(1.0, 0.5, 0.4), skip: 
                     return None
                 t = " ".join(ws)
             spr = sprite(t, H > W)
-            return spr, (W - spr.shape[1]) // 2, int(chest_y(anchors_tl or [], 0, len(anchors_tl or []), H, zm) - 34)   # neo MỘT vị trí cả video (không nhảy theo cụm)
+            return spr, (W - spr.shape[1]) // 2, int(chest_y(anchors_tl or [], *shot(anchors_tl, f), H, zm) - 34)   # neo MỘT vị trí trong mỗi góc máy (không nhảy theo cụm)
     return None
 
 

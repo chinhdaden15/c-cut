@@ -97,12 +97,53 @@ def _uri(path: str) -> str:
     return f"data:image/{mime};base64," + base64.b64encode(p.read_bytes()).decode()
 
 
+def logo_plate(path: str) -> str:
+    """logo thật đặt trên tấm trắng bo góc + bóng mềm → nổi trên mọi nền (logo đen như ChatGPT không chìm vào khung tối).
+    Lưu cạnh file gốc: <tên>_plate.png."""
+    from pathlib import Path as _P
+    import cv2, numpy as np
+    src = _P(path)
+    out = src.with_name(src.stem + "_plate.png")
+    if out.exists() and out.stat().st_mtime >= src.stat().st_mtime:
+        return str(out)
+    im = cv2.imread(str(src), cv2.IMREAD_UNCHANGED)
+    if im is None:
+        return str(src)
+    if im.ndim == 2:
+        im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGRA)
+    elif im.shape[2] == 3:
+        im = cv2.cvtColor(im, cv2.COLOR_BGR2BGRA)
+    S, pad, sh = 512, 84, 28
+    h, w = im.shape[:2]
+    k = (S - 2 * pad) / max(h, w)
+    im = cv2.resize(im, (max(1, int(w * k)), max(1, int(h * k))), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
+    T = S + 2 * sh
+    can = np.zeros((T, T, 4), np.float32)
+    plate = np.zeros((T, T), np.float32)
+    r = 110
+    cv2.rectangle(plate, (sh + r, sh), (sh + S - r, sh + S), 1, -1); cv2.rectangle(plate, (sh, sh + r), (sh + S, sh + S - r), 1, -1)
+    for cx, cy in ((sh + r, sh + r), (sh + S - r, sh + r), (sh + r, sh + S - r), (sh + S - r, sh + S - r)):
+        cv2.circle(plate, (cx, cy), r, 1, -1)
+    shadow = np.roll(cv2.GaussianBlur(plate, (0, 0), 14), 10, 0) * 0.45
+    can[..., 3] = shadow
+    can[..., :3] = 0
+    a = plate[..., None]
+    can[..., :3] = can[..., :3] * (1 - a) + 1.0 * a
+    can[..., 3] = np.maximum(can[..., 3], plate)
+    y0, x0 = sh + (S - im.shape[0]) // 2, sh + (S - im.shape[1]) // 2
+    la = im[..., 3:4]
+    reg = can[y0:y0 + im.shape[0], x0:x0 + im.shape[1]]
+    reg[..., :3] = reg[..., :3] * (1 - la) + im[..., :3] * la
+    cv2.imwrite(str(out), (np.clip(can, 0, 1) * 255).astype(np.uint8))
+    return str(out)
+
+
 def icon_uri(name: str | None) -> str:
     if not name:
         return ""
     from pathlib import Path as _P
     if _P(name).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp") and _P(name).exists():   # logo thương hiệu / phần mềm thật (assets_web)
-        return _uri(str(_P(name)))
+        return _uri(logo_plate(str(_P(name))))
     from . import icons3d as K
     return _uri(str(K.path(name.removeprefix("3d:"), "color" if name.removeprefix("3d:") in _PREMIUM_BAD else "premium")))
 
