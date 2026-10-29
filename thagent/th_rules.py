@@ -114,7 +114,8 @@ def _lang(pdir) -> str:
 
 def apply(plan, words, pdir=None) -> list[str]:
     """đưa kế hoạch về đúng công thức đã chốt (sửa tại chỗ, chạy lại nhiều lần vẫn vậy). → nhật ký thay đổi."""
-    log = []
+    from . import variety as V
+    log = V.apply(plan, plan.fps, Path(pdir).name if pdir else None)   # công thức nhịp + bộ âm (đổi mới giữa các video)
     tw = _tl_words(plan, words)
     if not tw:
         return log
@@ -242,7 +243,8 @@ def apply(plan, words, pdir=None) -> list[str]:
 
 def check(plan, words, pdir) -> list[tuple[str, str]]:
     """lỗi chặn dựng (app không tự sửa được)."""
-    out = []
+    from . import variety as V
+    out = V.check(plan, Path(pdir).name)
     add = lambda m: out.append(("error", m))
     tw = _tl_words(plan, words)
     pdir = Path(pdir)

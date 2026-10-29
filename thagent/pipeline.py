@@ -328,6 +328,9 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     c.project.renders.append(rec)
     c.project.status = "ready"
     c.save()
+    if frame_range is None:
+        from .variety import record
+        record(plan, c.project.id)                    # lịch sử chống lặp giữa các video
     return rec
 
 

@@ -114,9 +114,11 @@ def check(plan, words, fps: int) -> list[tuple[str, str]]:
     n_stage = len([s for s in plan.stage if s.get("enabled", True)])
     n_co = len([c for c in plan.callouts if c.get("enabled", True)]) + \
         len([m for m in plan.mg2 if m.get("enabled", True) and not MG2.full(m)])   # MG chồng cạnh người (chips / iconrow) = callout
-    need_st, need_co = int(ts // 15), int(ts // 10)
+    from .variety import stage_every
+    se = stage_every(plan)
+    need_st, need_co = int(ts // se), int(ts // 10)
     if n_stage < need_st:
-        out.append(("error", f"chỉ {n_stage} hiệu ứng quanh / sau lưng (plan.stage) cho {ts:.0f}s nói — cần ≥ {need_st} (1 mỗi 15s): "
+        out.append(("error", f"chỉ {n_stage} hiệu ứng quanh / sau lưng (plan.stage) cho {ts:.0f}s nói — cần ≥ {need_st} (1 mỗi {se}s theo công thức nhịp): "
                              "chữ / số khổng lồ, băng chữ, icon 3D bay quanh, bokeh, đèn rọi"))
     if n_co < need_co:
         out.append(("error", f"chỉ {n_co} callout cho {ts:.0f}s nói — cần ≥ {need_co} (1 mỗi 10s): chữ + icon 3D, trước/sau, cảnh báo, "

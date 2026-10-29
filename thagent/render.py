@@ -644,6 +644,9 @@ def mix_audio(plan: Plan, voice: str, sfx_dir: Path, manifest: dict, out_wav: st
     from .mg2 import sound_events as mg2_sounds
     from .callouts import sound_events as co_sounds
     sounds = list(plan.sounds) + sound_events(plan) + mg2_sounds(plan) + co_sounds(plan)   # SFX tự động: sân khấu, cảnh MG, callout
+    if getattr(plan, "recipe", ""):
+        from .variety import remap
+        sounds = remap(sounds, plan, fps)                 # bộ âm của video + giãn mật độ
     ticks, nth = [s for s in sounds if s.enabled and s.asset == "u_tick"], {}
     drop = set()
     for s in sorted(ticks, key=lambda s: s.hit):

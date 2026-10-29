@@ -1,6 +1,6 @@
 ---
 name: talking-head-style
-version: 1.6.0
+version: 1.6.1
 description: Phong cách dựng video Talking Head “Talking Head Style” (mọi lĩnh vực, tiếng Việt, dọc 9:16) đã được người dùng duyệt — chữ neon Montserrat 3 màu (vàng cam/đỏ/xanh), chữ dẫn rơi từng từ + tick, xếp lớp sau đầu/trước ngực, icon Flaticon gradient phát sáng, Motion Graphics bố cục + chuyển động (nền đơn giản 6 kiểu) ~10s/cảnh, SFX tiết chế, preflight trước render. Dùng khi người dùng chọn “Talking Head Style”, nói “dựng theo Talking Head Style”, “dựng video talking head như bản B.TA”, hoặc đưa video người nói vào app và muốn dựng full. Bản chuẩn hiện hành: Agency v5 (phụ đề theo ý + chữ nhấn chỉ chữ chính).
 ---
 
@@ -20,13 +20,23 @@ chỉ để tra cứu dự án cũ — KHÔNG dùng cho video mới. Thông số
    không có → nằm ĐÚNG hàng phụ đề. Đứng yên tới khi tắt. TẮT khi người nói sang từ kế tiếp sau cụm nhấn (phụ đề nối tiếp).
 3. **Không lặp lời:** lời đã nằm trong chữ nhấn không hiện lại ở phụ đề. Phụ đề chờ chữ nhấn tắt, không đẩy chữ nhấn.
 4. **Callout kính mờ + icon 3D**, ở ngực trên; giữ tới khi nói xong câu (end = từ đầu câu kế + ~10 frame); phụ đề ẩn khi callout hiện.
-5. **Chữ sau lưng** `giant_text` (viền mảnh nghiêng, tràn khung, zoom 1.5×) start ĐÚNG mốc từ, ~4 lần/phút.
-6. **MG = `plan.mg2` nền `blur`**, ~10s/cảnh; trong MG phụ đề chạy dải dưới, cụm đó hết MG thì tắt luôn.
+5. **Chữ sau lưng** `giant_text` (viền mảnh nghiêng, tràn khung, zoom 1.5×) start ĐÚNG mốc từ, tần suất theo CÔNG THỨC NHỊP (khổ ngang ≤ 1 lần / 30s, chỉ hook / câu bẻ lái).
+6. **MG = `plan.mg2`**, nền theo công thức nhịp (1–2 kiểu / video), ~10s/cảnh; trong MG phụ đề chạy dải dưới, cụm đó hết MG thì tắt luôn.
 7. **Số tiền / %:** NGHE LẠI đoạn đó; đúng đơn vị được nói (`prefix` $/€/£, `unit` đ/triệu/tỷ/%); tiếng Anh `locale: "en"` (2,000);
    Số < 5 chữ số để NGUYÊN ($500, $2,000 — không 0.5K / 2.0K); từ 5 chữ số trở lên mới rút gọn — K / M cho cả tiếng Anh lẫn tiếng Việt (10K, 1.5M / 1,5M); hàng tỷ: tiếng Anh B (2B), tiếng Việt “tỷ” (2 tỷ).
    `hit_at` = giây lúc nói số cuối → số chạy chạm đúng lúc đó + loé sáng + phóng lên + tiếng tiền.
 8. **Tên phần mềm / app / hãng → LOGO THẬT** (Wikimedia, `assets_web/logo_*.png`), không icon 3D thay thế.
 9. **Video tiếng Anh:** toàn bộ chữ trên hình tiếng Anh. Tay múa khi nói KHÔNG phải trình diễn vật (`gaze_override.json` kind `"talk"`).
+## ĐỔI MỚI GIỮA CÁC VIDEO — lõi giữ, mặt đổi (1.6.1)
+Lõi KHÔNG đổi: font, 3 tông, phụ đề neo, chữ nhấn đúng mốc, luật số tiền, logo thật, khung kính mờ.
+Mỗi video chọn MỘT **công thức nhịp** hợp nội dung → `plan.recipe` (danh sách + kiểu gợi ý: `thagent/variety.py` RECIPES, app đưa vào prompt kèm các video gần đây):
+- **Khổ dọc:** `toi_gian` Tối giản · `bien_tap` Biên tập · `nang_luong` Năng lượng · `dien_anh` Điện ảnh · `doi_thoai` Đối thoại.
+- **Khổ ngang:** `tin_tuc` Bản tin · `bai_giang` Bài giảng · `phong_su` Phóng sự · `thuyet_trinh` Thuyết trình — chữ sau lưng tiết chế (≤ 1 / 30s,
+  hook hoặc câu bẻ lái `"turn": true`), thay bằng callout ở khoảng trống cạnh người, lower-third, MG chia đôi.
+Dùng chủ yếu sân khấu / callout / MG / nền của công thức; không lặp bố cục video trước (preflight cảnh báo nếu giống > 60%; lịch sử `~/.ccut/th_history.json`).
+**SFX theo bộ âm** `plan.sfx_pack` (`mem` | `cong_nghe` | `nang_dong` | `dien_anh`, mặc định theo công thức): app tự đổi âm tự động sang bộ đó, bỏ âm tổng hợp tạm,
+âm vào của callout / sân khấu cách nhau ≥ 2.5s, mỗi callout tối đa 3 tiếng mục. Âm khai tay (plan.sounds) giữ nguyên.
+Thiếu `plan.recipe` → app tự chọn công thức ít dùng gần đây nhất.
 App tự kiểm và tự chỉnh lại các điểm 2, 4, 5, 7, 8 trước khi dựng (`thagent/th_rules.py`) — nhưng Claude phải viết kế hoạch đúng ngay từ đầu.
 Hai mẫu đó là video BĐS — **chỉ học cấu trúc và nhịp, không học nội dung**. Ví dụ ngắn lĩnh vực khác: [reference/domain_examples.md](reference/domain_examples.md).
 

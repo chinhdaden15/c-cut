@@ -319,7 +319,11 @@ def system_prompt(style: str, pid: str, pdir: str) -> str:
     base = STYLE_PROMPTS.get(style)
     if base is None:
         base = SYSTEM_GENERIC if (ROOT / ".claude" / "skills" / style / "SKILL.md").exists() else SYSTEM
-    return base.format(pid=pid, pdir=pdir, style=style) + FACT_RULES + prompt_block(style)
+    extra = ""
+    if style == "talking-head-style":
+        from .variety import prompt_block as vb
+        extra = vb()                                   # công thức nhịp + video gần đây (tránh lặp)
+    return base.format(pid=pid, pdir=pdir, style=style) + FACT_RULES + extra + prompt_block(style)
 
 class Session:
     def __init__(self, pid: str, style: str):

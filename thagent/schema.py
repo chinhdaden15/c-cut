@@ -172,6 +172,8 @@ class Plan(BaseModel):
     captions: bool = True        # phụ đề theo Ý (phude.json) — MẶC ĐỊNH BẬT theo bản Agency v5 đã chốt 2026-10-29 (thagent/captions_th.py, th_rules.py)
     mg2: list[dict] = []         # Motion Graphics thế hệ 2 (bố cục + chuyển động, HyperFrames) — thagent/mg2.py
     stage: list[dict] = []       # "sân khấu" quanh / sau lưng nhân vật — thagent/stage.py
+    recipe: str = ""             # công thức nhịp (thagent/variety.py RECIPES) — trống thì app tự chọn cái ít dùng gần đây
+    sfx_pack: str = ""           # bộ âm (variety.PACKS) — trống thì theo công thức
     callouts: list[dict] = []    # chữ nổi bật + icon / callout / ảnh kẹp — thagent/callouts.py (app tự đặt, tránh mặt)
 
 
