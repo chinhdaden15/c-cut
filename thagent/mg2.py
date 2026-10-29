@@ -86,6 +86,7 @@ BASE_CSS = """
 .chip{position:absolute;display:flex;align-items:center;gap:calc(14px*var(--s));padding:calc(14px*var(--s)) calc(28px*var(--s)) calc(14px*var(--s)) calc(14px*var(--s));
   border-radius:999px;background:rgba(12,14,24,.62);backdrop-filter:blur(18px);border:2px solid rgba(255,255,255,.2);font-weight:800;font-size:calc(46px*var(--s));white-space:nowrap}
 .chip img{width:calc(74px*var(--s))}
+.chip img.logo{width:calc(104px*var(--s));margin:calc(-15px*var(--s)) calc(-8px*var(--s))}
 """.replace("GRAIN", GRAIN)
 
 
@@ -134,7 +135,7 @@ def logo_plate(path: str) -> str:
     ys, xs = np.where(al > 0.05)
     if len(ys):
         rgb, al = rgb[ys.min():ys.max() + 1, xs.min():xs.max() + 1], al[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
-    S, pad = 640, 130                                      # chừa đủ chỗ cho bóng rộng + quầng (không cắt thành ô vuông)
+    S, pad = 640, 80                                       # chừa đủ chỗ cho bóng rộng + quầng (không cắt thành ô vuông)
     h, w = al.shape
     k = (S - 2 * pad) / max(h, w)
     nw, nh = max(1, int(w * k)), max(1, int(h * k))
@@ -147,7 +148,7 @@ def logo_plate(path: str) -> str:
     Cp = C * A[..., None]
     core = Cp + (A[..., None] - Cp) * 0.12
     g = np.zeros_like(Cp)
-    for r, w in ((0.025, 0.9), (0.07, 0.55), (0.18, 0.35)):
+    for r, w in ((0.02, 0.9), (0.05, 0.55), (0.10, 0.4)):
         g += cv2.GaussianBlur(Cp, (0, 0), max(1.0, nh * r)) * w
     ga = np.clip(g.max(2), 0, 1)
     gc = np.where(ga[..., None] > 1e-4, np.clip(g / np.maximum(ga[..., None], 1e-4), 0, 1), 0)
@@ -161,6 +162,11 @@ def logo_plate(path: str) -> str:
     st = np.where(o[..., 3:] > 1e-4, o[..., :3] / np.maximum(o[..., 3:], 1e-4), 0)[..., ::-1]   # bỏ nhân alpha, RGB → BGR
     cv2.imwrite(str(out), (np.clip(np.dstack([st, o[..., 3:]]), 0, 1) * 255).astype(np.uint8))
     return str(out)
+
+
+def _logo(name) -> bool:
+    from pathlib import Path as _P
+    return bool(name) and _P(str(name)).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")
 
 
 def icon_uri(name: str | None) -> str:
@@ -253,7 +259,7 @@ const o={{v:{vf}}};tl.to(o,{{v:{vt},duration:{dur},ease:'power2.inOut',onUpdate:
 def _t_money(sc, V, tone):
     d = int(sc.get("decimals", 2))
     unit = E(sc.get("unit", ""))
-    unit = ("" if unit in ("K", "M", "B") else " ") + unit if unit else ""   # 50K / 2B viết liền; 2 tỷ có cách
+    unit = ("" if unit in ("K", "M", "B", "T") else " ") + unit if unit else ""   # 50K / 2B / 2.5T viết liền; 2 tỷ có cách
     pre_ = E(sc.get("prefix", ""))
     vf, vt = float(sc.get("value_from", 0)), float(sc.get("value_to", 0))
     loc = "en-US" if sc.get("locale") == "en" else "vi-VN"      # "locale": "en" → 2,000 (video tiếng Anh)
@@ -387,7 +393,7 @@ def _t_chips(sc, V, tone, face=None):
     W = 1080 if V else 1920
     cols = ('gold', 'blue', 'red', 'gold')
     chip = lambda i, it, style: f"""<div class="chip c{i}" style="position:relative;{style}border-color:{TONES[cols[i]][2]}88;font-size:{_px(fit(it.get('text'), 46, 18))}">
-{f'<img src="{icon_uri(it.get("icon"))}">' if it.get('icon') else ''}{E(it.get('text'))}</div>"""
+{f'<img{" class=logo" if _logo(it.get("icon")) else ""} src="{icon_uri(it.get("icon"))}">' if it.get('icon') else ''}{E(it.get('text'))}</div>"""
     if V:                                                    # khổ dọc: cột chip GIỮA khung ngay dưới cằm — tránh cột nút phải + dải dưới của nền tảng
         y0 = (face[3] + 40) if face else 1000
         out = f"""<div style="position:absolute;left:0;right:0;top:{_px(y0)};display:flex;flex-direction:column;align-items:center;gap:{_px(22)}">""" + \

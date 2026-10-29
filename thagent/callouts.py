@@ -216,7 +216,7 @@ def I(name: str | None, size: int, tone: str) -> np.ndarray | None:
     if Path(name).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp") and Path(name).exists():   # logo thật → tấm trắng bo góc, nổi trên khung
         from .mg2 import logo_plate
         im = cv2.imread(logo_plate(name), cv2.IMREAD_UNCHANGED)
-        s2 = int(size * 1.35)
+        s2 = int(size * 1.6)                                # logo (đã có quầng glow quanh) → to hơn icon thường để ngang chữ chính
         im = cv2.resize(im, (s2, s2), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
         spr = blank(s2, s2)
         a = im[..., 3:4]

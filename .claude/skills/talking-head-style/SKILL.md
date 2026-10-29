@@ -1,6 +1,6 @@
 ---
 name: talking-head-style
-version: 1.6.1
+version: 1.6.2
 description: Phong cách dựng video Talking Head “Talking Head Style” (mọi lĩnh vực, tiếng Việt, dọc 9:16) đã được người dùng duyệt — chữ neon Montserrat 3 màu (vàng cam/đỏ/xanh), chữ dẫn rơi từng từ + tick, xếp lớp sau đầu/trước ngực, icon Flaticon gradient phát sáng, Motion Graphics bố cục + chuyển động (nền đơn giản 6 kiểu) ~10s/cảnh, SFX tiết chế, preflight trước render. Dùng khi người dùng chọn “Talking Head Style”, nói “dựng theo Talking Head Style”, “dựng video talking head như bản B.TA”, hoặc đưa video người nói vào app và muốn dựng full. Bản chuẩn hiện hành: Agency v5 (phụ đề theo ý + chữ nhấn chỉ chữ chính).
 ---
 
