@@ -39,7 +39,7 @@ def fetch_logo(brand: str, pdir) -> str | None:
     import json, urllib.parse, urllib.request
     pdir = Path(pdir)
     dst = pdir / "assets_web" / f"logo_{re.sub(r'[^a-z0-9]+', '_', brand.lower()).strip('_')}.png"
-    if dst.exists():
+    if dst.exists() and logo_ok(dst):
         return str(dst)
     ua = {"User-Agent": "Mozilla/5.0 ccut"}
     name = LOGO.get(brand.lower())
@@ -67,8 +67,24 @@ def fetch_logo(brand: str, pdir) -> str | None:
         return None
 
 
+def logo_ok(path) -> bool:
+    """ảnh logo nhìn thấy được: có nét trên nền trong suốt, hoặc ảnh không trong suốt mà có tương phản
+    (ảnh đen kịt / trắng trơn — vd SVG chuyển PNG mất lớp trong suốt — là hỏng)."""
+    import cv2, numpy as np
+    im = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+    if im is None:
+        return False
+    if im.ndim == 3 and im.shape[2] == 4:
+        a = im[..., 3].astype(np.float32) / 255
+        if 0.005 < a.mean() < 0.995:
+            return True
+        im = im[..., :3]
+    return float(im.std()) > 10
+
+
 def _is_img(icon) -> bool:
-    return bool(icon) and Path(str(icon)).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp") and Path(str(icon)).exists()
+    return bool(icon) and Path(str(icon)).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp") and Path(str(icon)).exists() \
+        and logo_ok(icon)
 
 
 def _brand(txt: str):
@@ -274,5 +290,5 @@ def check(plan, words, pdir) -> list[tuple[str, str]]:
         for txt, icon in items(x):
             b = _brand(txt)
             if b and not _is_img(icon):
-                add(f"{x['id']}: nhắc “{b}” mà icon không phải LOGO THẬT — tải logo đúng (Wikimedia) vào assets_web, icon = đường dẫn ảnh")
+                add(f"{x['id']}: nhắc “{b}” mà icon không phải LOGO THẬT (hoặc ảnh logo hỏng — đen kịt / mất nền trong suốt) — tải logo đúng (Wikimedia) vào assets_web, icon = đường dẫn ảnh")
     return out

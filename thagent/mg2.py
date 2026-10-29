@@ -110,9 +110,13 @@ def logo_plate(path: str) -> str:
     if im is None:
         return str(src)
     if im.ndim == 2:
-        im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGRA)
-    elif im.shape[2] == 3:
-        im = cv2.cvtColor(im, cv2.COLOR_BGR2BGRA)
+        im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+    if im.shape[2] == 3:                                   # không có lớp trong suốt → tách nền theo màu viền ảnh
+        b = np.concatenate([im[0], im[-1], im[:, 0], im[:, -1]]).astype(np.float32)
+        bg = np.median(b, 0)
+        d = np.abs(im.astype(np.float32) - bg).max(2)
+        al = np.clip((d - 12) / 40, 0, 1) if b.std(0).max() < 12 else np.ones(im.shape[:2], np.float32)
+        im = np.dstack([im, (al * 255).astype(np.uint8)])
     S, pad, sh = 512, 84, 28
     h, w = im.shape[:2]
     k = (S - 2 * pad) / max(h, w)
