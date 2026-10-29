@@ -151,9 +151,10 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
             add("error", f"{g.id}: tràn khung ({ax + x0:.0f},{ay + y0:.0f})–({ax + x1:.0f},{ay + y1:.0f})")
         last = max(g.start + (max(s.word_delays) if s.word_delays else s.delay_frames) + 9
                    for s in g.spans if s.style != "icon")
-        if (g.end - g.exit_frames - last) / fps < 1.5:   # chữ chính giữ ≥1.5s
+        hold_min = 0.25 if pl.captions else 1.5             # có phụ đề: chữ nhấn hiện đúng lúc nói, tắt khi sang lời mới (phụ đề nối tiếp)
+        if (g.end - g.exit_frames - last) / fps < hold_min:
             add("error", f"{g.id}: chữ chính chỉ giữ {(g.end - g.exit_frames - last) / fps:.2f}s sau khi hiện đủ — chưa kịp đọc đã mất; "
-                         "kéo dài nhóm / rút ngắn chữ (giữ ≥ 1.5s)")
+                         f"kéo dài nhóm / rút ngắn chữ (giữ ≥ {hold_min}s)")
         big = [s for s in g.spans if s.style != "icon" and s.size >= 70]
         if len(big) == 1 and len(big[0].text) > 12:   # câu nhấn dài một dòng → chữ bé, khó đọc
             add("error", f"{g.id}: chữ chính “{big[0].text}” dài một dòng — chia 2 dòng chữ to (2 span, dòng 2 dy ≈ cỡ chữ, trễ ~6 frame)")
@@ -241,6 +242,8 @@ def _repeat(main: str, lead: str) -> bool:
     if not m:
         return False
     if any(l[i:i + len(m)] == m for i in range(len(l) - len(m) + 1)):
+        return True
+    if m[0] in l[-2:]:                              # dòng dẫn kết bằng chữ mở đầu chữ chính (“… đúng với” + ĐÚNG NHU CẦU)
         return True
     return len(m) >= 2 and sum(w in l for w in m) / len(m) >= 0.6
 

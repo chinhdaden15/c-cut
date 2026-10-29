@@ -32,7 +32,7 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
     pl = c.project.plan
     W, H = pl.width, pl.height                       # khung dựng thật (ngang / dọc theo clip gốc)
     from . import captions_th as CAP
-    caps = CAP.chunks(pl, c.project.words) if pl.captions else None
+    caps = CAP.chunks(pl, c.project.words, CAP.load_phrases(c.dir)) if pl.captions else None
     R.use_frame(W, H, bool(caps))
     T.build_mapping(pl)
     from .channels import theme
@@ -86,9 +86,20 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
                 fr[..., 3] = hg[..., 3]
         for v in cards:
             R.draw_card(bh if v.zone == "above_head" else fr, v, f, *cpos[v.id])
-        for g in pl.text_groups:
-            if g.enabled and g.start <= f < g.end and not full2:
-                draw_group(bh if R.layer_of(g) == "behind_subject" else fr, g, f, *pos[g.id])
+        capcur, gshift = None, {}
+        if caps and not full2:
+            busy = any(x["start"] <= f < x["end"] for x in cos) or any(
+                m.get("enabled", True) and not MG2.full(m) and int(m["start"]) <= f < int(m["end"]) for m in pl.mg2)
+        MG.chain(pl.mg)
+        mgsp = [MG.covered_range(m) for m in pl.mg]
+        act = [g for g in pl.text_groups if g.enabled and g.start <= f < g.end and not full2]
+        if caps and not full2:
+            inmg = any(x <= f < y for x, y in mgsp)
+            if not busy or inmg:
+                capcur, gshift = R.caption_with(caps, act, pos, f, atl, H, W, (z, zcx, zcy), inmg, pl.text_groups)
+        for g in act:
+            ax, ay = pos[g.id]
+            draw_group(bh if R.layer_of(g) == "behind_subject" else fr, g, f, ax, ay + gshift.get(g.id, 0))
         from . import stage as STG
         if not full2:
             STG.draw_all(pl, f, bh, fr, atl)
@@ -106,11 +117,8 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
         o = R.overlay_mg(o, pl, f)
         if caps:
             cl = np.zeros((H, W, 4), np.float32)
-            busy = (any(x["start"] <= f < x["end"] for x in cos) or any(m.get("enabled", True) and not MG2.full(m) and int(m["start"]) <= f < int(m["end"]) for m in pl.mg2)) and not full2
-            MG.chain(pl.mg)
-            low = full2 or any(x <= f < y for x, y in [MG.covered_range(m) for m in pl.mg])   # cảnh MG che kín: phụ đề ở dải dưới
-            top, skip = R.caption_lead([] if low else pl.text_groups, pos, f)
-            CAP.draw(cl, caps, f, atl, busy, low, top, skip)
+            low = full2 or any(x <= f < y for x, y in mgsp)    # cảnh MG che kín: phụ đề ở dải dưới
+            CAP.draw_at(cl, CAP.current(caps, f, atl, H, W) if full2 else capcur, low)
             o = o * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = R.flash_at(pl, f)
         if fl > 0:

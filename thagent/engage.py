@@ -75,9 +75,13 @@ def check(plan, words, fps: int) -> list[tuple[str, str]]:
     for a, b in spans:
         for f in range(max(0, a), min(D, b)):
             covered[f] = 1
-    # 1) đang nói mà trên hình trống
+    # 1) đang nói mà trên hình trống (bật phụ đề → lời nói luôn có chữ trên hình, khỏi kiểm)
     run = None
-    talk = sorted(speech)
+    if getattr(plan, "captions", False):
+        talk_ = []
+    else:
+        talk_ = None
+    talk = sorted(speech) if talk_ is None else talk_
     holes = []
     for a, b, _ in talk:
         for f in range(max(0, a), min(D, b)):

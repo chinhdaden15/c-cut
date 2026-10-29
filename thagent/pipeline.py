@@ -294,7 +294,7 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     layout = R.composite(plan, rc, anchors, str(vdir / "video_noaudio.mp4"), fr, progress=c.log,
                          snapshots=snaps, snap_dir=vdir, cancel=c.cancel, hf_items=hf_items,
                          wide_out=str(vdir / "video_wide_noaudio.mp4") if wide else None,
-                         caps=CAP.chunks(plan, c.project.words) if plan.captions else None, reuse=reuse)
+                         caps=CAP.chunks(plan, c.project.words, CAP.load_phrases(c.dir)) if plan.captions else None, reuse=reuse)
     _keep_cache(c, reuse, vdir, fr)
     c.log("Phối âm voice + SFX, chuẩn loudness")
     rep = R.mix_audio(plan, rc["voice"], SFX_DIR, man, str(vdir / "mix.wav"), fr)

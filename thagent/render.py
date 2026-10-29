@@ -390,6 +390,71 @@ def caption_lead(groups, pos, f):
     return top, words
 
 
+def caption_with(caps, active, pos, f, anchors_tl, H, W, zm, inmg=False, groups=()):
+    """phụ đề làm dòng dẫn cho chữ nhấn (người dùng chốt 2026-10-29):
+    - từ đã có trong chữ nhấn (nhóm nào trùng thời gian cụm) không lặp ở phụ đề — kể cả khi nhóm đã tắt;
+    - đang có chữ nhấn ở ngực: chỉ hiện cụm dẫn (bắt đầu TRƯỚC lúc chữ nhấn hiện), cụm nói sau chờ chữ nhấn tắt;
+    - chữ nhấn nằm ngay DƯỚI phụ đề và ĐỨNG YÊN suốt nhóm (phụ đề tắt cũng không nhảy lên).
+    → (cụm, {group id: dời y})"""
+    import re
+    from . import captions_th as CAP
+    k = lambda w: re.sub(r"[^\w]", "", w.lower())
+    ck = next(((a, b, t) for a, b, t in caps or [] if a <= f < b), None)
+    chest = [g for g in active if g.zone != "above_head" and layer_of(g) != "behind_subject"] if not inmg else []
+    cur = None
+    if ck:
+        skip = set()
+        if not inmg:
+            for g in list(groups) or active:
+                if g.enabled and g.start < ck[1] and g.end > ck[0]:
+                    for sp in g.spans:
+                        if sp.style != "icon":
+                            skip |= {k(w) for w in str(sp.text).split()}
+        late = any(ck[0] >= g.start + min((sp.delay_frames for sp in g.spans if sp.style != "icon"), default=0) - 2 for g in chest)
+        if not late:
+            cur = CAP.current([ck], f, anchors_tl, H, W, zm, skip)
+    if not chest:
+        return cur, {}
+    y0 = int(CAP.chest_y(anchors_tl, 0, len(anchors_tl), H, zm) - 34)    # vị trí phụ đề cố định cả video
+    h = _cap_h(H > W)
+    top = min(pos[g.id][1] + group_extent(g, skip_icons=True)[1] for g in chest)
+    pad = max(sp.size for g in chest for sp in g.spans if sp.style != "icon") * 1.0
+    if any(_has_lead(g, caps, groups or active) for g in chest):
+        d = int(y0 - (top - 6 - h + 34) - pad)                          # có phụ đề dẫn → chữ nhấn ngay dưới
+    else:
+        d = int(y0 + 34 - top - pad * 0.25)                             # không có → chữ nhấn nằm ĐÚNG chỗ phụ đề
+    if cur:
+        cur = (cur[0], cur[1], y0)
+    return cur, {g.id: d for g in chest}
+
+
+def _has_lead(g, caps, groups) -> bool:
+    """nhóm có cụm phụ đề dẫn hiện cùng (cụm bắt đầu trước lúc chữ nhấn hiện, còn ≥2 từ sau khi bỏ từ chữ nhấn)?"""
+    import re
+    k = lambda w: re.sub(r"[^\w]", "", w.lower())
+    ap = g.start + min((sp.delay_frames for sp in g.spans if sp.style != "icon"), default=0) - 2
+    for a, b, t in caps or []:
+        if a < ap and b > g.start:
+            skip = set()
+            for x in groups:
+                if x.enabled and x.start < b and x.end > a:
+                    skip |= {k(w) for sp in x.spans if sp.style != "icon" for w in str(sp.text).split()}
+            ws = [w for w in t.split() if k(w) not in skip]
+            if len(ws) >= 2 or (ws and len(ws) == len(t.split())):
+                return True
+    return False
+
+
+_CAPH: dict = {}
+
+
+def _cap_h(V: bool) -> int:
+    from . import captions_th as CAP
+    if V not in _CAPH:
+        _CAPH[V] = CAP.sprite("Ag", V).shape[0]
+    return _CAPH[V]
+
+
 def frame_sigs(plan: Plan, pos: dict, colay: dict) -> dict:
     """chữ ký từng mục vẽ lên hình: id → [đầu, cuối, hash] (kèm vị trí đã xếp) — so với bản trước để biết đoạn nào phải vẽ lại."""
     import hashlib
@@ -492,8 +557,17 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         for v in cards:
             if v.start <= f < v.end:
                 draw_card(behind if v.zone == "above_head" else front, v, f, *cpos[v.id])
+        capcur, gshift = None, {}
+        if caps and not full2:
+            from . import captions_th as CAP
+            busy = any(c["start"] <= f < c["end"] for c in cos) or any(
+                m.get("enabled", True) and not MG2.full(m) and int(m["start"]) <= f < int(m["end"]) for m in plan.mg2)
+            inmg = any(x <= f < y for x, y in mgspans)
+            if not busy or inmg:
+                capcur, gshift = caption_with(caps, active, pos, f, anchors_tl, H, W, (z, zcx, zcy), inmg, plan.text_groups)
         for g in active:
             ax, ay = pos[g.id]
+            ay += gshift.get(g.id, 0)
             draw_group(behind if layer_of(g) == "behind_subject" else front, g, f, ax, ay)
         if plan.stage and not full2:
             from . import stage as STG
@@ -517,11 +591,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
         if caps:                                       # phụ đề toàn bộ lời nói — trên cùng (cả lúc có MG)
             from . import captions_th as CAP
             cl = np.zeros((H, W, 4), np.float32)
-            busy = any(c["start"] <= f < c["end"] for c in cos) and not full2   # callout đang hiện → ẩn phụ đề
-            busy = busy or any(m.get("enabled", True) and not MG2.full(m) and int(m["start"]) <= f < int(m["end"]) for m in plan.mg2)  # chip cạnh người → ẩn
             low = full2 or any(x <= f < y for x, y in mgspans)    # cảnh MG che kín: phụ đề chạy ở dải dưới
-            top, skip = caption_lead(active, pos, f) if not low else (None, None)
-            CAP.draw(cl, caps, f, anchors_tl, busy, low, top, skip)
+            CAP.draw_at(cl, CAP.current(caps, f, anchors_tl, H, W) if full2 else capcur, low)
             if cl[..., 3].any():
                 out = out * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = flash_at(plan, f)

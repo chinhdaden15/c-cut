@@ -11,7 +11,7 @@ Nền ("bg") — chỉ 6 kiểu đã duyệt (đơn giản, chữ dễ đọc; c
 
 Kind (tham số):
   chart      value_from, value_to, suffix "%", label, title, sub, icon        — đồ thị tự vẽ, số chạy
-  money      value_from, value_to, decimals, unit "tỷ" | prefix "$", title, sub, badge, icon — số tiền chạy + thẻ phụ
+  money      value_from, value_to, decimals, unit "tỷ" | prefix "$", locale "en" (2,000), title, sub, badge, icon — số tiền chạy + thẻ phụ
   notif      items [{icon, title, text}] (2–4)                                 — chồng thông báo trượt xuống
   question   image (ẢNH MINH HOẠ đúng ý câu hỏi — bắt buộc), lead "Câu hỏi:", text, sub, icon — thẻ câu hỏi: ảnh trong khung + dấu ? 3D
   photos     title, images [{src, label}] (1–3), note "Hình ảnh minh họa"      — ảnh xếp nghiêng có nhãn
@@ -24,7 +24,7 @@ Kind (tham số):
    mỗi mục hiện đúng lúc nói, mục cuối hiện trước khi cảnh hết ≥ 0.8s)
   custom     html, css, js (GSAP: biến `tl`, `sel`) — Claude TỰ THIẾT KẾ theo chủ đề; dùng lớp sẵn .card .t1 .gold .blue .red .sub
              .chip .ic .sweep, biến --s (tỉ lệ khung), {{icon:3d:id}} → ảnh icon 3D. Giữ luật: nền đơn giản, ≤ 3 khối, chữ ≥ 34px×s.
-Icon: "3d:<id>" từ kho chung (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
+Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);
 cảnh nền (≠ none) không nằm trong đoạn mở đầu / kết; mỗi video dùng ít nhất 4 kind khác nhau, không lặp kind liền nhau.
@@ -100,6 +100,9 @@ def _uri(path: str) -> str:
 def icon_uri(name: str | None) -> str:
     if not name:
         return ""
+    from pathlib import Path as _P
+    if _P(name).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp") and _P(name).exists():   # logo thương hiệu / phần mềm thật (assets_web)
+        return _uri(str(_P(name)))
     from . import icons3d as K
     return _uri(str(K.path(name.removeprefix("3d:"), "color" if name.removeprefix("3d:") in _PREMIUM_BAD else "premium")))
 
@@ -169,14 +172,15 @@ def _t_money(sc, V, tone):
     unit = E(sc.get("unit", ""))
     pre_ = E(sc.get("prefix", ""))
     vf, vt = float(sc.get("value_from", 0)), float(sc.get("value_to", 0))
-    fmt = lambda v: f"{v:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    loc = "en-US" if sc.get("locale") == "en" else "vi-VN"      # "locale": "en" → 2,000 (video tiếng Anh)
+    fmt = (lambda v: f"{v:,.{d}f}") if loc == "en-US" else (lambda v: f"{v:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", "."))
     ic = f'<img class=ic src="{icon_uri(sc.get("icon"))}" style="width:{_px(280)};left:calc(50% - 140px*var(--s));top:calc(50% - 460px*var(--s))">' if sc.get("icon") else ""
     badge = f"""<div style="position:absolute;right:{_px(40)};top:{_px(48)};padding:{_px(12)} {_px(22)};border-radius:14px;background:{TONES[tone][2]};color:#1a1200;font-weight:900;font-size:{_px(38)}">{E(sc['badge'])}</div>""" if sc.get("badge") else ""
     html = f"""{ic}<div class="t1 {tone} num" style="position:absolute;width:100%;text-align:center;top:calc(50% - 150px*var(--s));font-size:{_px(170)}">{pre_}{fmt(vf)} {unit}</div>
 <div class=card style="left:calc(50% - 420px*var(--s));top:calc(50% + 70px*var(--s));width:{_px(840)};height:{_px(190)}">
 <div style="position:absolute;left:{_px(46)};top:{_px(36)};font-weight:800;font-size:{_px(fit(sc.get('title'), 54, 20 if sc.get('badge') else 26))};white-space:nowrap">{E(sc.get('title', ''))}</div>
 <div class=sub style="position:absolute;left:{_px(46)};top:{_px(108)};font-size:{_px(36)}">{E(sc.get('sub', ''))}</div>{badge}<div class=sweep></div></div>"""
-    js = f"""const o={{v:{vf}}};const f=v=>v.toLocaleString('vi-VN',{{minimumFractionDigits:{d},maximumFractionDigits:{d}}});
+    js = f"""const o={{v:{vf}}};const f=v=>v.toLocaleString('{loc}',{{minimumFractionDigits:{d},maximumFractionDigits:{d}}});
 if(q('.ic'))tl.from(q('.ic'),{{y:-120,scale:.3,rotation:30,opacity:0,duration:.6,ease:'back.out(1.8)'}},0).to(q('.ic'),{{y:'-=18',duration:1.2,yoyo:true,repeat:1,ease:'sine.inOut'}},1.0);
 tl.from(q('.num'),{{scale:1.5,opacity:0,duration:.4,ease:'power3.out'}},.2)
 .to(o,{{v:{vt},duration:1.3,ease:'power3.out',onUpdate:()=>q('.num').textContent='{pre_}'+f(o.v)+' {unit}'}},.25)

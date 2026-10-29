@@ -125,6 +125,8 @@ def text_sprite(text: str, role: str, size: int, palette: str, glow_k: float = 0
         dil = cv2.dilate(m, np.ones((2 * k + 1, 2 * k + 1), np.uint8))
         m = np.clip(dil - m, 0, 1)
         return _trim(_compose(_grad(*m.shape, top, bot, m), m, None, 0, size, shadow=0))
+    if palette == "white":                          # chữ phụ / dòng dẫn trắng: bóng đổ tối, không glow (glow trắng dễ chìm)
+        return _trim(_compose(_grad(*m.shape, top, bot, m), m, None, 0, size, shadow=0.95))
     return _trim(_compose(_grad(*m.shape, top, bot, m), m, glow, glow_k, size))
 
 
