@@ -506,10 +506,16 @@ class Session:
     def plan_ready(self) -> dict | None:
         f = self.dir / "plan_ready.json"
         try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-            return d if d.get("ready") else None
-        except Exception:
+            raw = f.read_bytes()
+        except OSError:
             return None
+        for enc in ("utf-8-sig", "utf-16"):                 # Windows: file có BOM / UTF-16 (PowerShell) vẫn đọc được
+            try:
+                d = json.loads(raw.decode(enc))
+                return d if isinstance(d, dict) and d.get("ready") else None
+            except (UnicodeDecodeError, ValueError):
+                continue
+        return None
 
 
 def _describe(b: dict) -> str:

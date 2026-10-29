@@ -1,6 +1,6 @@
 ---
 name: talking-head-style
-version: 1.5.0
+version: 1.5.1
 description: Phong cách dựng video Talking Head “Talking Head Style” (mọi lĩnh vực, tiếng Việt, dọc 9:16) đã được người dùng duyệt — chữ neon Montserrat 3 màu (vàng cam/đỏ/xanh), chữ dẫn rơi từng từ + tick, xếp lớp sau đầu/trước ngực, icon Flaticon gradient phát sáng, Motion Graphics bố cục + chuyển động (nền đơn giản 6 kiểu) ~10s/cảnh, SFX tiết chế, preflight trước render. Dùng khi người dùng chọn “Talking Head Style”, nói “dựng theo Talking Head Style”, “dựng video talking head như bản B.TA”, hoặc đưa video người nói vào app và muốn dựng full. Bản chuẩn hiện hành: Agency v5 (phụ đề theo ý + chữ nhấn chỉ chữ chính).
 ---
 
@@ -23,6 +23,7 @@ chỉ để tra cứu dự án cũ — KHÔNG dùng cho video mới. Thông số
 5. **Chữ sau lưng** `giant_text` (viền mảnh nghiêng, tràn khung, zoom 1.5×) start ĐÚNG mốc từ, ~4 lần/phút.
 6. **MG = `plan.mg2` nền `blur`**, ~10s/cảnh; trong MG phụ đề chạy dải dưới, cụm đó hết MG thì tắt luôn.
 7. **Số tiền / %:** NGHE LẠI đoạn đó; đúng đơn vị được nói (`prefix` $/€/£, `unit` đ/triệu/tỷ/%); tiếng Anh `locale: "en"` (2,000);
+   Số < 5 chữ số để NGUYÊN ($500, $2,000 — không 0.5K / 2.0K); từ 5 chữ số trở lên mới rút gọn (10K, 1.5M, 2 tỷ).
    `hit_at` = giây lúc nói số cuối → số chạy chạm đúng lúc đó + loé sáng + phóng lên + tiếng tiền.
 8. **Tên phần mềm / app / hãng → LOGO THẬT** (Wikimedia, `assets_web/logo_*.png`), không icon 3D thay thế.
 9. **Video tiếng Anh:** toàn bộ chữ trên hình tiếng Anh. Tay múa khi nói KHÔNG phải trình diễn vật (`gaze_override.json` kind `"talk"`).

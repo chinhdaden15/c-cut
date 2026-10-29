@@ -162,13 +162,13 @@ def apply(plan, words, pdir=None) -> list[str]:
     # callout: không mờ khi đang nói dở từ
     blocks = sorted([int(c["start"]) for c in plan.callouts] + [int(m["start"]) for m in plan.mg2 if m.get("enabled", True)])
     for c in plan.callouts:
-        e = int(c["end"])
+        e = int(c.setdefault("end0", int(c["end"])))          # tính từ mốc GỐC → chạy lại nhiều lần không kéo dài thêm
         cur = [w for w in tw if w[0] <= e - CALLOUT_EXIT < w[1] + 2]
         if cur:
             need = cur[-1][1] + 10
             cap = min([b for b in blocks if b > int(c["start"])] + [plan.duration_frames])
             ne = min(max(e, need), cap)
-            if ne != e:
+            if ne != int(c["end"]):
                 c["end"] = ne
                 log.append(f"{c['id']}: end {e} → {ne} (giữ tới hết từ đang nói)")
     # chữ sau lưng vào đúng mốc từ
@@ -185,6 +185,13 @@ def apply(plan, words, pdir=None) -> list[str]:
         if sc.get("kind") not in ("money", "chart") or not sc.get("enabled", True):
             continue
         a0, b0 = int(sc["start"]), int(sc["end"])
+        unit = str(sc.get("unit", "")).strip()
+        mul = {"k": 1e3, "K": 1e3, "nghìn": 1e3, "ngàn": 1e3}.get(unit)
+        if mul and float(sc.get("value_to", 0)) * mul < 10000:   # < 5 chữ số → để nguyên (500, 2,000), không rút 0.5K
+            for k_ in ("value_from", "value_to"):
+                sc[k_] = round(float(sc.get(k_, 0)) * mul)
+            sc["unit"], sc["decimals"] = "", 0
+            log.append(f"{sc['id']}: số < 5 chữ số để nguyên ({sc['value_from']:,} → {sc['value_to']:,}), không rút gọn")
         if en and not sc.get("locale"):
             sc["locale"] = "en"; log.append(f"{sc['id']}: video tiếng Anh → số kiểu 2,000")
         vt = float(sc.get("value_to", 0))
