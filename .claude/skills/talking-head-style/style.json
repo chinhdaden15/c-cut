@@ -1,6 +1,6 @@
 {
   "name": "Talking Head Style",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "approved_reference": "projects/bta/renders/v009_v6_clean/bta_v6_clean.mp4",
   "output": {
     "width": 1080,
@@ -63,7 +63,7 @@
     "front_layer": "từ NGỰC trở xuống (zone=chest); không đặt sát chân",
     "behind_layer": "từ VAI trở lên (zone=above_head); đầu được phép che một phần chữ chính",
     "behind_with_pill": "cả cụm đặt trên đỉnh đầu (pc10 head_top), tự thu nhỏ nếu thiếu chỗ; không để mặt che nhãn",
-    "group_order": "dòng dẫn (trên) → CHỮ CHÍNH → nhãn pill (dưới) — đọc đúng thứ tự câu",
+    "group_order": "bản v5: PHỤ ĐỀ theo ý (dòng dẫn, neo ngực trên) → CHỮ CHÍNH to ngay dưới / đúng hàng phụ đề; không dòng dẫn nhỏ, không pill (mẫu B.TA cũ mới có)",
     "line_gap_px": {
       "lead_to_main": 16,
       "main_to_pill": 44
@@ -79,7 +79,7 @@
   "timing": {
     "hold_after_fully_shown_s": 1.0,
     "no_overlap_same_layer": true,
-    "lead_words": "rơi nhanh 3 frame/từ từ đầu nhóm, được chạy trước lời; chữ chính vào ngay sau rồi giữ",
+    "lead_words": "bản v5: không dùng — mỗi dòng chữ chính hiện ĐÚNG mốc từ, tắt khi sang lời mới",
     "main_pop": "bật lên 5 frame trước khi từ chính được nói, hit = lúc nói",
     "pill": "vào ngay sau chữ chính (+8 frame), wipe trái→phải",
     "next_group_shift": "nếu nhóm trước chưa đủ 1s thì nhóm sau vào muộn hơn, nhưng ≥4 frame trước chữ chính của nó"

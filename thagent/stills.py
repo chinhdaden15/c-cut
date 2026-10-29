@@ -30,6 +30,9 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
     global W, H
     c = P.Ctx(pid)
     pl = c.project.plan
+    from . import th_rules as TR
+    if TR.apply(pl, c.project.words, c.dir):
+        c.save()
     W, H = pl.width, pl.height                       # khung dựng thật (ngang / dọc theo clip gốc)
     from . import captions_th as CAP
     caps = CAP.chunks(pl, c.project.words, CAP.load_phrases(c.dir)) if pl.captions else None

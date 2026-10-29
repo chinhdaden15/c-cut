@@ -237,6 +237,9 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     require("talking-head-style", c.dir, c.log)          # skill bán: đã mua hoặc còn lượt thử (1 lượt = 1 dự án)
     plan = plan or c.project.plan
     T.build_mapping(plan)
+    from . import th_rules as TR
+    for m in TR.apply(plan, c.project.words, c.dir):    # công thức Talking Head đã chốt (idempotent)
+        c.log("tự chỉnh: " + m)
     from .channels import theme
     theme(plan.mg, c.dir)          # nền + màu thẻ MG theo kênh của video
     man = ensure_library()

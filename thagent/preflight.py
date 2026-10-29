@@ -96,11 +96,16 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     trimmed = trim_tail_gaze(c)
     pl = c.project.plan
     T.build_mapping(pl)
+    from . import th_rules as TR
+    for m in TR.apply(pl, c.project.words, c.dir):     # công thức đã chốt: app tự đưa kế hoạch về đúng
+        print("[tự chỉnh]", m)
+    c.save()
     R.use_frame(pl.width, pl.height, bool(pl.captions and c.project.words))
     fps, out = pl.fps, []
     add = lambda sev, msg: out.append((sev, msg))
     if trimmed:
         add("info", trimmed)
+    out += TR.check(pl, c.project.words, c.dir)
 
     # 1) độ dài nguồn: proxy/alpha phải đủ frame cho mọi đoạn giữ
     need = max(T.sec_to_frame(s.source_out, fps) for s in T.kept(pl))
@@ -155,9 +160,6 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
         if (g.end - g.exit_frames - last) / fps < hold_min:
             add("error", f"{g.id}: chữ chính chỉ giữ {(g.end - g.exit_frames - last) / fps:.2f}s sau khi hiện đủ — chưa kịp đọc đã mất; "
                          f"kéo dài nhóm / rút ngắn chữ (giữ ≥ {hold_min}s)")
-        big = [s for s in g.spans if s.style != "icon" and s.size >= 70]
-        if len(big) == 1 and len(big[0].text) > 12:   # câu nhấn dài một dòng → chữ bé, khó đọc
-            add("error", f"{g.id}: chữ chính “{big[0].text}” dài một dòng — chia 2 dòng chữ to (2 span, dòng 2 dy ≈ cỡ chữ, trễ ~6 frame)")
         # element (icon) không được đè chữ
         texts = [s for s in g.spans if s.style != "icon"]
         from . import neon
