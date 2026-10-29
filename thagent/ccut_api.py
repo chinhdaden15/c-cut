@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.3.1"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -477,7 +477,7 @@ def list_styles() -> list[dict]:
         md = (skill.parent / "SKILL.md").read_text(encoding="utf-8")
         desc = re.search(r"description:\s*(.+)", md)
         out.append({"slug": slug, "name": reg.get(slug, {}).get("name", st.get("name", slug)),
-                    "version": reg.get(slug, {}).get("version", st.get("version", "?")),
+                    "version": st.get("version") or reg.get(slug, {}).get("version", "?"),   # số thật trong skill (styles.json cũ ghi cứng 1.2.0)
                     "summary": st.get("summary") or (desc.group(1)[:90] + "…" if desc else "")})
     return out
 
