@@ -155,7 +155,7 @@ def apply(plan, words, pdir=None) -> list[str]:
                 prev = s.delay_frames
             done = start + max(s.delay_frames for s in mains) + 9
             nxt = tw[last + 1][0] if last + 1 < len(tw) else plan.duration_frames
-            end = max(nxt + g.exit_frames, done + int(0.25 * fps) + g.exit_frames)
+            end = max(nxt + g.exit_frames, done + int(0.3 * fps) + g.exit_frames)   # preflight cần ≥ 0.25s (int(0.25*30)=7 frame = 0.23s → lỗi)
             end = min(end, plan.duration_frames)
             if (g.start, g.end) != (start, end):
                 log.append(f"{g.id}: {g.start}–{g.end} → {start}–{end} (hiện đúng lúc nói, tắt khi sang lời mới)")
