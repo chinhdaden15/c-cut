@@ -10,8 +10,8 @@ Nền ("bg") — chỉ 6 kiểu đã duyệt (đơn giản, chữ dễ đọc; c
   none      không nền — CHỒNG lên người nói (chỉ cho iconrow, chips, custom kiểu chồng)
 
 Kind (tham số):
-  chart      value_from, value_to, suffix "%", label, title, sub, icon        — đồ thị tự vẽ, số chạy
-  money      value_from, value_to, decimals, unit "tỷ" | prefix "$", locale "en" (2,000), title, sub, badge, icon — số tiền chạy + thẻ phụ
+  chart      value_from, value_to, suffix "%", hit_at (như money; "money": true → tiếng tiền), label, title, sub, icon        — đồ thị tự vẽ, số chạy
+  money      value_from, value_to, decimals, unit "tỷ" | prefix "$", locale "en" (2,000), hit_at (GIÂY từ đầu cảnh lúc NÓI số cuối — số chạy chạm đúng lúc đó + khung phóng lên + loé sáng + tiếng tiền), title, sub, badge, icon — số tiền chạy + thẻ phụ
   notif      items [{icon, title, text}] (2–4)                                 — chồng thông báo trượt xuống
   question   image (ẢNH MINH HOẠ đúng ý câu hỏi — bắt buộc), lead "Câu hỏi:", text, sub, icon — thẻ câu hỏi: ảnh trong khung + dấu ? 3D
   photos     title, images [{src, label}] (1–3), note "Hình ảnh minh họa"      — ảnh xếp nghiêng có nhãn
@@ -148,23 +148,40 @@ def _px(v) -> str:
 
 
 # ---------------- mẫu: trả (html, js) ----------------
+def hit_at(sc: dict, default: float) -> float:
+    """giây (từ đầu cảnh) người nói nói tới CON SỐ CUỐI — số chạy chạm đúng lúc đó; Claude tra mốc từ trong words."""
+    return float(sc.get("hit_at", default))
+
+
+def _punch(h: float) -> tuple[str, str]:
+    """chạm số: khung phóng lên + loé sáng (html bọc ngoài, js)."""
+    return ("<div class=hflash style=\"position:absolute;inset:0;background:#fff;opacity:0;z-index:50;pointer-events:none\"></div>",
+            f"""tl.fromTo(q('.zm'),{{scale:1}},{{scale:1.14,duration:.28,ease:'power3.out',immediateRender:false}},{h})
+.fromTo(q('.hflash'),{{opacity:.55}},{{opacity:0,duration:.4,ease:'power2.out',immediateRender:false}},{h})
+.fromTo(q('.hit'),{{scale:1}},{{scale:1.18,duration:.14,yoyo:true,repeat:1,ease:'power2.out',immediateRender:false}},{h});""")
+
+
+
 def _t_chart(sc, V, tone):
     w, h = (860, 760) if V else (980, 620)
     sfx = E(sc.get("suffix", "%"))
     html = f"""<div class=card style="left:calc(50% - {w/2}px*var(--s));top:calc(50% - {h/2}px*var(--s));width:{_px(w)};height:{_px(h)}">
 <div style="position:absolute;left:{_px(50)};top:{_px(44)};display:flex;align-items:baseline;gap:{_px(14)}">
-<span class="t1 {tone} pct" style="font-size:{_px(130)}">{E(sc.get('value_from', 0))}{sfx}</span><span class=sub style="font-size:{_px(46)}">{E(sc.get('label', ''))}</span></div>
+<span class="t1 {tone} pct hit" style="font-size:{_px(130)}">{E(sc.get('value_from', 0))}{sfx}</span><span class=sub style="font-size:{_px(46)}">{E(sc.get('label', ''))}</span></div>
 <svg viewBox="0 0 100 60" preserveAspectRatio="none" style="position:absolute;left:8%;top:38%;width:84%;height:42%;z-index:2">
 <path class=ln d="M0,55 C18,52 25,40 38,38 S58,30 68,20 S88,8 100,4" fill="none" stroke="{TONES[tone][1]}" stroke-width="1.6" stroke-linecap="round"/></svg>
 <div class=sub style="position:absolute;left:{_px(50)};bottom:{_px(40)};font-size:{_px(38)}"><b>{E(sc.get('title', ''))}</b> {('· ' + E(sc['sub'])) if sc.get('sub') else ''}</div>
 <div class=sweep></div></div>{f'<img class=ic src="{icon_uri(sc.get("icon"))}" style="width:{_px(210)};left:calc(50% + {w/2-150}px*var(--s));top:calc(50% - {h/2+90}px*var(--s))">' if sc.get('icon') else ''}"""
     vt, vf = float(sc.get("value_to", 0)), float(sc.get("value_from", 0))
+    h = max(hit_at(sc, 2.0), 0.9)
+    dur = min(1.6, h - 0.4)
+    ph, pj = _punch(h)
     js = f"""const p=q('.ln');const L=p.getTotalLength();p.style.strokeDasharray=L;p.style.strokeDashoffset=L;
 tl.from(q('.card'),{{y:80,scale:.9,opacity:0,duration:.5,ease:'back.out(1.6)'}},0.05).to(p,{{strokeDashoffset:0,duration:1.6,ease:'power2.inOut'}},.4);
 if(q('.ic'))tl.from(q('.ic'),{{scale:0,rotation:-25,duration:.5,ease:'back.out(2)'}},.35);
-const o={{v:{vf}}};tl.to(o,{{v:{vt},duration:1.6,ease:'power2.inOut',onUpdate:()=>q('.pct').textContent=Math.round(o.v)+'{sfx}'}},.4)
-.fromTo(q('.sweep'),{{xPercent:-150}},{{xPercent:480,duration:.8,ease:'power1.inOut'}},2.1)"""
-    return html, js
+const o={{v:{vf}}};tl.to(o,{{v:{vt},duration:{dur},ease:'power2.inOut',onUpdate:()=>q('.pct').textContent=Math.round(o.v)+'{sfx}'}},{h - dur})
+.fromTo(q('.sweep'),{{xPercent:-150}},{{xPercent:480,duration:.8,ease:'power1.inOut'}},{h + .1});""" + pj
+    return f'<div class=zm style="position:absolute;inset:0">{html}</div>{ph}', js
 
 
 def _t_money(sc, V, tone):
@@ -176,16 +193,19 @@ def _t_money(sc, V, tone):
     fmt = (lambda v: f"{v:,.{d}f}") if loc == "en-US" else (lambda v: f"{v:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", "."))
     ic = f'<img class=ic src="{icon_uri(sc.get("icon"))}" style="width:{_px(280)};left:calc(50% - 140px*var(--s));top:calc(50% - 460px*var(--s))">' if sc.get("icon") else ""
     badge = f"""<div style="position:absolute;right:{_px(40)};top:{_px(48)};padding:{_px(12)} {_px(22)};border-radius:14px;background:{TONES[tone][2]};color:#1a1200;font-weight:900;font-size:{_px(38)}">{E(sc['badge'])}</div>""" if sc.get("badge") else ""
-    html = f"""{ic}<div class="t1 {tone} num" style="position:absolute;width:100%;text-align:center;top:calc(50% - 150px*var(--s));font-size:{_px(170)}">{pre_}{fmt(vf)} {unit}</div>
+    html = f"""{ic}<div class="t1 {tone} num hit" style="position:absolute;width:100%;text-align:center;top:calc(50% - 150px*var(--s));font-size:{_px(170)}">{pre_}{fmt(vf)} {unit}</div>
 <div class=card style="left:calc(50% - 420px*var(--s));top:calc(50% + 70px*var(--s));width:{_px(840)};height:{_px(190)}">
 <div style="position:absolute;left:{_px(46)};top:{_px(36)};font-weight:800;font-size:{_px(fit(sc.get('title'), 54, 20 if sc.get('badge') else 26))};white-space:nowrap">{E(sc.get('title', ''))}</div>
 <div class=sub style="position:absolute;left:{_px(46)};top:{_px(108)};font-size:{_px(36)}">{E(sc.get('sub', ''))}</div>{badge}<div class=sweep></div></div>"""
+    h = max(hit_at(sc, 1.55), 0.8)                      # số giữ value_from tới khi người nói chuyển sang số cuối, chạm đúng lúc nói
+    dur = min(1.0, h - 0.5)
+    ph, pj = _punch(h)
     js = f"""const o={{v:{vf}}};const f=v=>v.toLocaleString('{loc}',{{minimumFractionDigits:{d},maximumFractionDigits:{d}}});
 if(q('.ic'))tl.from(q('.ic'),{{y:-120,scale:.3,rotation:30,opacity:0,duration:.6,ease:'back.out(1.8)'}},0).to(q('.ic'),{{y:'-=18',duration:1.2,yoyo:true,repeat:1,ease:'sine.inOut'}},1.0);
 tl.from(q('.num'),{{scale:1.5,opacity:0,duration:.4,ease:'power3.out'}},.2)
-.to(o,{{v:{vt},duration:1.3,ease:'power3.out',onUpdate:()=>q('.num').textContent='{pre_}'+f(o.v)+' {unit}'}},.25)
-.from(q('.card'),{{y:100,opacity:0,duration:.5,ease:'back.out(1.5)'}},.55).fromTo(q('.sweep'),{{xPercent:-150}},{{xPercent:480,duration:.8}},1.6)"""
-    return html, js
+.to(o,{{v:{vt},duration:{dur},ease:'power2.inOut',onUpdate:()=>q('.num').textContent='{pre_}'+f(o.v)+' {unit}'}},{h - dur})
+.from(q('.card'),{{y:100,opacity:0,duration:.5,ease:'back.out(1.5)'}},.55).fromTo(q('.sweep'),{{xPercent:-150}},{{xPercent:480,duration:.8}},{h + .1});""" + pj
+    return f'<div class=zm style="position:absolute;inset:0">{html}</div>{ph}', js
 
 
 def _t_notif(sc, V, tone):
@@ -380,10 +400,10 @@ def sfx(sc: dict, D: float) -> list[tuple[float, str, float]]:
     elif k in ("notif", "chips", "iconrow", "photos"):
         first, gap = {"notif": (.15, .45), "chips": (.15, .3), "iconrow": (.1, .14), "photos": (.2, .35)}[k]
         out += [(t + 0.05, f"pop_0{(i * 3) % 10}", -16.0) for i, t in enumerate(delays(sc, n, first, gap))]
-    elif k == "money":
-        out += [(0.3, "u_money", -15.0)]
+    elif k == "money":                                   # tiếng tiền ĐÚNG lúc chạm số
+        out += [(hit_at(sc, 1.55), "u_money", -13.0)]
     elif k == "chart":
-        out += [(0.45, "tick_01", -16.0), (2.1, "soft_01", -17.0)]
+        out += [(0.45, "tick_01", -16.0), (hit_at(sc, 2.0), "u_money" if sc.get("money") else "hit_03", -14.0)]
     elif k == "compare":
         out += [(0.05, "pop_02", -16.0), (0.7, "pop_05", -16.0)]
     elif k in ("question", "doc"):

@@ -270,6 +270,14 @@ def current(caps, f: int, anchors_tl, H: int, W: int, zm=(1.0, 0.5, 0.4), skip: 
     return None
 
 
+def started_in(caps, f: int, spans) -> bool:
+    """cụm đang nói đã bắt đầu trong cảnh MG (hiện ở dải dưới) → hết MG thì TẮT luôn, không nhảy lên ngực (người dùng chốt 2026-10-29)."""
+    for a, b, _ in caps or []:
+        if a <= f < b:
+            return any(x <= a < y <= f for x, y in spans)
+    return False
+
+
 def draw_at(buf: np.ndarray, cur, low: bool = False) -> None:
     """vẽ cụm: giữa ngực; cảnh MG che kín → dải dưới khung an toàn."""
     if not cur:

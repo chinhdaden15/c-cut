@@ -15,8 +15,8 @@ Nền ("bg") — chỉ 6 kiểu đã duyệt (đơn giản, chữ dễ đọc; c
   none      không nền — CHỒNG lên người nói (chỉ cho iconrow, chips, custom kiểu chồng)
 
 Kind (tham số):
-  chart      value_from, value_to, suffix "%", label, title, sub, icon        — đồ thị tự vẽ, số chạy
-  money      value_from, value_to, decimals, unit "tỷ" | prefix "$", locale "en" (2,000), title, sub, badge, icon — số tiền chạy + thẻ phụ
+  chart      value_from, value_to, suffix "%", hit_at (như money; "money": true → tiếng tiền), label, title, sub, icon        — đồ thị tự vẽ, số chạy
+  money      value_from, value_to, decimals, unit "tỷ" | prefix "$", locale "en" (2,000), hit_at (GIÂY từ đầu cảnh lúc NÓI số cuối — số chạy chạm đúng lúc đó + khung phóng lên + loé sáng + tiếng tiền), title, sub, badge, icon — số tiền chạy + thẻ phụ
   notif      items [{icon, title, text}] (2–4)                                 — chồng thông báo trượt xuống
   question   image (ẢNH MINH HOẠ đúng ý câu hỏi — bắt buộc), lead "Câu hỏi:", text, sub, icon — thẻ câu hỏi: ảnh trong khung + dấu ? 3D
   photos     title, images [{src, label}] (1–3), note "Hình ảnh minh họa"      — ảnh xếp nghiêng có nhãn

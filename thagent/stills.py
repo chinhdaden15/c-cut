@@ -97,6 +97,8 @@ def render_stills(pid: str, frames: list[int] | None = None) -> list[str]:
             inmg = any(x <= f < y for x, y in mgsp)
             if not busy or inmg:
                 capcur, gshift = R.caption_with(caps, act, pos, f, atl, H, W, (z, zcx, zcy), inmg, pl.text_groups)
+            if capcur and CAP.started_in(caps, f, list(mgsp) + list(MG2.covers(pl))):
+                capcur = None
         for g in act:
             ax, ay = pos[g.id]
             draw_group(bh if R.layer_of(g) == "behind_subject" else fr, g, f, ax, ay + gshift.get(g.id, 0))

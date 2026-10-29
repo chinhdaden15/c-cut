@@ -565,6 +565,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             inmg = any(x <= f < y for x, y in mgspans)
             if not busy or inmg:
                 capcur, gshift = caption_with(caps, active, pos, f, anchors_tl, H, W, (z, zcx, zcy), inmg, plan.text_groups)
+            if capcur and CAP.started_in(caps, f, list(mgspans) + list(MG2.covers(plan))):
+                capcur = None
         for g in active:
             ax, ay = pos[g.id]
             ay += gshift.get(g.id, 0)
