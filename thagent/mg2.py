@@ -98,12 +98,14 @@ def _uri(path: str) -> str:
 
 
 def logo_plate(path: str) -> str:
-    """logo thật đặt trên tấm trắng bo góc + bóng mềm → nổi trên mọi nền (logo đen như ChatGPT không chìm vào khung tối).
-    Lưu cạnh file gốc: <tên>_plate.png."""
+    """logo thật → bản nổi trên video (không ô nền), lưu cạnh file gốc <tên>_glow.png:
+    - logo có màu → giữ màu + glow theo chính màu logo;
+    - logo đen / xám một màu (Apple, ChatGPT…) → đổi sang TRẮNG + glow trắng;
+    - logo màu kèm chữ đen (Meta…) → bỏ phần chữ đen, chỉ lấy biểu tượng màu."""
     from pathlib import Path as _P
     import cv2, numpy as np
     src = _P(path)
-    out = src.with_name(src.stem + "_plate.png")
+    out = src.with_name(src.stem + "_glow.png")
     if out.exists() and out.stat().st_mtime >= src.stat().st_mtime:
         return str(out)
     im = cv2.imread(str(src), cv2.IMREAD_UNCHANGED)
@@ -112,33 +114,52 @@ def logo_plate(path: str) -> str:
     if im.ndim == 2:
         im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
     if im.shape[2] == 3:                                   # không có lớp trong suốt → tách nền theo màu viền ảnh
-        b = np.concatenate([im[0], im[-1], im[:, 0], im[:, -1]]).astype(np.float32)
-        bg = np.median(b, 0)
-        d = np.abs(im.astype(np.float32) - bg).max(2)
-        al = np.clip((d - 12) / 40, 0, 1) if b.std(0).max() < 12 else np.ones(im.shape[:2], np.float32)
+        bd = np.concatenate([im[0], im[-1], im[:, 0], im[:, -1]]).astype(np.float32)
+        d = np.abs(im.astype(np.float32) - np.median(bd, 0)).max(2)
+        al = np.clip((d - 12) / 40, 0, 1) if bd.std(0).max() < 12 else np.ones(im.shape[:2], np.float32)
         im = np.dstack([im, (al * 255).astype(np.uint8)])
-    S, pad, sh = 512, 84, 28
-    h, w = im.shape[:2]
+    rgb = im[..., :3].astype(np.float32) / 255
+    al = im[..., 3].astype(np.float32) / 255
+    hsv = cv2.cvtColor(im[..., :3], cv2.COLOR_BGR2HSV)
+    vis = al > 0.5
+    dark = hsv[..., 2] < 90                                # đen / xám đậm (kể cả đen ánh xanh như chữ Meta)
+    color = (hsv[..., 1] >= 70) & ~dark
+    nv = max(1, int(vis.sum()))
+    mono = (color & vis).sum() / nv < 0.05
+    if mono:                                               # một màu (đen / xám / trắng) → trắng như chữ nhấn trắng
+        rgb[:] = 1.0
+    else:
+        if (dark & vis).sum() / nv > 0.1:                  # màu + chữ đen → bỏ chữ đen, chỉ lấy biểu tượng
+            al = al * ~cv2.dilate(dark.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    ys, xs = np.where(al > 0.05)
+    if len(ys):
+        rgb, al = rgb[ys.min():ys.max() + 1, xs.min():xs.max() + 1], al[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    S, pad = 640, 130                                      # chừa đủ chỗ cho bóng rộng + quầng (không cắt thành ô vuông)
+    h, w = al.shape
     k = (S - 2 * pad) / max(h, w)
-    im = cv2.resize(im, (max(1, int(w * k)), max(1, int(h * k))), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
-    T = S + 2 * sh
-    can = np.zeros((T, T, 4), np.float32)
-    plate = np.zeros((T, T), np.float32)
-    r = 110
-    cv2.rectangle(plate, (sh + r, sh), (sh + S - r, sh + S), 1, -1); cv2.rectangle(plate, (sh, sh + r), (sh + S, sh + S - r), 1, -1)
-    for cx, cy in ((sh + r, sh + r), (sh + S - r, sh + r), (sh + r, sh + S - r), (sh + S - r, sh + S - r)):
-        cv2.circle(plate, (cx, cy), r, 1, -1)
-    shadow = np.roll(cv2.GaussianBlur(plate, (0, 0), 14), 10, 0) * 0.45
-    can[..., 3] = shadow
-    can[..., :3] = 0
-    a = plate[..., None]
-    can[..., :3] = can[..., :3] * (1 - a) + 1.0 * a
-    can[..., 3] = np.maximum(can[..., 3], plate)
-    y0, x0 = sh + (S - im.shape[0]) // 2, sh + (S - im.shape[1]) // 2
-    la = im[..., 3:4]
-    reg = can[y0:y0 + im.shape[0], x0:x0 + im.shape[1]]
-    reg[..., :3] = reg[..., :3] * (1 - la) + im[..., :3] * la
-    cv2.imwrite(str(out), (np.clip(can, 0, 1) * 255).astype(np.uint8))
+    nw, nh = max(1, int(w * k)), max(1, int(h * k))
+    rgb = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_AREA); al = cv2.resize(al, (nw, nh), interpolation=cv2.INTER_AREA)
+    A = np.zeros((S, S), np.float32); C = np.zeros((S, S, 3), np.float32)
+    y0, x0 = (S - nh) // 2, (S - nw) // 2
+    A[y0:y0 + nh, x0:x0 + nw] = al; C[y0:y0 + nh, x0:x0 + nw] = rgb[..., ::-1]          # → RGB
+    # glow kiểu editor (AE: nhân bản lớp logo → Gaussian blur nhiều bán kính → cộng sáng / Screen, màu lấy từ CHÍNH logo):
+    # lõi logo sáng hơn một chút + 3 lớp quầng (gần / vừa / xa) yếu dần; bóng tối rất mỏng để không mất nét trên nền sáng
+    Cp = C * A[..., None]
+    core = Cp + (A[..., None] - Cp) * 0.12
+    g = np.zeros_like(Cp)
+    for r, w in ((0.025, 0.9), (0.07, 0.55), (0.18, 0.35)):
+        g += cv2.GaussianBlur(Cp, (0, 0), max(1.0, nh * r)) * w
+    ga = np.clip(g.max(2), 0, 1)
+    gc = np.where(ga[..., None] > 1e-4, np.clip(g / np.maximum(ga[..., None], 1e-4), 0, 1), 0)
+    sh = cv2.GaussianBlur(A, (0, 0), max(1.0, nh * 0.02)) * 0.3
+    o = np.zeros((S, S, 4), np.float32)                                                   # nhân alpha sẵn
+    o[..., 3] = sh
+    o[..., :3] = o[..., :3] * (1 - ga[..., None]) + gc * ga[..., None]
+    o[..., 3] = o[..., 3] * (1 - ga) + ga
+    o[..., :3] = o[..., :3] * (1 - A[..., None]) + core
+    o[..., 3] = o[..., 3] * (1 - A) + A
+    st = np.where(o[..., 3:] > 1e-4, o[..., :3] / np.maximum(o[..., 3:], 1e-4), 0)[..., ::-1]   # bỏ nhân alpha, RGB → BGR
+    cv2.imwrite(str(out), (np.clip(np.dstack([st, o[..., 3:]]), 0, 1) * 255).astype(np.uint8))
     return str(out)
 
 
