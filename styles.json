@@ -1,7 +1,7 @@
 {
  "talking-head-style": {
   "name": "Style Talking Head",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "skill": ".claude/skills/talking-head-style"
  }
 }

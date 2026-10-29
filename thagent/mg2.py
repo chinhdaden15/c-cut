@@ -187,13 +187,14 @@ const o={{v:{vf}}};tl.to(o,{{v:{vt},duration:{dur},ease:'power2.inOut',onUpdate:
 def _t_money(sc, V, tone):
     d = int(sc.get("decimals", 2))
     unit = E(sc.get("unit", ""))
+    unit = ("" if unit in ("K", "M", "B") else " ") + unit if unit else ""   # 50K / 2B viết liền; 2 tỷ có cách
     pre_ = E(sc.get("prefix", ""))
     vf, vt = float(sc.get("value_from", 0)), float(sc.get("value_to", 0))
     loc = "en-US" if sc.get("locale") == "en" else "vi-VN"      # "locale": "en" → 2,000 (video tiếng Anh)
     fmt = (lambda v: f"{v:,.{d}f}") if loc == "en-US" else (lambda v: f"{v:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", "."))
     ic = f'<img class=ic src="{icon_uri(sc.get("icon"))}" style="width:{_px(280)};left:calc(50% - 140px*var(--s));top:calc(50% - 460px*var(--s))">' if sc.get("icon") else ""
     badge = f"""<div style="position:absolute;right:{_px(40)};top:{_px(48)};padding:{_px(12)} {_px(22)};border-radius:14px;background:{TONES[tone][2]};color:#1a1200;font-weight:900;font-size:{_px(38)}">{E(sc['badge'])}</div>""" if sc.get("badge") else ""
-    html = f"""{ic}<div class="t1 {tone} num hit" style="position:absolute;width:100%;text-align:center;top:calc(50% - 150px*var(--s));font-size:{_px(170)}">{pre_}{fmt(vf)} {unit}</div>
+    html = f"""{ic}<div class="t1 {tone} num hit" style="position:absolute;width:100%;text-align:center;top:calc(50% - 150px*var(--s));font-size:{_px(170)}">{pre_}{fmt(vf)}{unit}</div>
 <div class=card style="left:calc(50% - 420px*var(--s));top:calc(50% + 70px*var(--s));width:{_px(840)};height:{_px(190)}">
 <div style="position:absolute;left:{_px(46)};top:{_px(36)};font-weight:800;font-size:{_px(fit(sc.get('title'), 54, 20 if sc.get('badge') else 26))};white-space:nowrap">{E(sc.get('title', ''))}</div>
 <div class=sub style="position:absolute;left:{_px(46)};top:{_px(108)};font-size:{_px(36)}">{E(sc.get('sub', ''))}</div>{badge}<div class=sweep></div></div>"""
@@ -203,7 +204,7 @@ def _t_money(sc, V, tone):
     js = f"""const o={{v:{vf}}};const f=v=>v.toLocaleString('{loc}',{{minimumFractionDigits:{d},maximumFractionDigits:{d}}});
 if(q('.ic'))tl.from(q('.ic'),{{y:-120,scale:.3,rotation:30,opacity:0,duration:.6,ease:'back.out(1.8)'}},0).to(q('.ic'),{{y:'-=18',duration:1.2,yoyo:true,repeat:1,ease:'sine.inOut'}},1.0);
 tl.from(q('.num'),{{scale:1.5,opacity:0,duration:.4,ease:'power3.out'}},.2)
-.to(o,{{v:{vt},duration:{dur},ease:'power2.inOut',onUpdate:()=>q('.num').textContent='{pre_}'+f(o.v)+' {unit}'}},{h - dur})
+.to(o,{{v:{vt},duration:{dur},ease:'power2.inOut',onUpdate:()=>q('.num').textContent='{pre_}'+f(o.v)+'{unit}'}},{h - dur})
 .from(q('.card'),{{y:100,opacity:0,duration:.5,ease:'back.out(1.5)'}},.55).fromTo(q('.sweep'),{{xPercent:-150}},{{xPercent:480,duration:.8}},{h + .1});""" + pj
     return f'<div class=zm style="position:absolute;inset:0">{html}</div>{ph}', js
 

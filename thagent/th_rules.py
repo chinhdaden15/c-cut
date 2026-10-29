@@ -192,17 +192,17 @@ def apply(plan, words, pdir=None) -> list[str]:
                 sc[k_] = round(float(sc.get(k_, 0)) * mul)
             sc["unit"], sc["decimals"] = "", 0
             log.append(f"{sc['id']}: số < 5 chữ số để nguyên ({sc['value_from']:,} → {sc['value_to']:,}), không rút gọn")
-        # ≥ 5 chữ số → rút gọn theo NGÔN NGỮ video: tiếng Anh K / M / B (2B), tiếng Việt nghìn / triệu / tỷ (2 tỷ)
+        # ≥ 5 chữ số → rút gọn: K / M cho mọi ngôn ngữ; hàng tỷ: tiếng Anh B (2B), tiếng Việt “tỷ” (2 tỷ)
         EN_U = {"nghìn": "K", "ngàn": "K", "triệu": "M", "tr": "M", "tỷ": "B", "tỉ": "B"}
-        VI_U = {"k": "nghìn", "m": "triệu", "b": "tỷ", "bn": "tỷ"}
+        VI_U = {"nghìn": "K", "ngàn": "K", "triệu": "M", "tr": "M", "b": "tỷ", "bn": "tỷ"}
         u = str(sc.get("unit", "")).strip()
         if en and u.lower() in EN_U:
             sc["unit"] = EN_U[u.lower()]; log.append(f"{sc['id']}: tiếng Anh → đơn vị {sc['unit']}")
-        elif not en and u.lower() in VI_U:
+        elif not en and u.lower() in VI_U and VI_U[u.lower()] != u:
             sc["unit"] = VI_U[u.lower()]; log.append(f"{sc['id']}: tiếng Việt → đơn vị {sc['unit']}")
         elif not u and float(sc.get("value_to", 0)) >= 10000:
             vt_ = float(sc["value_to"])
-            sc_, un = next(((d, n) for d, n in ((1e9, ("B", "tỷ")), (1e6, ("M", "triệu")), (1e3, ("K", "nghìn"))) if vt_ >= d))
+            sc_, un = next(((d, n) for d, n in ((1e9, ("B", "tỷ")), (1e6, ("M", "M")), (1e3, ("K", "K"))) if vt_ >= d))
             for k_ in ("value_from", "value_to"):
                 sc[k_] = round(float(sc.get(k_, 0)) / sc_, 2)
             sc["unit"] = un[0] if en else un[1]
