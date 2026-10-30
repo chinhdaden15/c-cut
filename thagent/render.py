@@ -423,6 +423,12 @@ def caption_with(caps, active, pos, f, anchors_tl, H, W, zm, inmg=False, groups=
         d = int(y0 - (top - 6 - h + 34) - pad)                          # có phụ đề dẫn → chữ nhấn ngay dưới
     else:
         d = int(y0 + 34 - top - pad * 0.25)                             # không có → chữ nhấn nằm ĐÚNG chỗ phụ đề
+    from .callouts import SAFE_H, SAFE_V
+    bot = max(pos[g.id][1] + group_extent(g, skip_icons=True)[3] for g in chest)
+    over = int(bot + d - (H - (SAFE_V if H > W else SAFE_H)["bottom"]))
+    if over > 0:                                                        # góc máy rộng / khổ ngang: ngực sát đáy → đẩy cả cụm lên, không tràn khỏi khung
+        d -= over
+        y0 -= over
     if cur:
         cur = (cur[0], cur[1], y0)
     return cur, {g.id: d for g in chest}
