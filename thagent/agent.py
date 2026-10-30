@@ -344,6 +344,7 @@ class Session:
         self.denied = ""                  # lệnh bị Claude Code chặn quyền → app nhắc Claude dùng đúng lệnh (tối đa 3 lần)
         self.last_cmd = ""
         self.denials = 0
+        self.limited_until = 0.0          # hết giới hạn Claude → chờ tới mốc này (epoch) rồi làm tiếp, không tính là lỗi
 
     # ---------- lưu ----------
     def _save(self):
@@ -421,7 +422,10 @@ class Session:
                 self.model = d.get("model") or self.model
                 _save_status(model=d.get("model"))
             elif t == "rate_limit_event":
-                _save_status(limits=d.get("rate_limit_info"))
+                info = d.get("rate_limit_info") or {}
+                _save_status(limits=info)
+                if info.get("status") == "rejected":
+                    self._mark_limited(info)
             elif t == "assistant":
                 for b in d["message"]["content"]:
                     if b.get("type") == "text" and b["text"].strip():
@@ -443,6 +447,8 @@ class Session:
                     self.denied = self.denied or str((x.get("tool_input") or {}).get("command") or x.get("tool_name"))[:200]
                 self.busy = False
                 self.activity = ""
+                if d.get("is_error") and _is_limit(str(d.get("result") or "")):
+                    self._mark_limited((claude_status().get("limits") or {}))
                 if d.get("is_error"):
                     self._add("claude", f"Lỗi phiên Claude: {d.get('result') or d.get('subtype')}", kind="error")
         proc.wait()
@@ -453,6 +459,13 @@ class Session:
                 self._add("claude", "Claude dừng bất thường" + (": " + self.err_tail.strip()[-300:] if self.err_tail.strip() else
                           f" (mã {proc.returncode})"), kind="error")
             self.proc = None
+
+    def _mark_limited(self, info: dict):
+        r = float(info.get("resetsAt") or 0)
+        self.limited_until = r if r > time.time() else time.time() + 900     # không rõ giờ làm mới → thử lại sau 15 phút
+
+    def limited(self) -> bool:
+        return self.limited_until > 0
 
     def send(self, text: str, show: bool = True):
         with self.lock:
@@ -520,6 +533,12 @@ class Session:
             except (UnicodeDecodeError, ValueError):
                 continue
         return None
+
+
+def _is_limit(txt: str) -> bool:
+    t = txt.lower()
+    return any(k in t for k in ("usage limit", "rate limit", "limit reached", "hit your limit", "out of extra usage",
+                                "session limit", "weekly limit", "resets "))
 
 
 def _describe(b: dict) -> str:

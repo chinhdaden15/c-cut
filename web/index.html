@@ -456,9 +456,9 @@ function renderQueue(){
   if(pages>1){pg.innerHTML=`<button id="qPrev" ${qPage?'':'disabled'}>‹</button><span>Trang ${qPage+1}/${pages} · ${q.length} clip</span><button id="qNext" ${qPage<pages-1?'':'disabled'}>›</button>`;
     $('#qPrev').onclick=()=>{qPage--;renderQueue()};$('#qNext').onclick=()=>{qPage++;renderQueue()}}
   $('#queue').innerHTML=q.length?q.map((x,i)=>(i<qPage*PER||i>=(qPage+1)*PER)?'':(()=>{
-    const ic={wait:'⏱',running:'⟳',done:'✓',failed:'!',cancelled:'–',waiting_claude:'…',claude:'✦'}[x.status]||'';
+    const ic={wait:'⏱',running:'⟳',done:'✓',failed:'!',cancelled:'–',waiting_claude:'…',claude:'✦',limit:'⏸'}[x.status]||'';
     const licErr=x.status==='failed'&&String(x.error||'').startsWith('BẢN QUYỀN');
-    const lab=licErr?'cần mua skill — bấm 🔑':{wait:'chờ',running:'đang dựng',done:'xong',failed:'lỗi',cancelled:'đã dừng',waiting_claude:'chờ Claude',claude:'Claude đang lập kế hoạch'}[x.status];
+    const lab=licErr?'cần mua skill — bấm 🔑':{wait:'chờ',running:'đang dựng',done:'xong',failed:'lỗi',cancelled:'đã dừng',waiting_claude:'chờ Claude',claude:'Claude đang lập kế hoạch',limit:'chờ giới hạn Claude làm mới'}[x.status];
     if(licErr&&!licPrompted[x.name+x.error]){licPrompted[x.name+x.error]=1;toast(x.error.replace('BẢN QUYỀN: ',''));openLic(x.kind==='review'?'review-editor':S.settings.style)}
     return `<div class="q st-${x.status}" data-qi="${i}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}${chSel(x,i)}</div>`})()).join(''):'';
   document.querySelectorAll('.q').forEach(el=>{const x=S.queue[+el.dataset.qi];if(x&&x.project){el.style.cursor='pointer';el.classList.toggle('foc',x.project===(S.project&&S.project.id));

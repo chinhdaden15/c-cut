@@ -76,7 +76,7 @@ def load_queue():
     try:
         STATE["queue"] = json.loads(_qfile().read_text(encoding="utf-8"))
         for q in STATE["queue"]:
-            if q["status"] == "running":
+            if q["status"] in ("running", "limit"):
                 q["status"] = "wait"        # app bị tắt giữa chừng → chạy lại từ checkpoint
     except Exception:
         STATE["queue"] = []
@@ -926,6 +926,31 @@ def _final_path(item: dict, out_dir: Path, multi: bool) -> Path:
     return f
 
 
+def _wait_limit(sess, job, item):
+    """Claude hết giới hạn → chờ tới giờ làm mới (không tính là lỗi), xong thì làm tiếp từ chỗ dở."""
+    prev = item["status"]
+    item["status"] = "limit"; save_queue()
+    while time.time() < sess.limited_until + 30:
+        if job["cancel"]:
+            sess.stop(); raise RuntimeError("cancelled")
+        job["activity"] = "Hết giới hạn Claude — tự làm tiếp lúc " + time.strftime("%H:%M", time.localtime(sess.limited_until + 30))
+        time.sleep(5)
+    sess.limited_until = 0
+    sess.restarts = 0
+    item["status"] = prev; save_queue()
+
+
+def _nudge(sess, job, item, msg: str, err: str):
+    """Claude dừng giữa chừng → giao lại việc (tối đa 3 lần); dừng vì hết giới hạn thì chờ làm mới, không tính lần."""
+    if sess.limited():
+        _wait_limit(sess, job, item)
+    elif sess.restarts >= 3:
+        raise RuntimeError(err)
+    else:
+        sess.restarts += 1
+    sess.send(msg, show=False)
+
+
 def _wait_plan(sess, item, job):
     item["status"] = "claude"
     while not sess.plan_ready():
@@ -936,10 +961,8 @@ def _wait_plan(sess, item, job):
         if not sess.busy and not sess.plan_ready():
             time.sleep(5)
             if not sess.busy and not sess.plan_ready():
-                if sess.restarts >= 3:
-                    raise RuntimeError("Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
-                sess.restarts += 1
-                sess.send("Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json.", show=False)
+                _nudge(sess, job, item, "Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json.",
+                       "Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
         sess.watchdog()
         time.sleep(2)
     item["status"] = "running"
@@ -1138,10 +1161,8 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
             if not sess.busy:
                 time.sleep(5)
                 if not sess.busy and not flag.exists():
-                    if sess.restarts >= 3:
-                        raise RuntimeError("Claude chưa viết xong kịch bản — xem khung chat")
-                    sess.restarts += 1
-                    sess.send(f"Viết tiếp kịch bản vào {script} rồi ghi {flag}.", show=False)
+                    _nudge(sess, job, item, f"Viết tiếp kịch bản vào {script} rồi ghi {flag}.",
+                           "Claude chưa viết xong kịch bản — xem khung chat")
             time.sleep(2)
         item["status"] = "running"
     job["done"].append("script"); job["stage"] = "voice"
@@ -1259,6 +1280,10 @@ def _run_queue(settings: dict):
         if item.get("kind") == "t2v":       # việc từ kịch bản: tên dự án theo tiêu đề + mã việc (không trùng)
             pid = item.get("project") or (_slug(item["name"])[:40] + "_" + item["path"].split(":")[1][-6:])
         item.update(status="running", project=pid); save_queue()
+        from . import agent as A
+        if pid in A.SESSIONS:                  # bấm chạy lại → đếm lại số lần giao lại việc từ 0
+            A.SESSIONS[pid].restarts = 0
+            A.SESSIONS[pid].limited_until = 0
         _apply_channel(item)
         job.update(project=pid, video=item["name"], stage="analyze" if multi else "ingest", done=[], t0=time.time(),
                    percent=0, eta_s=None, stages=STAGES_MULTI if multi else STAGES)
@@ -1357,10 +1382,8 @@ def _run_queue(settings: dict):
                     if not sess.busy and not sess.plan_ready():   # Claude đã dừng giữa chừng mà chưa xong → giao lại việc
                         time.sleep(5)
                         if not sess.busy and not sess.plan_ready():
-                            if sess.restarts >= 3:
-                                raise RuntimeError("Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
-                            sess.restarts += 1
-                            sess.send("Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json.", show=False)
+                            _nudge(sess, job, item, "Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json.",
+                                   "Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
                     sess.watchdog()
                     time.sleep(2)
                 item["status"] = "running"
