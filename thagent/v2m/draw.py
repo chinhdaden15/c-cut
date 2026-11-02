@@ -217,6 +217,54 @@ def circle_sprite(r: int, fill: str | None, stroke: str | None, stroke_w: int, s
 
 
 @lru_cache(maxsize=64)
+def glass_tile(s: int, c1: str, c2: str = "#38E1FF") -> tuple[np.ndarray, int]:
+    """ô kính công nghệ cho icon 3D: thân kính mờ trong suốt, viền chuyển màu c2→c1, quầng sáng ngoài, vệt bóng sáng góc trên.
+    Trả (sprite premultiplied, lề)."""
+    s = max(int(s), 8)
+    pad = int(s * 0.32)
+    W = s + 2 * pad
+    out = np.zeros((W, W, 4), np.float32)
+    m = _rrect_mask(s, s, s * 0.27)
+    sl = slice(pad, pad + s)
+    g = np.linspace(0, 1, s, dtype=np.float32)[:, None]
+    a_body = (0.62 - 0.14 * g) * m                                         # kính mờ tối (đọc rõ trên nền video), trên sáng hơn dưới
+    tint = rgb("#0d1830") * (0.75 + 0.25 * g[..., None]) + rgb(c2) * 0.10 * (1 - g[..., None])
+    out[sl, sl, :3] = tint * a_body[..., None]
+    out[sl, sl, 3] = a_body
+    bw = max(2, int(s * 0.022))
+    inner = np.zeros_like(m)
+    inner[bw:s - bw, bw:s - bw] = _rrect_mask(s - 2 * bw, s - 2 * bw, s * 0.27 - bw)
+    ring = np.clip(m - inner, 0, 1)
+    yy, xx = np.mgrid[0:s, 0:s].astype(np.float32)
+    k = ((xx + yy) / (2 * s))[..., None]
+    col = rgb(c2) * (1 - k) + rgb(c1) * k
+    glow = np.zeros((W, W), np.float32); glow[sl, sl] = ring
+    glow = cv2.GaussianBlur(glow, (0, 0), s * 0.07) * 1.6
+    gcol = (rgb(c2) + rgb(c1)) / 2
+    halo = np.zeros_like(out); halo[..., :3] = gcol * np.clip(glow, 0, 0.75)[..., None]; halo[..., 3] = np.clip(glow, 0, 0.75)
+    out = over(halo, out)
+    rs = np.zeros((s, s, 4), np.float32); rs[..., :3] = col * ring[..., None]; rs[..., 3] = ring
+    out[sl, sl] = over(out[sl, sl], rs)
+    hl = np.zeros((s, s), np.float32)                                      # vệt bóng sáng góc trên trái
+    cv2.ellipse(hl, (int(s * 0.34), int(s * 0.16)), (int(s * 0.30), int(s * 0.08)), -12, 0, 360, 1, -1, cv2.LINE_AA)
+    hl = cv2.GaussianBlur(hl, (0, 0), s * 0.03) * 0.28 * m
+    hs = np.zeros((s, s, 4), np.float32); hs[..., :3] = hl[..., None]; hs[..., 3] = hl
+    out[sl, sl] = over(out[sl, sl], hs)
+    return out, pad
+
+
+@lru_cache(maxsize=64)
+def icon_glow(name: str, size: int, color: str) -> np.ndarray:
+    """quầng sáng màu quanh icon (đặt dưới icon)."""
+    spr = icon_sprite(name, size, "#ffffff")
+    p = int(size * 0.25)
+    a = np.pad(spr[..., 3], p)
+    a = np.clip(cv2.GaussianBlur(a, (0, 0), size * 0.09) * 0.8, 0, 1)
+    out = np.zeros(a.shape + (4,), np.float32); out[..., :3] = rgb(color) * a[..., None]; out[..., 3] = a
+    return out
+
+
+@lru_cache(maxsize=64)
 def _image(path: str) -> np.ndarray:
     im = imgio.must_read(path)
     if im.ndim == 2:

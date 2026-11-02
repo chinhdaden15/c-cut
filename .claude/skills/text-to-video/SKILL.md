@@ -45,5 +45,18 @@ MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son 
 - Ảnh tĩnh luôn có chuyển động chậm (kb); chuyển cảnh đúng chỗ ngắt câu, kèm SFX vai trò tương ứng.
 - Mở đầu: hook trong 1s đầu (hình mạnh nhất + chữ lớn). Kết: ~5s cuối CTA chữ lớn, nhịp chậm lại.
 
+## 5b. Thu hút, không đơn điệu (app kiểm một phần)
+- **Hình thật ≥ 40% thời lượng (check báo LỖI)** — kể cả video giới thiệu app/dịch vụ/khái niệm: tìm b-roll đúng ý câu
+  (người ngồi máy tính gõ ý tưởng, người quay điện thoại, màn hình dựng phim, người xem TikTok…). Nền màu + icon chỉ là cảnh chen.
+- **Khung đầy:** nội dung chính chiếm ≥ 55% chiều cao, nằm giữa khung; tiêu đề dọc dùng `size="xl"|"l"` (140/112), không để
+  một dải chữ nhỏ trên đầu + khoảng giữa trống. Cảnh motion-only phải có 1 khối lớn (icon 3D ≥ 260px, số khổng lồ, thẻ kính).
+- **Icon 3D mặc định:** `s.icons` / `s.steps` tự đổi icon phẳng sang icon 3D cùng nghĩa (kho chung); ghi thẳng `"3d:<id>"`
+  (`.venv/bin/python -m thagent.tools icon3d <từ khoá>`) để chọn đúng hình. Icon phẳng trong vòng tròn chỉ là phụ.
+- **Nhấn nhá mỗi ý chính:** chữ khoá to bật vào đúng lúc nói (`s.keyword` / `s.title(... size="xl")`) + `s.pulse`, ~4s một lần;
+  con số → `s.mg("money"|"chart"…)` hoặc `s.stat`; chuyển cảnh có SFX. Nền đổi theo đoạn ý (2 màu chủ đạo, gradient/bokeh/
+  ảnh mờ từ b-roll), không giữ một nền phẳng suốt video.
+- **Phụ đề:** mỗi lúc 1 cụm, cụm cũ tắt hẳn rồi cụm mới vào (app tự lo); cảnh có chữ nhấn trùng lời → `s.captions = False`.
+- **Số tiền:** viết gọn — “một trăm chín mươi chín nghìn đồng” → `199K` (unit="K"), triệu → `M` hoặc “triệu”, tỷ → “tỷ”; tiền ngoại giữ ký hiệu như lời ($, €). Cả cụm một dòng (app tự co chữ).
+
 ## 6. Sửa
 Người dùng góp ý → chỉ sửa đúng cảnh được nhắc. Sửa LỜI → app đọc lại câu đó (người dùng sửa trong ô kịch bản), không tự đổi lời.

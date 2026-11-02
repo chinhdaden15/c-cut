@@ -45,7 +45,25 @@ THEMES = {
 # Gán theo thứ tự xuất hiện → cùng nội dung thì dọc và ngang cùng màu. Ghi đè: K.colors["VNM"] = "#…"
 COUNTRY_COLORS = ["#C98A1B", "#2B8A9E", "#B4543A", "#4F6FC4", "#3D8F5F", "#8A55B0", "#A8743A", "#2F7D86"]
 
-SIZES = {"xl": (104, 112), "l": (84, 92), "m": (60, 64), "s": (46, 48)}     # (dọc, ngang) cỡ tiêu đề
+_I3D = {"lightbulb-on": "light bulb", "lightbulb": "light bulb", "document": "page facing up", "microphone": "microphone", "video-camera": "video camera",
+        "laptop": "laptop", "smartphone": "mobile phone", "download": "inbox tray", "scissors": "scissors",
+        "check": "check mark", "film": "clapper board", "money": "money", "clock": "clock", "rocket": "rocket", "star": "star", "heart": "heart"}
+
+
+def to3d(name: str) -> str:
+    """icon phẳng → icon 3D cùng nghĩa trong kho chung (nếu có); không có thì giữ icon phẳng."""
+    if name.startswith("3d:"):
+        return name
+    try:
+        from .. import icons3d as I
+        q = _I3D.get(name, name.replace("-", " "))
+        hit = I.find(q, 1)
+        ok = hit and all(w in (hit[0]["id"] + " " + hit[0]["title"].lower()) for w in q.split())   # chỉ nhận khi khớp đủ nghĩa
+        return f"3d:{hit[0]['id']}" if ok else name
+    except Exception:
+        return name
+
+SIZES = {"xl": (140, 112), "l": (112, 92), "m": (84, 64), "s": (58, 48)}     # (dọc, ngang) cỡ tiêu đề
 
 
 def fit_size(text: str, role: str, size: float, max_w: float, floor: float = 0.45) -> int:
@@ -352,7 +370,7 @@ class Kit:
         ch = self.claude_captions() or self._cap_chunks(line_c)
         for j, (a, b, text) in enumerate(ch):
             nxt = ch[j + 1][0] if j + 1 < len(ch) else self.T
-            end = max(min(b + 0.5, nxt - 0.05), a + 0.4)
+            end = max(min(b + 0.5, nxt - 0.16), a + 0.4)          # tắt hẳn (mờ 0.1s) trước khi cụm sau vào → không chồng chữ
             for s in scenes:                                     # cụm vắt qua chỗ chuyển cảnh → hiện tiếp ở cảnh sau (cùng chữ)
                 if s.captions is False or end <= s.t0 or a >= s.t1:
                     continue
@@ -494,13 +512,15 @@ class Scene:
         """items [(icon, nhãn, t)] — nút icon có nhãn, tự xếp hàng/lưới. connect=True: nét đứt nối các nút."""
         K = self.K
         pos, cw = K.grid(len(items), region)
-        sz = size or ((110 if K.V else 96) if len(items) <= 3 else (88 if K.V else 76))
+        sz = size or ((190 if K.V else 120) if len(items) <= 2 else (150 if K.V else 96) if len(items) <= 3 else (110 if K.V else 76))
         col = color or K.th["accent"]
         ids = []
         for (name, label, t), (x, y) in zip(items, pos):
+            name = to3d(name)
+            g3 = {"tile": "glass", "bg": None} if name.startswith("3d:") else {}
             ids.append(self.add({"type": "icon", "name": name, "size": sz, "color": col, "bg": K.th["panel"], "bg_r": sz * 1.15,
-                                 "ring": col if ring else None, "ring_w": 5, "x": x, "y": y - 40, "label": label,
-                                 "label_size": 40 if K.V else 36, "label_color": K.th["text"], "space": "screen", "shadow": 0.25}, t, "pop", 0.35))
+                                 **g3, "ring": col if ring else None, "ring_w": 5, "x": x, "y": y - 40, "label": label,
+                                 "label_size": 48 if K.V else 36, "label_color": K.th["text"], "space": "screen", "shadow": 0.25}, t, "pop", 0.35))
         if connect:
             for a, b in zip(ids, ids[1:]):
                 lid = self.add({"type": "line", "from": a, "to": b, "width": 5, "color": K.th["muted"], "dash": 16, "gap": 10,
@@ -573,11 +593,16 @@ class Scene:
         """so sánh hai vế: a/b = (icon, nhãn) hoặc (icon, nhãn, màu)."""
         K = self.K
         (x1, y), (x2, _) = K.grid(2, region)[0]
+        if K.V:                                   # dọc: hai vế tách hẳn hai bên (ô icon + nhãn không chạm nhau)
+            x1, x2 = K.W * 0.27, K.W * 0.73
         ids = []
         for (it, t, x, c0) in ((a, t_a, x1, K.th["good"]), (b, t_b, x2, K.th["alt"])):
             col = it[2] if len(it) > 2 else c0
-            ids.append(self.add({"type": "icon", "name": it[0], "size": 120, "color": col, "bg": K.th["panel"], "bg_r": 145, "ring": col,
-                                 "ring_w": 6, "x": x, "y": y - 40, "label": it[1], "label_size": 42 if K.V else 38, "label_color": K.th["text"],
+            sz = 170 if K.V else 120
+            nm = to3d(it[0])
+            g3 = {"tile": "glass", "bg": None} if nm.startswith("3d:") else {}
+            ids.append(self.add({"type": "icon", "name": nm, "size": sz, "color": col, "bg": K.th["panel"], "bg_r": sz * 1.2, **g3, "ring": col,
+                                 "ring_w": 6, "x": x, "y": y - 40, "label": it[1], "label_size": 52 if K.V else 38, "label_color": K.th["text"],
                                  "space": "screen"}, t, "pop", 0.35))
         self.add({"type": "text", "text": vs, "font": "black", "size": 54, "color": K.th["muted"], "space": "screen", "x": (x1 + x2) / 2,
                   "y": y - 30, "shadow": 0}, min(t_a + 0.4, t_b - 0.1), "fade", 0.3)
@@ -735,12 +760,18 @@ class Scene:
         if _is_video(s_):             # b-roll phủ kín khung (Text to Video): video nền tối nhẹ, chữ / thẻ số đè lên
             o.update(type="video", **{"in": k.get("in", 0.0), "rate": k.get("rate", 1.0)})
             o["kb"] = {"z": [1.0, 1.06], "pan": [0, 0, 0, 0]}
-        oid = self.add(o, self.t0 if t is None else t, "fade", 0.6)
-        if True:
-            from .. import fonts as FT
-            self.add({"type": "text", "text": FT.label(), "font": "medium", "size": 22, "color": "#FFFFFF",
-                      "space": "screen", "x": K.W / 2, "y": K.F.center("source")[1], "shadow": 0.6, "role": "source", "layer": 30},
-                     self.t0 if t is None else t, "fade", 0.4)
+        t_ = self.t0 if t is None else t
+        prev = getattr(self, "_bg_prev", None)
+        oid = self.add(o, t_, "fade", 0.6)
+        from .. import fonts as FT
+        if prev:                       # đổi nền trong cùng cảnh: nền cũ tắt sau khi nền mới hiện hẳn, nhãn giữ nguyên (không chồng 2 nhãn)
+            self.hide(prev[0], t_ + 0.6, "fade", 0.01)
+            lab = prev[1]
+        else:
+            lab = self.add({"type": "text", "text": FT.label(), "font": "medium", "size": 22, "color": "#FFFFFF",
+                            "space": "screen", "x": K.W / 2, "y": K.F.center("source")[1], "shadow": 0.6, "role": "source", "layer": 30},
+                           t_, "fade", 0.4)
+        self._bg_prev = (oid, lab)
         return oid
 
     def photo_pin(self, photo_id, rx, ry, text, t, color=None) -> str:
@@ -771,7 +802,8 @@ class Scene:
         """từ khóa bật lên đúng lúc nói (viên lớn giữa vùng hình) — dùng khi ý chưa có icon/hình phù hợp."""
         K = self.K
         x, y = K.at_zone(region, 0.5, ry)
-        sz = size or (64 if K.V else 60)
+        sz = size or (84 if K.V else 60)
+        sz = min(sz, int(K.W * 0.9 / (len(text) * 0.6 + 1.6)))      # cả viên nằm gọn trong khung
         w = len(text) * sz * 0.6 + sz * 1.6
         rid = self.add({"type": "rect", "w": w, "h": sz * 2.0, "r": sz, "fill": color or K.th["accent"], "space": "screen", "x": x, "y": y,
                         "shadow": 0.3}, t - 0.05, "pop", 0.35)
@@ -814,15 +846,17 @@ class Scene:
             pts = [((x0 + x1) / 2, y0 + (y1 - y0) * (i + 0.5) / n) for i in range(n)]
         else:
             pts = [(x0 + (x1 - x0) * (i + 0.5) / n, (y0 + y1) / 2) for i in range(n)]
-        sz = 84 if n <= 3 else 70
+        sz = (130 if n <= 3 else 112) if K.V else (84 if n <= 3 else 70)
         ids = []
         for i, ((name, label, t), (x, y)) in enumerate(zip(items, pts)):
-            oid = self.add({"type": "icon", "name": name, "size": sz, "color": K.th["accent"], "bg": K.th["panel"], "bg_r": sz * 1.15,
+            name = to3d(name)
+            g3 = {"tile": "glass", "bg": None} if name.startswith("3d:") else {}
+            oid = self.add({"type": "icon", "name": name, "size": sz, "color": K.th["accent"], "bg": K.th["panel"], "bg_r": sz * 1.15, **g3,
                             "ring": K.th["accent"], "ring_w": 5, "x": x - (sz * 2.6 if K.V else 0), "y": y - (0 if K.V else 30),
                             "space": "screen", "shadow": 0.25}, t, "pop", 0.35)
-            lab = {"type": "text", "text": label, "font": "bold", "size": 42 if K.V else 36, "color": K.th["text"], "space": "screen",
-                   "shadow": 0, "max_w": (x1 - x0) * (0.55 if K.V else 0.9 / n)}
-            lab.update({"x": x - sz * 1.2, "y": y, "anchor": "left", "align": "left"} if K.V else {"x": x, "y": y + sz * 1.6})
+            lab = {"type": "text", "text": label, "font": "bold", "size": 58 if K.V else 36, "color": K.th["text"], "space": "screen",
+                   "shadow": 0, "max_w": (x1 - x0) * (0.62 if K.V else 0.9 / n)}
+            lab.update({"x": x - sz * 1.0, "y": y, "anchor": "left", "align": "left"} if K.V else {"x": x, "y": y + sz * 1.6})
             self.add(lab, t + 0.15, "up", 0.35)
             if ids:
                 lid = self.add({"type": "line", "from": ids[-1], "to": oid, "width": 6, "color": K.th["muted"], "trim_start": sz * 1.3,

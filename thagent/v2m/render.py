@@ -961,6 +961,8 @@ class Renderer:
         m, sh, pad = D.frame_mask(w, h, float(p.get("r", 24)), float(p.get("shadow", 0.35)))
         spr = sh.copy()
         img = fr[i].astype(np.float32) / 255
+        if p.get("dim"):                     # video nền phủ khung: làm tối như ảnh nền (trước đây bị bỏ qua → chữ trắng chìm)
+            img = img * (1 - float(p["dim"]))
         reg = spr[pad:pad + h, pad:pad + w]
         reg[..., :3] = reg[..., :3] * (1 - m[..., None]) + img * m[..., None]
         reg[..., 3] = reg[..., 3] * (1 - m) + m
@@ -982,7 +984,16 @@ class Renderer:
     def d_icon(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):
         th = self.tl.theme
         qs = _q(scale, 0.05)
-        if p.get("bg"):
+        if p.get("tile") == "glass":         # icon 3D trong ô kính phát sáng, icon bồng bềnh nhẹ + quầng sáng
+            r = float(p.get("bg_r", p.get("size", 96) * 0.95))
+            spr, pad = D.glass_tile(int(float(p.get("size", 96)) * 1.5 * qs), th.get("accent", "#F2C14E"), p.get("glow", "#38E1FF"))
+            hw = spr.shape[0] / 2
+            D.place(dst, _clip(spr, clip), D.affine(sx, sy, scale / qs, rot, hw, hw), op, bv)
+            sy = sy - math.sin(t * 2 * math.pi / 2.6 + sx * 0.01) * r * 0.05 * scale
+            gl = D.icon_glow(p["name"], int(float(p.get("size", 96)) * qs), p.get("glow", "#38E1FF"))
+            D.place(dst, _clip(gl, clip), D.affine(sx, sy, scale / qs, rot, gl.shape[1] / 2, gl.shape[0] / 2),
+                    op * (0.75 + 0.25 * math.sin(t * 2 * math.pi / 1.8)), bv)
+        elif p.get("bg"):
             r = float(p.get("bg_r", p.get("size", 96) * 0.95))
             spr, pad = D.circle_sprite(int(r * qs), p["bg"], p.get("ring"), int(p.get("ring_w", 0) * qs), float(p.get("shadow", 0.3)))
             M = D.affine(sx, sy, scale / qs, rot, pad + int(r * qs), pad + int(r * qs))
@@ -994,7 +1005,7 @@ class Renderer:
         if p.get("label"):
             q = {"text": p["label"], "font": "bold", "size": p.get("label_size", 34), "color": p.get("label_color", th["text"]),
                  "shadow": 0.3, "scale": 1, "rot": 0, "type": "text"}
-            off = float(p.get("bg_r", p.get("size", 96))) + 40
+            off = (float(p.get("size", 96)) * 0.75 if p.get("tile") == "glass" else float(p.get("bg_r", p.get("size", 96)))) + 40
             self.d_text(dst, q, sx, sy + off * scale, scale, rot, op, bv, None, t, cam)
 
     def _pt(self, ref, t, cam, screen):

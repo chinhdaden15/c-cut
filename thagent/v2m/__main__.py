@@ -145,6 +145,20 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
     except Exception:
         tr0 = {}
     if tr0.get("source") == "t2v":
+        # hình thật (video / ảnh minh hoạ phủ khung hoặc khung lớn) ≥ 40% thời lượng — tránh cả video chỉ nền màu + icon
+        iv = sorted((float(o["_vis"][0]), float(o["_vis"][1])) for o in tl.objs.values()
+                    if o["type"] in ("video", "image") and o.get("_vis") and "assets_web/" in str(o.get("src", "")))
+        cov, cur = 0.0, None
+        for a, b in iv:
+            if cur and a <= cur[1]:
+                cur = (cur[0], max(cur[1], b))
+            else:
+                cov += (cur[1] - cur[0]) if cur else 0
+                cur = (a, b)
+        cov += (cur[1] - cur[0]) if cur else 0
+        if cov < 0.4 * tl.duration:
+            out.append(("error", f"video/ảnh minh hoạ thật chỉ {cov:.0f}s / {tl.duration:.0f}s (< 40%) — thêm b-roll đúng ý từng câu "
+                                 "(s.photo_bg video phủ khung + chữ/thẻ đè lên), kể cả video giới thiệu app/dịch vụ: người dùng, màn hình, thiết bị…"))
         from .kit import Kit
         cap = Kit(pdir, "9x16").claude_captions()
         if cap is None:

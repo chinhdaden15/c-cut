@@ -266,7 +266,9 @@ def _t_money(sc, V, tone):
     fmt = (lambda v: f"{v:,.{d}f}") if loc == "en-US" else (lambda v: f"{v:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", "."))
     ic = f'<img class=ic src="{icon_uri(sc.get("icon"))}" style="width:{_px(280)};left:calc(50% - 140px*var(--s));top:calc(50% - 460px*var(--s))">' if sc.get("icon") else ""
     badge = f"""<div style="position:absolute;right:{_px(40)};top:{_px(48)};padding:{_px(12)} {_px(22)};border-radius:14px;background:{TONES[tone][2]};color:#1a1200;font-weight:900;font-size:{_px(38)}">{E(sc['badge'])}</div>""" if sc.get("badge") else ""
-    html = f"""{ic}<div class="t1 {tone} num hit" style="position:absolute;width:100%;text-align:center;top:calc(50% - 150px*var(--s));font-size:{_px(170)}">{pre_}{fmt(vf)}{unit}</div>
+    nch = len(sc.get("prefix", "") + fmt(max(abs(vf), abs(vt))) + (" " + sc["unit"] if sc.get("unit") else ""))
+    fs = min(170, int(900 / (0.62 * max(nch, 1))))      # cả số + đơn vị trên MỘT dòng (không rớt “đồng” xuống dưới thẻ)
+    html = f"""{ic}<div class="t1 {tone} num hit" style="position:absolute;width:100%;text-align:center;white-space:nowrap;top:calc(50% - 150px*var(--s));font-size:{_px(fs)}">{pre_}{fmt(vf)}{unit}</div>
 <div class=card style="left:calc(50% - 420px*var(--s));top:calc(50% + 70px*var(--s));width:{_px(840)};height:{_px(190)}">
 <div style="position:absolute;left:{_px(46)};top:{_px(36)};font-weight:800;font-size:{_px(fit(sc.get('title'), 54, 20 if sc.get('badge') else 26))};white-space:nowrap">{E(sc.get('title', ''))}</div>
 <div class=sub style="position:absolute;left:{_px(46)};top:{_px(108)};font-size:{_px(36)}">{E(sc.get('sub', ''))}</div>{badge}<div class=sweep></div></div>"""
