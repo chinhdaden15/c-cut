@@ -1,6 +1,6 @@
 {
   "name": "Text to Video",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "text",
   "summary": "Kịch bản hoặc yêu cầu → giọng đọc (6 giọng có sẵn / giọng nhân bản) → video kết hợp video minh hoạ thật + motion graphic; xuất cả dọc 9:16 lẫn ngang 16:9",
   "output": {
