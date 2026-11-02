@@ -56,6 +56,8 @@ MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son 
   con số → `s.mg("money"|"chart"…)` hoặc `s.stat`; chuyển cảnh có SFX. Nền đổi theo đoạn ý (2 màu chủ đạo, gradient/bokeh/
   ảnh mờ từ b-roll), không giữ một nền phẳng suốt video.
 - **Phụ đề:** mỗi lúc 1 cụm, cụm cũ tắt hẳn rồi cụm mới vào (app tự lo); cảnh có chữ nhấn trùng lời → `s.captions = False`.
+- **App / sản phẩm của chính người làm video** (C-Cut, thương hiệu kênh): khi nói tới cài / dùng / tải app → hiện ĐÚNG icon / logo thật
+  (C-Cut: `packaging/icon.png`, chép vào assets_web rồi đặt như ảnh bo góc), không thay bằng icon chung (hộp tải xuống, laptop…).
 - **Số tiền:** viết gọn — “một trăm chín mươi chín nghìn đồng” → `199K` (unit="K"), triệu → `M` hoặc “triệu”, tỷ → “tỷ”; tiền ngoại giữ ký hiệu như lời ($, €). Cả cụm một dòng (app tự co chữ).
 
 ## 6. Sửa
