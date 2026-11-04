@@ -1,6 +1,6 @@
 {
   "name": "Review Editor",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "kind": "review",
   "summary": "Dựng video review từ bộ footage của bạn (bất động sản, sản phẩm): chọn take, ghép lời với B-roll, phụ đề + chữ thông tin, xuất dọc và/hoặc ngang",
   "output": {

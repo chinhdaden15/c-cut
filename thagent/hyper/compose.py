@@ -47,6 +47,8 @@ def _css(d: dict) -> str:
 def _font(role: str) -> str:
     from .. import fonts as FT
     fam, w = ROLE.get(role, ROLE["bold"])
+    if FT.display() and FT.current() not in FT.SCRIPT and role in ("black", "display", "bold", "semi"):
+        fam, w = "CCut Display", 400                        # font chữ nhấn người dùng chọn (Review)
     extra = "".join(f",'{x}'" for x in FT.css()[0])        # chữ ngoài Latin/Việt → font Noto của ngôn ngữ dự án
     return f"font-family:'{fam}'{extra};font-weight:{w}"
 
@@ -366,6 +368,13 @@ def build(s: dict, proj: Path) -> Path:
             shutil.copy2(p, dst)
         faces.append(f"@font-face{{font-family:'{f['family']}';src:url('assets/fonts/{p.name}');font-weight:{f.get('weight', '400')};font-display:block}}")
     from .. import fonts as FT
+    if FT.display() and FT.current() not in FT.SCRIPT:
+        src = Path(FT.display())
+        dst = proj / "assets" / "fonts" / src.name
+        dst.parent.mkdir(exist_ok=True)
+        if not dst.exists():
+            shutil.copy2(src, dst)
+        faces.append(f"@font-face{{font-family:'CCut Display';src:url('assets/fonts/{src.name}');font-weight:400;font-display:block}}")
     if FT.current() in FT.SCRIPT:                              # font Noto của ngôn ngữ dự án (Trung, Nhật, Thái, Ả Rập…)
         fam = FT.css()[0]
         for (_, src), w in zip(FT._files(FT.current()), (400, 700)):

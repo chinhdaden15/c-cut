@@ -70,6 +70,15 @@ def use_project(pdir) -> str:
             ensure(lang)
         except Exception:
             pass
+    try:                                       # Review: font người dùng chọn trong app (1 font cho cả clip)
+        fid = json.loads((Path(pdir) / "review" / "options.json").read_text(encoding="utf-8")).get("font") or ""
+    except Exception:
+        fid = ""
+    fp = font_path(fid)
+    if fp:
+        os.environ["CCUT_FONT"] = str(fp)
+    else:
+        os.environ.pop("CCUT_FONT", None)
     return lang
 
 
@@ -188,3 +197,82 @@ LABELS = {
 def label(real: bool = False) -> str:
     a, b = LABELS.get(current(), LABELS["en"] if current() != "vi" else LABELS["vi"])
     return b if real else a
+
+
+# ---------------- font chữ nhấn do người dùng chọn (skill Review) ----------------
+# 14 font đã duyệt cho reel F&B/review. KHÔNG đóng gói kèm app (font Việt hoá, chưa rõ giấy phép):
+# app chỉ hiện font nào ĐÃ CÀI trên máy; không có → Montserrat mặc định.
+DISPLAY_FONTS = [
+    ("gesco", "HF Gesco", "1FTV-HF-Gesco-id0oy5.ttf"), ("impact", "Impact", "UTM Impact.ttf"),
+    ("bebas", "Bebas", "UTM Bebas.ttf"), ("fjalla", "Fjalla One", "SVN-Fjalla One.otf"),
+    ("barlow_bi", "Barlow Condensed Black Italic", "BarlowCondensed-BlackItalic.ttf"),
+    ("gilroy", "Gilroy XBold", "SVN-Gilroy XBold.otf"), ("helvetica", "Helvetica Neue Heavy", "SVN-Helvetica Neue Heavy.ttf"),
+    ("avo", "Avo Bold", "UTM AvoBold.ttf"), ("heavitas", "Heavitas", "1FTV-Heavitas.otf"),
+    ("trajan", "Trajan Pro Bold", "UTM Trajan Pro Bold.ttf"), ("abril", "Abril Fatface", "SVN-Abril Fatface.ttf"),
+    ("ettlora", "Ettlora", "1FTV-VIP-Ettlora.ttf"), ("romalika", "Romalika", "1FTV-VIP-Romalika.otf"),
+    ("josefin", "Josefin Sans Bold", "JosefinSans-Bold.ttf"),
+]
+
+
+CAPS_STYLE = {"trajan"}     # chữ thường là chữ hoa nhỏ (small caps) → vẫn trông IN HOA
+
+
+def _font_dirs() -> list[Path]:
+    h = Path.home()
+    return [ROOT / "assets" / "fonts", h / "Library" / "Fonts", Path("/Library/Fonts"),
+            h / "AppData" / "Local" / "Microsoft" / "Windows" / "Fonts", Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts",
+            h / ".local" / "share" / "fonts", h / ".fonts"]
+
+
+def font_path(fid: str) -> Path | None:
+    f = next((x[2] for x in DISPLAY_FONTS if x[0] == fid), None)
+    if not f:
+        return None
+    return next((d / f for d in _font_dirs() if (d / f).exists()), None)
+
+
+def caps_only(path) -> bool:
+    """font chỉ có chữ HOA (chữ thường vẽ ra y như chữ hoa) → chữ phụ viết thường vẫn hiện IN HOA."""
+    from PIL import ImageFont
+    f = ImageFont.truetype(str(path), 80)
+    m = lambda c: (f.getbbox(c), bytes(f.getmask(c)))
+    return all(m(c) == m(c.upper()) for c in "aegn")
+
+
+def display_fonts() -> list[dict]:
+    out = []
+    for fid, name, _ in DISPLAY_FONTS:
+        p = font_path(fid)
+        if p:
+            try:
+                co = caps_only(p)
+            except Exception:
+                continue
+            out.append({"id": fid, "name": name, "caps_only": co or fid in CAPS_STYLE})
+    return out
+
+
+def display() -> str | None:
+    """đường dẫn font chữ nhấn của dự án (None = font mặc định của style)."""
+    p = os.environ.get("CCUT_FONT")
+    return p if p and Path(p).exists() else None
+
+
+def preview_png(fid: str) -> bytes:
+    """ảnh mẫu: chữ nhấn IN HOA "CẢM ƠN" + chữ phụ viết thường "đây là C-Cut"."""
+    import io
+    from PIL import Image, ImageDraw, ImageFont
+    p = font_path(fid)
+    if not p:
+        raise FileNotFoundError(fid)
+    im = Image.new("RGB", (720, 250), (24, 24, 28))
+    d = ImageDraw.Draw(im)
+    big, small = ImageFont.truetype(str(p), 92), ImageFont.truetype(str(p), 46)
+    for (x, y, t, f, c) in ((360, 95, "CẢM ƠN", big, (255, 200, 50)), (360, 178, "đây là C-Cut", small, (255, 255, 255))):
+        w = f.getlength(t)
+        if w > 680:
+            f = ImageFont.truetype(str(p), int(f.size * 680 / w)); w = f.getlength(t)
+        d.text((x - w / 2 + 3, y + 4), t, font=f, fill=(0, 0, 0), anchor="ls")
+        d.text((x - w / 2, y), t, font=f, fill=c, anchor="ls")
+    b = io.BytesIO(); im.save(b, "PNG")
+    return b.getvalue()

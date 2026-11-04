@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.2"
+APP_VERSION = "2.5.3"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -52,7 +52,7 @@ DEFAULTS = {"project_name": "", "project_dir": str(ROOT / "projects"),
             "build_model": "sonnet",
             "notify_sound": True, "notify_system": True,
             "review": {"category": "san_pham", "style": "truc_tiep", "intensity": "can_bang", "formats": ["9x16", "16x9"],
-                       "duration": "", "subtitles": True, "notes": "", "keep": "", "remove": ""}}
+                       "duration": "", "subtitles": True, "notes": "", "keep": "", "remove": "", "font": ""}}
 
 STATE = {"queue": [], "job": None, "notifications": []}
 WS: dict = {}     # dự án đang mở trong lần chạy app này: {"name", "dir"}; mở app lại = dự án mới
@@ -1873,3 +1873,20 @@ async def voices_clone(file: UploadFile = File(...), name: str = Form(...), cons
 def voices_delete(vid: str):
     _voice_call(lambda V: V.remove(vid))
     return voices_get()
+
+
+@router.get("/fonts/display")
+def fonts_display():
+    """font chữ nhấn cho Review: 14 font đã duyệt, chỉ những font có cài trên máy (+ cờ chỉ có chữ HOA)."""
+    from . import fonts as FT
+    return {"fonts": FT.display_fonts()}
+
+
+@router.get("/fonts/display/{fid}.png")
+def fonts_display_png(fid: str):
+    from fastapi import Response
+    from . import fonts as FT
+    try:
+        return Response(FT.preview_png(fid), media_type="image/png", headers={"Cache-Control": "max-age=86400"})
+    except FileNotFoundError:
+        raise HTTPException(404, "Không có font này trên máy")

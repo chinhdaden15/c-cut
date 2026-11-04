@@ -1,5 +1,8 @@
 # Changelog — Review Editor
 
+## 1.2.3
+- Chọn font chữ ngay trong app (khung Review): 14 font đã duyệt (chỉ hiện font có cài trên máy), ảnh mẫu "CẢM ƠN / đây là C-Cut", đánh dấu font chỉ có chữ HOA. Một font cho cả clip — chữ nhấn + chữ phụ (vẽ chữ PIL lẫn HyperFrames).
+
 ## 1.2.2
 - Lĩnh vực mới: Công nghệ, Mỹ phẩm – skincare, Ẩm thực (cùng BĐS, Sản phẩm khác); đặt cho cả video hoặc từng đoạn (video nhiều ngành).
 - Công nghệ: khối so sánh 2 cột `compare` (tô cột thắng), bản ngang đặt ô bên, không đè phụ đề.

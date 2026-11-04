@@ -222,6 +222,9 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
       <div class="field"><label>Lĩnh vực</label><select id="rvCat"><option value="bds">Bất động sản</option><option value="cong_nghe">Công nghệ</option><option value="my_pham">Mỹ phẩm – skincare</option><option value="am_thuc">Ẩm thực</option><option value="san_pham">Sản phẩm khác</option></select></div>
       <div class="field"><label>Phong cách</label><select id="rvStyle"><option value="tour">Tour bất động sản</option><option value="truc_tiep">Review trực tiếp</option><option value="tinh_te">Review tinh tế</option></select></div>
       <div class="field"><label>Mức thể hiện</label><select id="rvInt"><option value="nhe">Nhẹ nhàng</option><option value="can_bang">Cân bằng</option><option value="nang_dong">Năng động</option></select></div>
+      <div class="field"><label>Font chữ (1 font cho cả clip)</label><select id="rvFont"><option value="">Mặc định (Montserrat)</option></select>
+        <img id="rvFontPrev" alt="" hidden style="display:block;width:100%;margin-top:6px;border-radius:8px">
+        <div class="small dim" id="rvFontNote" style="margin-top:4px"></div></div>
       <div class="field"><label>Tỷ lệ</label><select id="rvFmt"><option value="both">Cả dọc lẫn ngang</option><option value="9x16">Dọc 9:16</option><option value="16x9">Ngang 16:9</option></select></div>
       <div class="field"><label>Thời lượng (giây)</label><input id="rvDur" placeholder="Tự chọn"></div>
       <label class="chk"><input type="checkbox" id="rvSub"> Phụ đề theo lời</label>
@@ -492,9 +495,16 @@ $('#tvAdd').onclick=async()=>{const voice=$('#tvVoice').value,t=$('#tvText').val
   if(!(b.request||b.text||b.path)){toast(tvMode==='request'?'Nhập ý tưởng video':'Dán kịch bản hoặc chọn file');return}
   try{const r=await post('/api/ccut/t2v/add',b);toast('Đã thêm '+r.added.length+' video');$('#tvText').value='';tvPath=null;$('#tvFileName').textContent='';refresh()}catch(e){toast(e.message)}};
 function renderTH(){}
+let FONTS=null;
+async function loadFonts(){if(FONTS)return;try{FONTS=(await api('/api/ccut/fonts/display')).fonts}catch(e){FONTS=[]}
+  $('#rvFont').innerHTML='<option value="">Mặc định (Montserrat)</option>'+FONTS.map((f,i)=>`<option value="${esc(f.id)}">${i+1}. ${esc(f.name)}${f.caps_only?' — chỉ chữ HOA':''}</option>`).join('')}
+function fontPrev(){const v=$('#rvFont').value,f=(FONTS||[]).find(x=>x.id===v),im=$('#rvFontPrev');
+  im.hidden=!v;if(v)im.src='/api/ccut/fonts/display/'+encodeURIComponent(v)+'.png';
+  $('#rvFontNote').textContent=!v?'Chữ Montserrat của app.':f&&f.caps_only?'Font này chỉ có chữ HOA: chữ phụ viết thường cũng sẽ hiện IN HOA.':'Chữ nhấn IN HOA, chữ phụ viết thường.'}
 function renderReview(){
   const on=S.settings.style==='review-editor';$('#reviewCard').hidden=!on;if(!on)return;
   const r=S.settings.review||{};if(document.activeElement&&$('#reviewCard').contains(document.activeElement))return;
+  loadFonts().then(()=>{$('#rvFont').value=r.font||'';fontPrev()});
   $('#rvCat').value=r.category||'san_pham';$('#rvStyle').value=r.style||'truc_tiep';$('#rvInt').value=r.intensity||'can_bang';
   const f=r.formats||['9x16','16x9'];$('#rvFmt').value=f.length>1?'both':f[0];$('#rvDur').value=r.duration||'';$('#rvSub').checked=r.subtitles!==false;
   $('#rvNotes').value=r.notes||'';$('#rvKeep').value=r.keep||'';$('#rvRemove').value=r.remove||'';
@@ -502,7 +512,7 @@ function renderReview(){
 async function saveReview(){
   const fv=$('#rvFmt').value;
   const review={category:$('#rvCat').value,style:$('#rvStyle').value,intensity:$('#rvInt').value,formats:fv==='both'?['9x16','16x9']:[fv],
-    duration:$('#rvDur').value.trim(),subtitles:$('#rvSub').checked,notes:$('#rvNotes').value,keep:$('#rvKeep').value,remove:$('#rvRemove').value};
+    duration:$('#rvDur').value.trim(),subtitles:$('#rvSub').checked,notes:$('#rvNotes').value,keep:$('#rvKeep').value,remove:$('#rvRemove').value,font:$('#rvFont').value};
   await api('/api/ccut/settings',{method:'PUT',body:JSON.stringify({review})});S.settings.review=review;
 }
 function licTag(slug){const L=S.license;if(!L)return'';if(L.free.includes(slug))return'<span class="ltag free">Miễn phí</span>';const k=L.skills[slug];if(!k)return'';
@@ -545,6 +555,7 @@ function bigView(){const v=$('#player video');if(!v)return;const t=v.currentTime
   d.querySelector('.close').onclick=close;d.onclick=e=>{if(e.target===d)close()};addEventListener('keydown',esc_);document.body.appendChild(d)}
 $('#pBig').onclick=bigView;
 ['rvCat','rvStyle','rvInt','rvFmt','rvSub'].forEach(i=>$('#'+i).onchange=saveReview);
+$('#rvFont').onchange=()=>{fontPrev();saveReview()};
 ['rvDur','rvNotes','rvKeep','rvRemove'].forEach(i=>$('#'+i).onblur=saveReview);
 $('#rvRefs').onclick=async()=>{try{const r=await post('/api/ccut/pick',{kind:'video'});if(r.path){const x=await post('/api/ccut/review/refs',{paths:[r.path]});toast(x.refs.length+' video tham khảo');refresh()}}catch(e){toast(e.message)}};
 $('#pSave').onclick=async()=>{if(!curOut)return;try{const r=await post('/api/ccut/output/save',{path:curOut});if(r.saved)toast('Đã lưu: '+r.saved)}catch(e){toast(e.message)}};

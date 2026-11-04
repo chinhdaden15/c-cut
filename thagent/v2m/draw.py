@@ -40,12 +40,17 @@ def rgb(c) -> np.ndarray:
 
 def font(role: str, size: int) -> ImageFont.FreeTypeFont:
     from .. import fonts as FT
-    return _font(role, size, FT.current())
+    return _font(role, size, FT.current(), FT.display() if role in DISPLAY_ROLES else None)
+
+
+DISPLAY_ROLES = {"black", "display", "bold", "semi"}      # vai trò dùng font người dùng chọn (chữ nhấn + chữ phụ)
 
 
 @lru_cache(maxsize=128)
-def _font(role: str, size: int, lang: str) -> ImageFont.FreeTypeFont:
+def _font(role: str, size: int, lang: str, custom: str | None = None) -> ImageFont.FreeTypeFont:
     from .. import fonts as FT
+    if custom and lang not in FT.SCRIPT:
+        return ImageFont.truetype(custom, max(int(size), 4))
     fname, w = FONTS.get(role, FONTS["display"])
     path, w = FT.pick(FONT_DIR / fname, w)
     f = ImageFont.truetype(path, max(int(size), 4))

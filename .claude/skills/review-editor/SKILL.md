@@ -38,6 +38,12 @@ Thứ gì đã tốt ở Talking Head / Voice to Motion mà áp dụng chung đ�
 - **Nói hỏng rồi nói lại** (kể cả khi máy chép lời bỏ sót lần nói thứ hai): `clean` tự nghe lại sau chỗ ngừng, cắt mẩu hỏng, giữ câu trơn.
 - **Chữ hai tầng** (nhãn trên số / dòng nhỏ trên chữ nhấn): chữ phụ ≈ 0,6 chữ chính — không để chênh lệch quá.
 
+## Font chữ do người dùng chọn trong app
+
+`review/options.json` → `"font"`: id font người dùng chọn ở khung Review (trống = Montserrat mặc định). App tự vẽ MỌI chữ nhấn + chữ phụ bằng đúng font đó (1 font cho cả clip) — không tự đổi font, không trộn font khác.
+- Chỉ IN HOA chữ nhấn; chữ phụ viết thường. Font "chỉ chữ HOA" (Heavitas, Bebas, Trajan…) thì chữ phụ cũng hiện hoa — đó là lựa chọn của người dùng, không phải lỗi.
+- Chữ vừa đủ, tinh tế, không che món/đầu người; câu nhấn ngắn để 1 dòng.
+
 ## Đọc theo thứ tự
 
 1. `references/workflow.md` — quy trình kiểm kê → phân tích → chọn take → mạch → ghép lời–hình → dựng → kiểm → xuất, kèm lệnh công cụ.

@@ -96,7 +96,8 @@ def content_hash(s: dict) -> str:
     body["output"] = {k: v for k, v in body.get("output", {}).items() if k != "path"}
     from .runtime import pinned
     from .compose import VERSION
-    return hashlib.sha256(json.dumps([body, files, pinned(), VERSION], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    from .. import fonts as FT
+    return hashlib.sha256(json.dumps([body, files, pinned(), VERSION, FT.display() or ""], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
 def validate(s: dict) -> list[tuple[str, str]]:
