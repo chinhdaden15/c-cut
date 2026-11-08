@@ -435,7 +435,14 @@ async function refresh(){
   try{S=await api('/api/ccut/state'+(focusProj?'?project='+encodeURIComponent(focusProj):location.hash.startsWith('#project=')?'?project='+location.hash.slice(9):''));$('#offline').hidden=true;document.body.style.pointerEvents=''}catch(e){$('#offline').hidden=false;return}
   $('#appver').textContent='v'+S.app.version;
   $('#ptext').textContent=S.workspace?S.workspace.name:'Chưa có dự án';$('#pname').title=S.workspace?S.workspace.name+' — bấm để đổi tên\n'+S.workspace.dir:'';
+  const rv=S.workspace?S.workspace.rev:null;
+  if(rv!==wsRev){const boxOn=$('#wsBox').classList.contains('show'),first=wsRev===undefined&&!boxOn;wsRev=rv;
+    if(S.workspace&&!uiWs&&!first){   // dự án được mở/tạo từ API (CN.AI…) → đóng khung Dự án, báo cho người dùng
+      $('#wsBox').classList.remove('show');focusProj=null;chatN=-1;qPage=-1;
+      toast('Đã mở dự án '+S.workspace.name+(S.workspace.source?' ('+S.workspace.source+')':''))}
+    else if(boxOn)wsLoadList()}
   if(!S.workspace&&!wsShown)openWs();
+  if(S.client&&S.client.active&&S.workspace)$('#pname').title+='\n'+S.client.name+' đang điều khiển C-Cut qua API';
   const sy=S.system;$('#sys').className='badge '+sy.level;$('#sys').textContent=sy.label;
   $('#outdir').textContent=S.settings.export_dir;
   renderQueue();renderStyles();renderReview();renderT2V();renderTH();renderGal();renderJob();renderProject();renderNotifs();renderConfirms();renderUsage();loadChat();
@@ -463,7 +470,7 @@ function renderQueue(){
     const licErr=x.status==='failed'&&String(x.error||'').startsWith('BẢN QUYỀN');
     const lab=licErr?'cần mua skill — bấm 🔑':{wait:'chờ',running:'đang dựng',done:'xong',failed:'lỗi',cancelled:'đã dừng',waiting_claude:'chờ Claude',claude:'Claude đang lập kế hoạch',limit:'chờ giới hạn Claude làm mới'}[x.status];
     if(licErr&&!licPrompted[x.name+x.error]){licPrompted[x.name+x.error]=1;toast(x.error.replace('BẢN QUYỀN: ',''));openLic(x.kind==='review'?'review-editor':S.settings.style)}
-    return `<div class="q st-${x.status}" data-qi="${i}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}${chSel(x,i)}</div>`})()).join(''):'';
+    return `<div class="q st-${x.status}" data-qi="${i}" title="${esc(x.error||x.path)}"><span>${ic}</span><span class="n"><span class="fn">${esc(x.name)}</span><span class="qs">${x.source?`<span class="ltag own" title="Việc do ${esc(x.source)} gửi qua API">${esc(x.source)}</span> `:''}${lab} · ${esc(x.meta)}</span></span><button class="sc${x.script?' has':''}" data-i="${i}" title="${x.script?'Đã có kịch bản — bấm để xem/sửa':'Thêm kịch bản để đối chiếu'}">${x.script?'📄 kịch bản':'+ kịch bản'}</button>${x.status!=='running'?`<button class="x" data-i="${i}" aria-label="Bỏ">✕</button>`:''}${chSel(x,i)}</div>`})()).join(''):'';
   document.querySelectorAll('.q').forEach(el=>{const x=S.queue[+el.dataset.qi];if(x&&x.project){el.style.cursor='pointer';el.classList.toggle('foc',x.project===(S.project&&S.project.id));
     el.onclick=e=>{if(e.target.closest('button,select'))return;focusProj=x.project;chatN=-1;refresh()}}});
   document.querySelectorAll('.q .sc').forEach(b=>b.onclick=()=>openScript(+b.dataset.i));
@@ -845,7 +852,7 @@ $('#closeSetup').onclick=closeSetup;$('#setupDone').onclick=closeSetup;
 $('#setupRecheck').onclick=async()=>{await loadSetup();await post('/api/ccut/syscheck');refresh()};
 loadSetup().then(s=>{if(s&&s.frozen&&!s.done)openSetup()});
 /* dự án: mở app → tạo dự án mới */
-let wsShown=false;
+let wsShown=false,wsRev,uiWs=false;
 async function wsSuggest(par){const r=await api('/api/ccut/workspace'+(par?'?parent='+encodeURIComponent(par):''));return r}
 function wsUpd(){const p=$('#wsPar').value.trim(),n=$('#wsName').value.trim(),norm=x=>(x||'').replace(/[\\/]+$/,'');
   $('#wsPath').textContent=(p&&n?'→ '+norm(p)+(p.includes('\\')?'\\':'/')+n:'')+(S&&S.settings&&norm(p)===norm(S.settings.export_dir)?'  ⚠ Trùng thư mục xuất video — nên chọn thư mục khác để thư mục xuất chỉ có video thành phẩm.':'')}
@@ -859,13 +866,13 @@ document.querySelectorAll('.wst').forEach(b=>b.onclick=()=>{document.querySelect
 async function wsLoadList(){try{const r=await api('/api/ccut/workspace/list'+($('#wsPar').value?'?parent='+encodeURIComponent($('#wsPar').value.trim()):''));
   $('#wsList').innerHTML=r.projects.length?r.projects.map(p=>`<div class="lic-row" style="cursor:pointer" data-open="${esc(p.dir)}"><span class="n">${esc(p.name)}${p.current?' <span class="ltag own">đang mở</span>':''}</span><span class="small dim">${p.videos?p.done+'/'+p.videos+' video · ':''}${new Date(p.modified*1000).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div>`).join(''):'<div class="small dim">Chưa có dự án nào ở thư mục này.</div>';
   document.querySelectorAll('[data-open]').forEach(r=>r.onclick=()=>wsOpen(r.dataset.open))}catch(e){}}
-async function wsOpen(dir){try{focusProj=null;const r=await post('/api/ccut/workspace/open',{dir});$('#wsBox').classList.remove('show');chatN=-1;toast('Đã mở dự án '+r.current.name);await refresh()}catch(e){toast(e.message)}}
+async function wsOpen(dir){uiWs=true;try{focusProj=null;const r=await post('/api/ccut/workspace/open',{dir});$('#wsBox').classList.remove('show');chatN=-1;toast('Đã mở dự án '+r.current.name);await refresh()}catch(e){toast(e.message)}uiWs=false}
 $('#wsOpenOther').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'folder'});if(r.path)wsOpen(r.path)};
 $('#wsPar').addEventListener('change',wsLoadList);
 $('#wsName').onkeydown=e=>{if(e.key==='Enter')$('#wsCreate').click()};
 $('#wsCreate').onclick=async()=>{const b=$('#wsCreate');b.disabled=true;
-  try{const r=await post('/api/ccut/workspace',{name:$('#wsName').value.trim()||'Dự Án Mới',parent:$('#wsPar').value.trim()});$('#wsBox').classList.remove('show');chatN=-1;toast('Đã tạo dự án '+r.current.name);await refresh()}catch(e){toast(e.message)}
-  b.disabled=false};
+  uiWs=true;try{const r=await post('/api/ccut/workspace',{name:$('#wsName').value.trim()||'Dự Án Mới',parent:$('#wsPar').value.trim()});$('#wsBox').classList.remove('show');chatN=-1;toast('Đã tạo dự án '+r.current.name);await refresh()}catch(e){toast(e.message)}
+  uiWs=false;b.disabled=false};
 refresh();setInterval(refresh,2000);
 /* kéo ngang đổi độ rộng khung Claude, nhớ lại lần sau */
 (()=>{const m=document.querySelector('main'),h=$('#chatResz');if(!m||!h)return;

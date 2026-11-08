@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.3"
+APP_VERSION = "2.5.4"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -55,7 +55,41 @@ DEFAULTS = {"project_name": "", "project_dir": str(ROOT / "projects"),
                        "duration": "", "subtitles": True, "notes": "", "keep": "", "remove": "", "font": ""}}
 
 STATE = {"queue": [], "job": None, "notifications": []}
-WS: dict = {}     # dự án đang mở trong lần chạy app này: {"name", "dir"}; mở app lại = dự án mới
+WS: dict = {}     # dự án đang mở trong lần chạy app này: {"name", "dir", "export_dir"?, "source"?, "rev"}; mở app lại = dự án mới
+CLIENT = {"name": None, "at": 0.0}   # app khác điều khiển C-Cut qua API (header X-CCut-Client), lần gọi gần nhất
+_WS_REV = [0]
+
+
+def _info_path() -> Path | None:
+    return Path(WS["dir"]) / "project_info.json" if WS else None
+
+
+def _read_info(d: Path) -> dict:
+    try:
+        return json.loads((d / "project_info.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _write_info(d: Path, **kw) -> dict:
+    info = _read_info(d)
+    info.setdefault("name", d.name); info.setdefault("created", time.strftime("%Y-%m-%d %H:%M")); info.setdefault("app", APP_VERSION)
+    info.update({k: v for k, v in kw.items() if v is not None})
+    (d / "project_info.json").write_text(json.dumps(info, ensure_ascii=False, indent=1), encoding="utf-8")
+    return info
+
+
+def export_dir(settings: dict | None = None) -> Path:
+    """thư mục xuất: của dự án đang mở (project_info.json → export_dir) nếu có, không thì cài đặt chung.
+    Chấp nhận {date} trong đường dẫn → ngày hôm nay (YYYY-MM-DD)."""
+    raw = WS.get("export_dir") or (settings or load_settings())["export_dir"]
+    d = Path(str(raw).replace("{date}", time.strftime("%Y-%m-%d"))).expanduser()
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def client_active(window: float = 600) -> bool:
+    return bool(CLIENT["name"]) and time.time() - CLIENT["at"] < window
 
 
 def _qfile() -> Path:
@@ -88,6 +122,9 @@ def load_settings() -> dict:
     s = dict(DEFAULTS)
     if SETTINGS.exists():
         s.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
+    if WS.get("export_dir"):
+        s["export_dir_global"] = s["export_dir"]
+        s["export_dir"] = str(WS["export_dir"]).replace("{date}", time.strftime("%Y-%m-%d"))
     P.PROJECTS = Path(WS["dir"]) if WS else Path(s["project_dir"])
     os.environ["CCUT_ASR_LANG"] = s.get("asr_language") or "auto"     # chép lời (app + lệnh Claude chạy) theo cài đặt
     return s
@@ -109,12 +146,17 @@ class SettingsIn(BaseModel):
 @router.put("/settings")
 def put_settings(body: SettingsIn):
     s = load_settings()
-    s.update({k: v for k, v in body.model_dump().items() if v is not None})
+    if "export_dir_global" in s:
+        s["export_dir"] = s.pop("export_dir_global")
+    upd = {k: v for k, v in body.model_dump().items() if v is not None}
+    if WS and upd.get("export_dir"):              # đang mở dự án → thư mục xuất của riêng dự án này (và làm mặc định cho dự án sau)
+        WS["export_dir"] = upd["export_dir"]; _write_info(Path(WS["dir"]), export_dir=upd["export_dir"])
+    s.update(upd)
     for k in ("project_dir", "export_dir"):
-        Path(s[k]).expanduser().mkdir(parents=True, exist_ok=True)
+        Path(str(s[k]).replace("{date}", time.strftime("%Y-%m-%d"))).expanduser().mkdir(parents=True, exist_ok=True)
     old = load_settings().get("build_model")
     SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
-    load_settings()
+    s = load_settings()
     if body.build_model and body.build_model != old:      # đổi model → phiên đang rảnh khởi động lại với model mới
         from . import agent as A
         for x in A.SESSIONS.values():
@@ -141,15 +183,58 @@ def ws_get(parent: str | None = None):
 class WsIn(BaseModel):
     name: str
     parent: str
+    export_dir: str | None = None     # thư mục xuất riêng của dự án (lưu project_info.json); có thể chứa {date}
+    source: str | None = None         # ai tạo: "CN.AI"… (bỏ trống = người dùng bấm trong app)
+
+
+def _clean_name(name: str) -> str:
+    return re.sub(r'[<>:"/\\|?*]', "", name).strip().rstrip(".") or "Dự Án Mới"
+
+
+def _busy_guard():
+    if STATE["job"] and STATE["job"]["state"] in ("running", "paused"):
+        raise HTTPException(409, "Đang dựng — dừng trước khi đổi dự án")
+
+
+def _activate(d: Path, source: str | None, export: str | None, new: bool):
+    """đặt d làm dự án đang mở (dùng chung cho Dự án mới / Mở dự án cũ / ensure)."""
+    from . import agent as A
+    A.reset_all()
+    info = _write_info(d, export_dir=export, **({"created_by": source} if new and source else {}))
+    _WS_REV[0] += 1
+    WS.clear()
+    WS.update(name=d.name, dir=str(d), rev=_WS_REV[0], source=source or None)
+    if info.get("export_dir"):
+        WS["export_dir"] = info["export_dir"]
+    os.environ["CCUT_PROJECTS"] = str(d)          # các lệnh Claude chạy (design, preflight, tools…) tìm đúng dự án
+    STATE.update(job=None, notifications=[])
+    raw = json.loads(SETTINGS.read_text(encoding="utf-8")) if SETTINGS.exists() else {}
+    raw.update(project_dir=str(d.parent), project_name=d.name)
+    SETTINGS.write_text(json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8")
+    load_settings()
+    if new:
+        STATE["queue"] = []
+        save_queue()
+    else:
+        load_queue()
+        if not STATE["queue"]:                    # dự án tạo bằng bản cũ: hàng chờ chưa lưu riêng / đã bị ghi đè → dựng lại từ các thư mục video
+            STATE["queue"] = _rebuild_queue(d)
+            save_queue()
+
+
+def _ws_out(created: bool | None = None) -> dict:
+    out = {"current": WS, "videos": len(STATE["queue"]), "export_dir": str(export_dir())}
+    if created is not None:
+        out["created"] = created
+    return out
 
 
 @router.post("/workspace")
 def ws_create(body: WsIn):
-    from . import agent as A
-    if STATE["job"] and STATE["job"]["state"] == "running":
-        raise HTTPException(409, "Đang dựng — dừng trước khi đổi dự án")
+    """“＋ Dự án mới”: luôn tạo thư mục mới (trùng tên → thêm số)."""
+    _busy_guard()
     par = Path(body.parent).expanduser()
-    base = re.sub(r'[<>:"/\\|?*]', "", body.name).strip().rstrip(".") or "Dự Án Mới"
+    base = _clean_name(body.name)
     try:
         par.mkdir(parents=True, exist_ok=True)
         name = base if not (par / base).exists() else _ws_name(par, base)
@@ -157,18 +242,50 @@ def ws_create(body: WsIn):
         d.mkdir()
     except OSError as e:
         raise HTTPException(400, f"Không tạo được thư mục: {e}")
-    A.reset_all()
-    WS.update(name=name, dir=str(d))
-    os.environ["CCUT_PROJECTS"] = str(d)          # các lệnh Claude chạy (design, preflight, tools…) tìm đúng dự án
-    STATE.update(queue=[], job=None, notifications=[])
-    s = load_settings()
-    s.update(project_dir=str(par), project_name=name)
-    SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
-    load_settings()
-    (d / "project_info.json").write_text(json.dumps({"name": name, "created": time.strftime("%Y-%m-%d %H:%M"),
-                                                     "app": APP_VERSION}, ensure_ascii=False, indent=1), encoding="utf-8")
-    save_queue()
-    return {"current": WS}
+    _activate(d, body.source, body.export_dir, True)
+    return _ws_out(True)
+
+
+@router.post("/workspace/ensure")
+def ws_ensure(body: WsIn):
+    """như khung “Dự án”: đã có dự án tên này trong parent → mở lại (Mở dự án cũ), chưa có → tạo (＋ Dự án mới).
+    Đang mở đúng dự án đó → giữ nguyên (không reset Claude/hàng chờ). Không bao giờ sinh “… 2”, “… 3”."""
+    par = Path(body.parent).expanduser()
+    d = par / _clean_name(body.name)
+    if WS and d.is_dir() and Path(WS["dir"]).resolve() == d.resolve():
+        if body.export_dir and body.export_dir != WS.get("export_dir"):
+            WS["export_dir"] = body.export_dir; _write_info(d, export_dir=body.export_dir)
+        if body.source:
+            WS["source"] = body.source
+        return _ws_out(False)
+    _busy_guard()
+    if d.exists() and not d.is_dir():
+        raise HTTPException(400, f"“{d}” là file, không phải thư mục")
+    created = not d.exists()
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise HTTPException(400, f"Không tạo được thư mục: {e}")
+    _activate(d, body.source, body.export_dir, created)
+    return _ws_out(created)
+
+
+class ExportIn(BaseModel):
+    dir: str | None = None     # None/"" → bỏ thư mục riêng, dùng cài đặt chung
+
+
+@router.put("/workspace/export_dir")
+def ws_export(body: ExportIn):
+    if not WS:
+        raise HTTPException(400, "Chưa mở dự án")
+    d = Path(WS["dir"])
+    info = _read_info(d)
+    if body.dir:
+        WS["export_dir"] = info["export_dir"] = body.dir
+    else:
+        WS.pop("export_dir", None); info.pop("export_dir", None)
+    (d / "project_info.json").write_text(json.dumps(info, ensure_ascii=False, indent=1), encoding="utf-8")
+    return _ws_out()
 
 
 @router.get("/workspace/list")
@@ -191,33 +308,18 @@ def ws_list(parent: str | None = None):
 
 class WsOpenIn(BaseModel):
     dir: str
+    source: str | None = None
 
 
 @router.post("/workspace/open")
 def ws_open(body: WsOpenIn):
     """mở lại dự án cũ: hàng chờ, trạng thái từng video, chat với Claude, video đã xuất."""
-    from . import agent as A
-    if STATE["job"] and STATE["job"]["state"] in ("running", "paused"):
-        raise HTTPException(409, "Đang dựng — dừng trước khi đổi dự án")
+    _busy_guard()
     d = Path(body.dir).expanduser()
     if not d.is_dir():
         raise HTTPException(400, "Không thấy thư mục dự án")
-    A.reset_all()
-    WS.update(name=d.name, dir=str(d))
-    os.environ["CCUT_PROJECTS"] = str(d)
-    STATE.update(job=None, notifications=[])
-    s = load_settings()
-    s.update(project_dir=str(d.parent), project_name=d.name)
-    SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
-    load_settings()
-    if not (d / "project_info.json").exists():
-        (d / "project_info.json").write_text(json.dumps({"name": d.name, "created": time.strftime("%Y-%m-%d %H:%M"), "app": APP_VERSION},
-                                                        ensure_ascii=False, indent=1), encoding="utf-8")
-    load_queue()
-    if not STATE["queue"]:                        # dự án tạo bằng bản cũ: hàng chờ chưa lưu riêng / đã bị ghi đè → dựng lại từ các thư mục video
-        STATE["queue"] = _rebuild_queue(d)
-        save_queue()
-    return {"current": WS, "videos": len(STATE["queue"])}
+    _activate(d, body.source, None, False)
+    return _ws_out()
 
 
 def _rebuild_queue(d: Path) -> list[dict]:
@@ -384,7 +486,7 @@ def output_save(body: OutIn):
     if WINDOW is not None:
         import webview
         r = WINDOW.create_file_dialog(webview.FileDialog.SAVE, save_filename=src.name,
-                                      directory=str(Path(load_settings()["export_dir"]).expanduser()))
+                                      directory=str(export_dir()))
         dest = (r[0] if isinstance(r, (list, tuple)) else r) if r else None
     elif sys.platform == "darwin":
         r = subprocess.run(["osascript", "-e", f'POSIX path of (choose file name with prompt "Lưu video" default name "{src.name}")'],
@@ -910,18 +1012,18 @@ def _run_multi(item: dict, pid: str, job: dict, settings: dict, log) -> Path:
 
 
 def _final_path(item: dict, out_dir: Path, multi: bool) -> Path:
-    """thư mục xuất chỉ nhận video thành phẩm, đặt theo tên dự án (nhiều video → thêm tên video).
-    Xuất lại cùng video → ghi đè bản cũ; trùng tên file khác → thêm (2), (3)…"""
+    """gốc tên file thành phẩm (chưa có đuôi khung): <YYYY-MM-DD>_<HHMM>_<tên video>. Người gọi thêm _9x16 / _16x9.
+    Xuất lại cùng video vào cùng thư mục → ghi đè bản cũ; trùng tên → thêm (2), (3)…"""
     old = Path(item["output"]) if item.get("output") else None
     if old and old.parent == out_dir:
-        return old
+        return old.with_name(re.sub(r"_(9x16|16x9)$", "", old.stem) + ".mp4")
     stem = Path(item["path"]).name if multi else Path(item["path"]).stem
-    base = WS.get("name") or stem
-    if len(STATE["queue"]) > 1:
-        base = f"{base} - {stem}"
-    base = re.sub(r'[<>:"/\\|?*]', "", base).strip().rstrip(".") or "video"
+    name = item.get("name") or stem
+    name = re.sub(r"\.(mp4|mov|m4v|mkv|avi|mts|txt|docx?|wav|mp3|m4a)$", "", str(name), flags=re.I)
+    name = re.sub(r'[<>:"/\\|?*\s]+', " ", name).strip().rstrip(".")[:60].strip() or "video"
+    base = f"{time.strftime('%Y-%m-%d_%H%M')}_{name}"
     f, n = out_dir / f"{base}.mp4", 2
-    while f.exists():
+    while any((out_dir / f"{f.stem}_{fmt}.mp4").exists() for fmt in ("9x16", "16x9")):
         f, n = out_dir / f"{base} ({n}).mp4", n + 1
     return f
 
@@ -1048,7 +1150,7 @@ def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
         raise RuntimeError(f"File xuất chưa đạt (lần {item['pf_tries']}/3): {msg[:200]}")
     item["pf_tries"] = 0
     job["done"].append("check"); job["stage"] = "export"
-    out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = export_dir(settings)
     base = _final_path(item, out_dir, True)
     outs = []
     for q in res:
@@ -1227,7 +1329,7 @@ def _v2m_render(item: dict, pid: str, job: dict, settings: dict, log, sess):
     from .v2m import __main__ as V
     pdir = P.PROJECTS / pid
     job["done"].append("plan"); job["stage"] = "render"
-    out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = export_dir(settings)
     fmts = [f for f in ("9x16", "16x9") if (pdir / f"timeline_{f}.json").exists()]
     want = (sess.plan_ready() or {}).get("formats") or item.get("formats")   # người dùng dặn “chỉ dọc”/“chỉ ngang” → Claude ghi vào plan_ready.json
     if want:
@@ -1412,11 +1514,12 @@ def _run_queue(settings: dict):
                 c.project.style["formats"] = ["16x9"] if c.project.style["frame"][0] > c.project.style["frame"][1] else ["9x16"]
             c.save()
             rec = P.step_render(c, None, "ccut")
-            out_dir = Path(settings["export_dir"]).expanduser(); out_dir.mkdir(parents=True, exist_ok=True)
+            out_dir = export_dir(settings)
             final = _final_path(item, out_dir, multi)
             outs = []
             if "9x16" in c.project.style["formats"] or c.project.style.get("frame"):
-                shutil.copy2(ROOT / rec["file"], final); outs.append(final)
+                f0 = final.with_name(f"{final.stem}_{'16x9' if c.project.style['formats'] == ['16x9'] else '9x16'}{final.suffix}")
+                shutil.copy2(ROOT / rec["file"], f0); outs.append(f0)
             if rec.get("file_16x9"):
                 fw = final.with_name(f"{final.stem}_16x9{final.suffix}")
                 shutil.copy2(ROOT / rec["file_16x9"], fw); outs.append(fw)
@@ -1711,6 +1814,7 @@ def state(project: str | None = None):
     for q in STATE["queue"]:           # kênh thực tế của video (người dùng chọn hoặc Claude tự nhận)
         q["ch_now"] = CH.info(P.PROJECTS / q["project"]).get("channel") if q.get("project") else None
     return {"app": {"name": "C-Cut", "version": APP_VERSION}, "workspace": WS or None, "settings": s,
+            "client": {"name": CLIENT["name"], "active": client_active()},
             "claude": {"project": pid, "confirms": confirms, "activity": activity, "busy": busy, "usage": usage,
                        "alive": alive, "model": s.get("build_model") or "sonnet"}, "system": system_status(),
             "styles": list_styles(), "license": L.summary(), "queue": STATE["queue"], "job": pub_job, "project": project_summary(pid),

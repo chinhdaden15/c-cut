@@ -148,6 +148,34 @@ def _hide_consoles():
 _LOCK_FH = None
 
 
+def _applog(home: Path, msg: str):
+    """nhật ký mở/tắt app (Application Support/C-Cut/app.log) — để biết vì sao app tắt giữa phiên."""
+    try:
+        f = home / "app.log"
+        if f.exists() and f.stat().st_size > 512_000:
+            f.replace(home / "app.log.1")
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(time.strftime("%Y-%m-%d %H:%M:%S") + f" [{os.getpid()}] {msg}\n")
+    except Exception:
+        pass
+
+
+def _busy_reason() -> str:
+    """C-Cut đang làm việc cho ai đó → lý do (rỗng = rảnh, thoát được)."""
+    try:
+        from thagent import ccut_api as C
+        job = C.STATE.get("job")
+        if job and job.get("state") in ("running", "paused"):
+            return "đang dựng video"
+        if any(q.get("status") in ("running", "claude", "waiting_claude", "limit") for q in C.STATE["queue"]):
+            return "Claude đang làm video trong hàng chờ"
+        if C.client_active(300):
+            return f"{C.CLIENT['name']} đang điều khiển C-Cut qua API"
+    except Exception:
+        pass
+    return ""
+
+
 def _single_instance(home: Path) -> bool:
     """chỉ 1 cửa sổ C-Cut: đã có bản đang chạy → False (khóa tự nhả khi app tắt, kể cả bị tắt ngang)."""
     global _LOCK_FH
@@ -172,7 +200,14 @@ def run_app():
         _hide_consoles()
     res, home = setup_env()
     if not _single_instance(home):
+        _applog(home, "đã có C-Cut khác đang chạy → thoát bản mới mở")
         sys.exit(0)
+    _applog(home, f"mở app (python {sys.version.split()[0]})")
+    try:                                        # app chết ngang (lỗi C) → vẫn có dấu vết
+        import faulthandler
+        faulthandler.enable(open(home / "crash.log", "a"))
+    except Exception:
+        pass
     seed(res, home)
     os.chdir(home)
     import uvicorn
@@ -184,6 +219,13 @@ def run_app():
         pass
 
     port = _free_port()
+    if port != 8765:
+        _applog(home, f"cổng 8765 bận → dùng {port}")
+    try:                                        # app khác (CN.AI…) đọc file này để biết C-Cut đang ở cổng nào
+        (home / "api.json").write_text(json.dumps({"url": f"http://127.0.0.1:{port}/api/ccut", "port": port, "pid": os.getpid(),
+                                                   "started": time.strftime("%Y-%m-%d %H:%M:%S")}), encoding="utf-8")
+    except Exception:
+        pass
     srv = uvicorn.Server(uvicorn.Config(server.app, host="127.0.0.1", port=port, log_level="warning"))
     threading.Thread(target=srv.run, daemon=True).start()
     for _ in range(200):
@@ -199,6 +241,22 @@ def run_app():
     win = webview.create_window(APP_NAME, f"http://127.0.0.1:{port}", width=1440, height=900, min_size=(1100, 700),
                                 text_select=True)
     ccut_api.WINDOW = win
+
+    def _on_closing():
+        why = _busy_reason()
+        if not why:
+            _applog(home, "người dùng đóng cửa sổ")
+            return True
+        try:
+            ok = win.create_confirmation_dialog("Thoát C-Cut?", f"C-Cut {why}. Thoát bây giờ sẽ làm dở việc đó. Vẫn thoát?")
+        except Exception:
+            ok = True
+        _applog(home, f"đóng cửa sổ khi {why} → {'thoát' if ok else 'ở lại'}")
+        return bool(ok)
+    try:
+        win.events.closing += _on_closing
+    except Exception:
+        pass
     try:                                        # công cụ dựng dùng chung: chưa sẵn sàng → tự cài nền (Node portable + HyperFrames)
         from thagent.hyper.autoinstall import start_background
         start_background()
@@ -206,7 +264,17 @@ def run_app():
         pass
     from thagent import agent
     agent.limits_loop()   # làm mới giới hạn Claude khi mở app + mỗi 15 phút
-    webview.start()
+    try:
+        webview.start()
+    except BaseException as e:
+        _applog(home, f"cửa sổ lỗi: {e!r}")
+        raise
+    finally:
+        _applog(home, "tắt app")
+        try:
+            (home / "api.json").unlink(missing_ok=True)
+        except Exception:
+            pass
     srv.should_exit = True
 
 

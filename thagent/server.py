@@ -16,6 +16,29 @@ from . import pipeline as P
 from .schema import Plan, VisualAsset
 
 app = FastAPI(title="C-Cut")
+
+
+@app.middleware("http")
+async def _api_client(request, call_next):
+    """app khác (vd CN.AI) điều khiển C-Cut: gửi header X-CCut-Client: <tên>.
+    Ghi nhận lần gọi gần nhất (giữ app không thoát ngang) và gắn tên nguồn vào việc mới thêm vào hàng chờ."""
+    from . import ccut_api as C
+    who = (request.headers.get("x-ccut-client") or "").strip()[:40]
+    path = request.url.path
+    track = bool(who) and path.startswith("/api/ccut") and request.method == "POST" and "/workspace" not in path
+    before = list(C.STATE["queue"]) if track else None
+    resp = await call_next(request)
+    if who and path.startswith("/api/ccut"):
+        import time as _t
+        C.CLIENT.update(name=who, at=_t.time())
+        if track:
+            ids = {id(x) for x in before}
+            new = [x for x in C.STATE["queue"] if id(x) not in ids]
+            for x in new:
+                x.setdefault("source", who)
+            if new:
+                C.save_queue()
+    return resp
 from .ccut_api import router as ccut_router, load_settings
 app.include_router(ccut_router)
 from .setup_api import router as setup_router
@@ -158,7 +181,10 @@ def ccut_file(p: str):
     """File xem trước/kết quả: chỉ trong thư mục dự án hoặc thư mục xuất."""
     s = load_settings()
     f = Path(p).expanduser().resolve()
-    allowed = [Path(s["project_dir"]).expanduser().resolve(), Path(s["export_dir"]).expanduser().resolve(), P.ROOT.resolve()]
+    from .ccut_api import export_dir
+    ex = export_dir(s)
+    allowed = [Path(s["project_dir"]).expanduser().resolve(), ex.resolve(), ex.parent.resolve(), P.ROOT.resolve(),
+               Path(str(s.get("export_dir_global") or s["export_dir"]).replace("{date}", "")).expanduser().resolve()]
     if not f.exists() or not any(str(f).startswith(str(a)) for a in allowed):
         raise HTTPException(404)
     return FileResponse(f)
