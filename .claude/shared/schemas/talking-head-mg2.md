@@ -29,14 +29,9 @@ Kind (tham số):
    mỗi mục hiện đúng lúc nói, mục cuối hiện trước khi cảnh hết ≥ 0.8s)
   custom     html, css, js (GSAP: biến `tl`, `sel`) — Claude TỰ THIẾT KẾ theo chủ đề; dùng lớp sẵn .card .t1 .gold .blue .red .sub
              .chip .ic .sweep, biến --s (tỉ lệ khung), {{icon:3d:id}} → ảnh icon 3D. Giữ luật: nền đơn giản, ≤ 3 khối, chữ ≥ 34px×s.
+  mapdraw / tech / prompt / devices / pipeline / kinetic — cảnh hoạt hình TOÀN KHUNG minh hoạ đúng lời (tự có nền; tham số: thagent/fx.py)
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);
 cảnh nền (≠ none) không nằm trong đoạn mở đầu / kết; mỗi video dùng ít nhất 4 kind khác nhau, không lặp kind liền nhau.
 ```
-
-
-## Cảnh hoạt hình toàn khung (C-Cut 2.5.5)
-`mapdraw` (vẽ bản đồ + ghim + tuyến; VN kèm Hoàng Sa, Trường Sa), `tech` (chip + mạch công nghệ + thẻ HUD), `prompt` (gõ lệnh → tiến trình → video bay ra),
-`devices` (điện thoại + laptop), `pipeline` (vào → xử lý → ra), `kinetic` (chữ động toàn khung). Tự vẽ nền riêng, che kín khung. Tham số: docstring `thagent/fx.py`.
-Dùng khi lời nói tới đúng thứ đó (nói bản đồ → vẽ bản đồ, nói công nghệ/AI → tech…), không thay bằng icon.
