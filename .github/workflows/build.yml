@@ -126,3 +126,9 @@ jobs:
           build\pyi\C-Cut\ccut-py.exe packaging\e2e.py e2e_frozen --only common,hyper,review; if ($LASTEXITCODE) { exit 1 }
       - uses: actions/upload-artifact@v4
         with: {name: C-Cut-windows, path: dist/C-Cut-Setup.exe}
+  release:                              # tag v* qua hết kiểm tra → tự đăng lên c-cut-releases (app hiện nút cập nhật)
+    needs: [mac, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/publish.yml
+    with: {version: "${{ github.ref_name }}", run_id: "${{ github.run_id }}"}
+    secrets: {RELEASE_TOKEN: "${{ secrets.RELEASE_TOKEN }}"}

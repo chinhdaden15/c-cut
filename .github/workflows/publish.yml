@@ -1,0 +1,44 @@
+# Đăng bản phát hành lên chinhdaden15/c-cut-releases (nơi app kiểm tra bản mới) từ file cài của một lượt build đã qua kiểm tra.
+# Tự chạy sau build.yml (tag v*), hoặc chạy tay: Actions › publish › Run workflow (version + run_id của lượt build).
+# Cần secret RELEASE_TOKEN: token GitHub có quyền ghi (Contents: Read and write) vào repo c-cut-releases.
+name: publish
+on:
+  workflow_dispatch:
+    inputs:
+      version: {description: "Phiên bản (vd 2.5.5)", required: true}
+      run_id: {description: "ID lượt build đã qua (Actions › build)", required: true}
+  workflow_call:
+    inputs:
+      version: {type: string, required: true}
+      run_id: {type: string, required: true}
+    secrets:
+      RELEASE_TOKEN: {required: true}
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {run-id: "${{ inputs.run_id }}", github-token: "${{ github.token }}", path: art, merge-multiple: true}
+      - name: đăng bản phát hành
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          V: ${{ inputs.version }}
+          R: chinhdaden15/c-cut-releases
+        run: |
+          set -e; V="${V#v}"
+          ls -la art
+          for f in C-Cut-mac-intel.dmg C-Cut-mac-arm64.dmg C-Cut-Setup.exe; do test -s "art/$f" || { echo "thiếu $f"; exit 1; }; done
+          if gh release view "v$V" -R "$R" >/dev/null 2>&1; then echo "v$V đã có trên $R"; exit 0; fi
+          prev=$(gh release list -R "$R" -L 1 --exclude-drafts --json tagName -q '.[0].tagName')
+          gh release download "$prev" -R "$R" -p "Huong.dan.su.dung.C-Cut.pdf" -D art --clobber || true
+          gh release view "$prev" -R "$R" --json body -q .body > old.md
+          { [ -f "packaging/release_notes/$V.md" ] && cat "packaging/release_notes/$V.md"; cat old.md; } > notes.md
+          files="art/C-Cut-mac-intel.dmg art/C-Cut-mac-arm64.dmg art/C-Cut-Setup.exe"
+          [ -f art/Huong.dan.su.dung.C-Cut.pdf ] && files="$files art/Huong.dan.su.dung.C-Cut.pdf"
+          for i in 1 2 3 4; do
+            gh release create "v$V" -R "$R" --title "C-Cut $V" --notes-file notes.md --latest $files && break
+            gh release delete "v$V" -R "$R" -y --cleanup-tag >/dev/null 2>&1 || true
+            [ $i -eq 4 ] && exit 1; sleep $((30*i))
+          done
+          gh release view "v$V" -R "$R" --json tagName,assets -q '.tagName, (.assets[] | "\(.name) \(.size)")'
