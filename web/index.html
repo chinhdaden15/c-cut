@@ -318,12 +318,12 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
           <div id="bglist" style="max-height:62vh;overflow:auto;padding-right:6px"></div>
         </div>
         <div data-p="api" hidden>
-          <p class="small dim" style="margin:0 0 10px">Cho phần mềm khác trên máy này (CN.AI, trợ lý tự động…) điều khiển C-Cut: mở dự án, thêm video, theo dõi tiến độ. Mỗi phần mềm nên có một khoá riêng — xoá / đổi khoá là phần mềm đó mất quyền ngay.</p>
+          <p class="small dim" style="margin:0 0 10px">Cho phần mềm khác trên máy này (CN.AI…) điều khiển C-Cut. Xoá hoặc đổi khoá là phần mềm đang dùng khoá đó mất quyền ngay.</p>
           <label class="small" style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input type="checkbox" id="apiOn" style="width:auto"> <b>Bật API</b> <span class="dim" id="apiOnNote"></span></label>
           <div class="field"><label>Địa chỉ API</label><div class="row"><input id="apiUrl" readonly><button id="apiUrlCp">Sao chép</button></div>
             <div class="small dim" style="margin-top:4px">Dán địa chỉ và khoá vào phần mềm cần kết nối. Chỉ dùng được trên máy này, khi C-Cut đang mở.</div></div>
           <div class="field"><label>Khoá API</label><div id="apiKeys"></div>
-            <div class="row" style="margin-top:8px"><input id="apiNewName" placeholder="Tên phần mềm dùng khoá (vd CN.AI)" maxlength="40"><button class="primary" id="apiNew" style="white-space:nowrap">+ Tạo khoá</button></div></div>
+            <button class="primary" id="apiNew" style="margin-top:8px;padding:8px 16px">+ Tạo khoá</button></div>
         </div>
         <div data-p="notify" hidden>
           <label class="small"><input type="checkbox" id="nSound" style="width:auto"> Âm báo khi xong / lỗi</label><br>
@@ -774,11 +774,11 @@ function copyTxt(t){try{navigator.clipboard.writeText(t).then(()=>toast('Đã sa
 function renderAK(){$('#apiOn').checked=!!AK.enabled;$('#apiOnNote').textContent=AK.enabled?'— phần mềm có khoá đúng được phép gọi':'— đang tắt, mọi lệnh gọi từ ngoài đều bị từ chối';
   $('#apiUrl').value=AK.url||'(mở lại C-Cut để có địa chỉ)';
   $('#apiKeys').innerHTML=AK.keys.length?AK.keys.map(k=>`<div class="akey${k.id===akFresh?' fresh':''}"><div class="an"><b>${esc(k.name)}</b><br><code>${k.id===akFresh?esc(k.key):esc(k.key.slice(0,9)+'••••••••'+k.key.slice(-4))}</code><div class="am">${k.last_used?'dùng '+agoTxt(k.last_used)+(k.last_client?' · '+esc(k.last_client):''):'chưa dùng'}${k.id===akFresh?' · <span style="color:var(--ok)">khoá mới — sao chép dán vào phần mềm</span>':''}</div></div>
-  <button data-ak="cp" data-id="${k.id}">Sao chép</button><button data-ak="rot" data-id="${k.id}">${akArm==='rot'+k.id?'Bấm lần nữa':'Đổi khoá'}</button><button class="danger" data-ak="del" data-id="${k.id}">${akArm==='del'+k.id?'Bấm lần nữa':'Xoá'}</button></div>`).join(''):'<div class="small dim">Chưa có khoá nào. Tạo một khoá cho mỗi phần mềm cần điều khiển C-Cut.</div>'}
+  <button data-ak="cp" data-id="${k.id}">Sao chép</button><button data-ak="rot" data-id="${k.id}">${akArm==='rot'+k.id?'Bấm lần nữa':'Đổi khoá'}</button><button class="danger" data-ak="del" data-id="${k.id}">${akArm==='del'+k.id?'Bấm lần nữa':'Xoá'}</button></div>`).join(''):'<div class="small dim">Chưa có khoá nào.</div>'}
 async function loadAK(){try{AK=await api('/api/ccut/apikeys');renderAK()}catch(e){$('#apiKeys').textContent=e.message}}
 $('#apiOn').onchange=async e=>{AK=await api('/api/ccut/apikeys',{method:'PUT',body:JSON.stringify({enabled:e.target.checked})});renderAK();toast(AK.enabled?'Đã bật API':'Đã tắt API')};
 $('#apiUrlCp').onclick=()=>copyTxt($('#apiUrl').value);
-$('#apiNew').onclick=async()=>{const r=await post('/api/ccut/apikeys',{name:$('#apiNewName').value});AK=r;akFresh=r.created.id;$('#apiNewName').value='';renderAK();copyTxt(r.created.key)};
+$('#apiNew').onclick=async()=>{const r=await post('/api/ccut/apikeys',{});AK=r;akFresh=r.created.id;renderAK();copyTxt(r.created.key)};
 $('#apiKeys').onclick=async e=>{const b=e.target.closest('button[data-ak]');if(!b)return;const id=b.dataset.id,k=AK.keys.find(x=>x.id===id);
   if(b.dataset.ak==='cp')return copyTxt(k.key);
   if(akArm!==b.dataset.ak+id){akArm=b.dataset.ak+id;renderAK();setTimeout(()=>{if(akArm===b.dataset.ak+id){akArm='';renderAK()}},4000);return}
