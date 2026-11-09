@@ -140,6 +140,41 @@ def _fill(times: list, t0: float, t1: float) -> list[tuple[float, float]]:
     return out
 
 
+def retext(pdir, script: str, min_ratio: float = 0.5, log=print) -> float:
+    """Voice to Motion CÓ kịch bản: chữ trong transcript.json lấy theo KỊCH BẢN (đúng chính tả, tên riêng như C-Cut),
+    chỉ giữ mốc thời gian của bản chép lời. Kịch bản lệch quá nhiều so với lời nói (< min_ratio) → giữ bản chép lời.
+    Trả tỷ lệ khớp."""
+    pdir = Path(pdir)
+    f = pdir / "transcript.json"
+    tr = json.loads(f.read_text(encoding="utf-8"))
+    sents = sentences(script or "")
+    sw = [w for s in sents for w in s["text"].split()]
+    asr = [(w["text"], w["start"], w["end"]) for w in tr.get("words", [])]
+    if not sw or not asr:
+        return 0.0
+    times, ratio = _align(sw, asr)
+    if ratio < min_ratio:
+        log(f"Kịch bản chỉ khớp {ratio:.0%} lời nói → giữ chữ chép lời")
+        return ratio
+    tm = _fill(times, asr[0][1], asr[-1][2])
+    conf = {round(w["start"], 3): w.get("conf", 1.0) for w in tr["words"]}
+    wl, sl, k = [], [], 0
+    for s in sents:
+        n = len(s["text"].split())
+        seg = tm[k:k + n]
+        for j, w in enumerate(s["text"].split()):
+            a, b = seg[j]
+            wl.append({"i": k + j, "text": w, "start": round(a, 3), "end": round(max(b, a + 0.02), 3),
+                       "conf": conf.get(round(a, 3), 1.0) if times[k + j] else 0.5})
+        sl.append({"text": s["text"], "start": round(seg[0][0], 3), "end": round(seg[-1][1], 3)})
+        k += n
+    (pdir / "transcript_asr.json").write_text(json.dumps(tr, ensure_ascii=False, indent=1), encoding="utf-8")
+    tr.update(words=wl, sentences=sl, text_from="script")
+    f.write_text(json.dumps(tr, ensure_ascii=False, indent=1), encoding="utf-8")
+    log(f"Phụ đề theo kịch bản (khớp {ratio:.0%} lời nói)")
+    return ratio
+
+
 # ---------------- dựng giọng ----------------
 def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print) -> dict:
     import soundfile as sf

@@ -34,3 +34,9 @@ tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: as
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);
 cảnh nền (≠ none) không nằm trong đoạn mở đầu / kết; mỗi video dùng ít nhất 4 kind khác nhau, không lặp kind liền nhau.
 ```
+
+
+## Cảnh hoạt hình toàn khung (C-Cut 2.5.5)
+`mapdraw` (vẽ bản đồ + ghim + tuyến; VN kèm Hoàng Sa, Trường Sa), `tech` (chip + mạch công nghệ + thẻ HUD), `prompt` (gõ lệnh → tiến trình → video bay ra),
+`devices` (điện thoại + laptop), `pipeline` (vào → xử lý → ra), `kinetic` (chữ động toàn khung). Tự vẽ nền riêng, che kín khung. Tham số: docstring `thagent/fx.py`.
+Dùng khi lời nói tới đúng thứ đó (nói bản đồ → vẽ bản đồ, nói công nghệ/AI → tech…), không thay bằng icon.

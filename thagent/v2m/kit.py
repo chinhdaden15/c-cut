@@ -175,23 +175,39 @@ class Kit:
         return f"{p}{self._n}"
 
     # ---------- bố cục ----------
+    def centered(self) -> bool:
+        """khung ngang: cảnh đang dựng phủ kín khung (b-roll / ảnh nền / hoạt hình toàn khung) hoặc s.layout = "center"
+        → chữ + khối căn giữa cả khung (không chia cột trái chữ / phải hình)."""
+        s = getattr(self, "cur", None)
+        if self.V or s is None:
+            return False
+        lay = s.layout or self.th.get("layout_16x9", "auto")
+        if lay == "center":
+            return True
+        if lay == "split":
+            return False
+        return any(o.get("role") == "backdrop" or (o.get("type") == "hf" and o.get("full")) for o in s.objs)
+
     def zone(self, name):
+        from .layout import CENTER_16x9
+        if name in CENTER_16x9 and self.centered():
+            return CENTER_16x9[name]
         return self.F.zone(name)
 
     def at_zone(self, name, rx=0.5, ry=0.5):
-        x0, y0, x1, y1 = self.F.zone(name)
+        x0, y0, x1, y1 = self.zone(name)
         return x0 + (x1 - x0) * rx, y0 + (y1 - y0) * ry
 
     def text_anchor(self, region="text"):
-        """dọc: căn giữa trong dải trên; ngang: cột chữ trái, căn trái."""
-        x0, y0, x1, y1 = self.F.zone(region)
-        if self.V or region == "title":
+        """dọc: căn giữa trong dải trên; ngang: cột chữ trái, căn trái (cảnh phủ kín khung: căn giữa cả khung)."""
+        x0, y0, x1, y1 = self.zone(region)
+        if self.V or region == "title" or self.centered():
             return (x0 + x1) / 2, "center", "center", x1 - x0
         return x0, "left", "left", x1 - x0
 
     def grid(self, n: int, region="main", cols: int | None = None, pad=0.12):
         """vị trí n ô đều nhau trong vùng: ≤3 → một hàng, 4 → 2×2, 5–6 → 3×2 (dọc: 2×3)."""
-        x0, y0, x1, y1 = self.F.zone(region)
+        x0, y0, x1, y1 = self.zone(region)
         if cols is None:
             cols = n if n <= 3 else (2 if n == 4 or (self.V and n > 4) else 3)
         rows = -(-n // cols)
@@ -205,9 +221,13 @@ class Kit:
         return out, w / cols
 
     # ---------- cảnh ----------
-    def scene(self, t0: float, t1: float, purpose: str = "", transition: str | dict | None = "fade", bg: dict | None = None):
+    def scene(self, t0: float, t1: float, purpose: str = "", transition: str | dict | None = "auto", bg: dict | None = None):
+        """transition: "zoom" (mặc định — phóng nhanh qua điểm cắt), "glitch" (cảnh công nghệ), "fade", "bars", "wipe", None."""
+        if transition == "auto":
+            transition = self.th.get("transition", "zoom")
         s = Scene(self, float(t0), float(t1), purpose, transition, bg)
         self.scenes.append(s)
+        self.cur = s
         return s
 
     def chapters(self, cuts: list[float]):
@@ -251,6 +271,9 @@ class Kit:
         self._camera_chain(sc)
         out = []
         for i, s in enumerate(sc):
+            nxt = sc[i + 1] if i + 1 < len(sc) else None
+            if nxt is not None and (nxt.transition or {}).get("type") in ("zoom", "glitch"):
+                s.exit = False                 # chuyển cảnh zoom/glitch: giữ nội dung tới đúng điểm cắt (không mờ trước → khỏi khung trống)
             d = s.dump()
             if i == 0:
                 d["objects"] = self.base + d["objects"]
@@ -267,17 +290,22 @@ class Kit:
         th.setdefault("idle", True)      # khối sống sau khi hiện (trôi/giãn nhẹ)
         return {"project_id": self.pid, "version": 1, "status": "planned",
                 "audio": {"path": self.tr["voice"], "duration_s": self.T, "preserve_timing": True},
-                "canvas": self.F.canvas(30), "theme": th, "scenes": out, "assets": [], "limitations": []}
+                "canvas": self.F.canvas(30), "theme": th, "scenes": out, "assets": [], "limitations": [],
+                **({"music": self.bgm} if getattr(self, "bgm", None) else {})}
+
+    def music(self, path: str, gain_db: float = -21, duck: bool = True):
+        """nhạc nền (assets_web/m_*.mp3, tải bằng `v2m music`): lặp đủ dài, tự hạ dưới giọng nói (duck)."""
+        self.bgm = {"path": path, "gain_db": gain_db, "duck": duck}
 
     def _captions(self, scenes):
         """phụ đề chạy theo lời (từng từ hiện đúng lúc nói) ở vùng dưới — cảnh đã có câu dẫn (s.lead) thì bỏ qua.
         Text to Video (giọng đọc từ kịch bản): hiện CẢ CỤM câu cùng lúc, ngắt dòng gọn (_cap_chunks) — không nhảy từng chữ."""
         if not self.captions:
             return
-        if self.tr.get("source") == "t2v":
+        if self.tr.get("source") == "t2v" or self.th.get("captions_style", "block") == "block":
             return self._captions_block(scenes)
         x0, y0, x1, y1 = self.F.zone("caption")
-        x, align, anchor = ((x0 + x1) / 2, "center", "center") if self.V else (x0, "left", "left")
+        x, align, anchor = (x0 + x1) / 2, "center", "center"
         for s in scenes:
             if s.captions is False or any(o.get("word_times") and o.get("role") != "caption" for o in s.objs):
                 continue
@@ -363,24 +391,38 @@ class Kit:
         return out if k == len(self.words) else None
 
     def _captions_block(self, scenes):
+        """phụ đề kiểu mạng xã hội: cụm ngắn hiện cả cụm, chữ đậm to có viền, TỪ ĐANG ĐỌC đổi màu nhấn (karaoke)."""
         x0, y0, x1, y1 = self.F.zone("caption")
-        x, align, anchor = ((x0 + x1) / 2, "center", "center") if self.V else ((x0 + x1) / 2, "center", "center")
-        size = 48 if self.V else 42
-        line_c = max(16, int((x1 - x0) / (size * 0.52)))
-        ch = self.claude_captions() or self._cap_chunks(line_c)
+        x = (x0 + x1) / 2
+        size = int(self.th.get("caption_size", 62 if self.V else 50))
+        line_c = max(14, int((x1 - x0) / (size * 0.62)))
+        ch = self.claude_captions() or self._cap_chunks(line_c, lines=1)   # cụm ngắn ~4–6 từ, quá 1 dòng thì gập 2 dòng
+        toks = [(_norm(w["text"]), float(w["start"])) for w in self.words]
+        k = 0
         for j, (a, b, text) in enumerate(ch):
+            # mốc từng từ trong cụm: dò tuần tự theo transcript (cụm đúng chữ + thứ tự lời)
+            act = []
+            for w in text.split():
+                nw = _norm(w)
+                hit = next((i for i in range(k, min(k + 6, len(toks))) if toks[i][0] == nw), None)
+                if hit is not None:
+                    k = hit + 1; act.append(round(toks[hit][1], 3))
+                else:
+                    act.append(act[-1] if act else round(a, 3))
             nxt = ch[j + 1][0] if j + 1 < len(ch) else self.T
-            end = max(min(b + 0.5, nxt - 0.16), a + 0.4)          # tắt hẳn (mờ 0.1s) trước khi cụm sau vào → không chồng chữ
+            end = max(min(b + 0.45, nxt - 0.12), a + 0.4)          # tắt hẳn trước khi cụm sau vào → không chồng chữ
             for s in scenes:                                     # cụm vắt qua chỗ chuyển cảnh → hiện tiếp ở cảnh sau (cùng chữ)
                 if s.captions is False or end <= s.t0 or a >= s.t1:
                     continue
                 t_in, t_out = max(a, s.t0), min(end, s.t1)
-                cid = s.add({"type": "text", "role": "caption", "text": text, "font": "semi", "size": size,
-                             "color": self.th["text"], "space": "screen", "x": x, "y": (y0 + y1) / 2, "max_w": x1 - x0,
-                             "align": align, "anchor": anchor, "shadow": 0.45, "line_h": 1.18, "layer": 20},
-                            t_in - (0.04 if t_in == a else 0), "fade", 0.12 if t_in == a else 0.01)
+                cid = s.add({"type": "text", "role": "caption", "text": text, "font": "black", "size": size,
+                             "color": "#FFFFFF", "space": "screen", "x": x, "y": (y0 + y1) / 2, "max_w": x1 - x0,
+                             "align": "center", "anchor": "center", "shadow": 0.6, "stroke": max(4, size // 12),
+                             "stroke_color": "#0A0D14", "line_h": 1.12, "layer": 20, "active_times": act,
+                             "active_color": self.th.get("caption_active", self.th.get("accent", "#FFD23F"))},
+                            t_in - (0.04 if t_in == a else 0), "pop" if t_in == a else "fade", 0.14 if t_in == a else 0.01)
                 if t_out < s.t1 - 0.05:
-                    s.hide(cid, t_out, "fade", 0.1)
+                    s.hide(cid, t_out, "fade", 0.08)
 
     def _camera_explain(self, scenes):
         """nhịp Explain: cảnh bản đồ mà camera đứng yên > 2,2s → đẩy vào rất nhẹ (+6%) và xoay nhẹ ±2° quanh chủ thể
@@ -431,11 +473,13 @@ class Scene:
     def __init__(self, K: Kit, t0, t1, purpose, transition, bg):
         self.K, self.t0, self.t1, self.purpose = K, t0, t1, purpose
         self.objs, self.evs, self.cams, self.sfx = [], [], [], []
-        self.transition = {"type": transition, "dur": 0.4} if isinstance(transition, str) else transition
+        self.transition = ({"type": transition, "dur": 0.42 if transition == "zoom" else 0.26 if transition == "glitch" else 0.4}
+                           if isinstance(transition, str) else transition)
         self.bg = bg
         self.exit = True                      # mờ ra nhẹ trước khi hết cảnh (đối tượng không persist)
         self.auto_explain = True              # camera trôi nhẹ khi cảnh bản đồ đứng yên lâu
         self.captions = True                  # phụ đề chạy theo lời trong cảnh này
+        self.layout = None                    # khung ngang: "center" | "split" | None (= tự: phủ kín khung → căn giữa)
 
     # ---------- nền tảng ----------
     def add(self, o: dict, t: float | None = None, style="up", d=0.4) -> str:
@@ -512,7 +556,8 @@ class Scene:
         """items [(icon, nhãn, t)] — nút icon có nhãn, tự xếp hàng/lưới. connect=True: nét đứt nối các nút."""
         K = self.K
         pos, cw = K.grid(len(items), region)
-        sz = size or ((190 if K.V else 120) if len(items) <= 2 else (150 if K.V else 96) if len(items) <= 3 else (110 if K.V else 76))
+        sz = size or ((300 if K.V else 200) if len(items) <= 2 else (220 if K.V else 150) if len(items) <= 3 else (160 if K.V else 110))
+        sz = min(sz, cw * 0.8) if not size and cw else sz      # không để icon chạm nhau (ô nền = 1.15 × cỡ icon)
         col = color or K.th["accent"]
         ids = []
         for (name, label, t), (x, y) in zip(items, pos):
@@ -543,6 +588,22 @@ class Scene:
                 im["src"] = str(K.pdir / im["src"])
         if p.get("at"):                                  # mốc tuyệt đối (giây voice) → tính từ đầu cảnh
             p["at"] = [round(float(a) - t0, 3) for a in p["at"]]
+        for key in ("pins", "lines"):                     # mẫu toàn khung (thagent/fx.py): mốc từng ghim / từng cụm chữ
+            p[key] = [dict(x, at=round(float(x["at"]) - t0, 3)) if isinstance(x, dict) and "at" in x else x for x in p.get(key) or []] or p.get(key)
+        if p.get("routes"):
+            p["routes"] = [list(r[:2]) + ([round(float(r[2]) - t0, 3)] if len(r) > 2 else []) for r in p["routes"]]
+        for key in ("image", "logo", "center"):
+            v = p.get(key)
+            if isinstance(v, str) and not v.startswith("3d:") and Path(v).suffix and not Path(v).is_absolute():
+                p[key] = str(K.pdir / v)
+        for key in ("input", "engine", "output"):
+            for kk in ("image", "logo", "icon"):
+                v = (p.get(key) or {}).get(kk)
+                if isinstance(v, str) and not v.startswith("3d:") and Path(v).suffix and not Path(v).is_absolute():
+                    p[key][kk] = str(K.pdir / v)
+        from .. import fx as FX
+        if kind in FX.FULL:
+            p["region"] = None                           # toàn khung, tự vẽ nền
         has_text = any(o.get("type") == "text" and o.get("role") != "caption" and o.get("space") == "screen" for o in self.objs)
         region = p.pop("region", "main" if has_text else "center")   # cảnh không có tiêu đề → MG căn GIỮA khung (không lệch một bên)
         sc = dict(id=K.uid("mg"), kind=kind, start=0, end=0, bg=p.pop("bg", "none"), **p)
@@ -553,11 +614,23 @@ class Scene:
             else:
                 sc["box"] = list(K.zone(region))       # căn + co cả cụm vào vùng minh hoạ của khung (không đè tiêu đề / phụ đề)
         D = round(t1 - t0, 3)
-        oid = self.add({"type": "hf", "spec": {"layers": [M.layer(sc, K.W, K.H, D)]}, "beats": M.beats(sc, D)}, t0, style="fade", d=0.01)
+        oid = self.add({"type": "hf", "kind": kind, "full": kind in FX.FULL, "spec": {"layers": [M.layer(sc, K.W, K.H, D)]},
+                        "beats": M.beats(sc, D)}, t0, style="fade", d=0.01)
         self.hide(oid, t1, "fade", 0.01)
-        role = {"mgtrans_01": "transition", "card_01": "pop", "u_money": "money", "tick_01": "data", "soft_00": "paper"}
-        for t, asset, _ in M.sfx(sc, D):                # SFX theo chuyển động của mẫu (vai trò trong kho sfx_v2m)
-            self.sound(t0 + t, role.get(asset, "success" if asset.startswith("check") else "pop" if asset.startswith("pop") else "click"))
+        from .sfxkit import manifest as _man
+        modern = "swoosh" in _man()
+        role = ({"mgtrans_01": "swoosh", "card_01": "blip", "u_money": "money", "tick_01": "data", "soft_00": "swoosh", "hit_03": "swoosh"}
+                if modern else {"mgtrans_01": "transition", "card_01": "pop", "u_money": "money", "tick_01": "data", "soft_00": "paper"})
+        last = -9.0
+        for t, asset, _ in M.sfx(sc, D):                # SFX theo chuyển động của mẫu (vai trò trong kho sfx_v2m), thưa ≥ 0,45s
+            r = asset[5:] if asset.startswith("role:") else role.get(asset, "success" if asset.startswith("check") else
+                                                                     ("blip" if modern else "pop") if asset.startswith("pop") else ("blip" if modern else "click"))
+            if t - last < 0.45 and r in ("blip", "pop", "click"):
+                continue
+            if t <= 0.05 and modern and r == "swoosh":     # điểm cắt cảnh đã có swoosh chuyển cảnh tự động
+                continue
+            last = t
+            self.sound(t0 + t, r)
         return oid
 
     def cards(self, items, region="main", w=None, h=None) -> list[str]:
@@ -581,12 +654,12 @@ class Scene:
         K = self.K
         x, y = K.at_zone(region, 0.5, ry)
         cid = self.add({"type": "counter", "value": 0, "prefix": prefix, "suffix": suffix, "decimals": decimals, "font": "black",
-                        "size": 150 if K.V else 160, "color": color or K.th["accent"], "space": "screen", "x": x, "y": y}, t, "pop", 0.35)
+                        "size": 300 if K.V else 220, "color": color or K.th["accent"], "space": "screen", "x": x, "y": y}, t, "pop", 0.35)
         self.evs.append({"object_id": cid, "action": "count", "start_s": round(t, 3), "end_s": round(t + count_d, 3),
                          "to": {"value": value}, "ease": "out"})
         if label:
-            self.add({"type": "text", "text": label, "font": "bold", "size": 44, "color": K.th["text"], "space": "screen", "x": x,
-                      "y": y + 130, "max_w": K.F.width(region) * 0.9, "shadow": 0}, t + 0.25, "up", 0.35)
+            self.add({"type": "text", "text": label, "font": "black", "size": 60 if K.V else 48, "color": K.th["text"], "space": "screen", "x": x,
+                      "y": y + (210 if K.V else 160), "max_w": K.F.width(region) * 0.9, "shadow": 0}, t + 0.25, "up", 0.35)
         return cid
 
     def compare(self, a, b, t_a, t_b, vs="VS", region="main") -> list[str]:
@@ -598,13 +671,13 @@ class Scene:
         ids = []
         for (it, t, x, c0) in ((a, t_a, x1, K.th["good"]), (b, t_b, x2, K.th["alt"])):
             col = it[2] if len(it) > 2 else c0
-            sz = 170 if K.V else 120
+            sz = 240 if K.V else 160
             nm = to3d(it[0])
             g3 = {"tile": "glass", "bg": None} if nm.startswith("3d:") else {}
             ids.append(self.add({"type": "icon", "name": nm, "size": sz, "color": col, "bg": K.th["panel"], "bg_r": sz * 1.2, **g3, "ring": col,
-                                 "ring_w": 6, "x": x, "y": y - 40, "label": it[1], "label_size": 52 if K.V else 38, "label_color": K.th["text"],
+                                 "ring_w": 6, "x": x, "y": y - 40, "label": it[1], "label_size": 58 if K.V else 42, "label_color": K.th["text"],
                                  "space": "screen"}, t, "pop", 0.35))
-        self.add({"type": "text", "text": vs, "font": "black", "size": 54, "color": K.th["muted"], "space": "screen", "x": (x1 + x2) / 2,
+        self.add({"type": "text", "text": vs, "font": "black", "size": 84 if K.V else 60, "color": K.th["text"], "space": "screen", "x": (x1 + x2) / 2,
                   "y": y - 30, "shadow": 0}, min(t_a + 0.4, t_b - 0.1), "fade", 0.3)
         return ids
 
@@ -625,14 +698,14 @@ class Scene:
 
     def quote(self, text, t, source=None, highlight=None, region="main") -> str:
         K = self.K
-        x, y = K.F.center(region)
+        x, y = K.F.center(region) if not K.centered() else ((K.zone(region)[0] + K.zone(region)[2]) / 2, (K.zone(region)[1] + K.zone(region)[3]) / 2)
         return self.add({"type": "quote", "text": text, "source": source, "highlight": highlight, "highlight_t": t + 0.6,
                          "w": min(K.F.width(region) * 0.92, 900), "size": 40, "x": x, "y": y, "space": "screen"}, t, "up", 0.45)
 
     def image(self, src, t, label=None, source=None, region="main", w=None, h=None) -> str:
         """ảnh thật (bắt buộc ghi nguồn) hoặc ảnh minh họa có nhãn."""
         K = self.K
-        x, y = K.F.center(region)
+        x, y = K.F.center(region) if not K.centered() else ((K.zone(region)[0] + K.zone(region)[2]) / 2, (K.zone(region)[1] + K.zone(region)[3]) / 2)
         w = w or K.F.width(region) * 0.8
         h = h or w * (0.62 if not K.V else 0.75)
         return self.add({"type": "image", "src": src, "w": w, "h": h, "r": 24, "label": label, "source": source, "x": x, "y": y - 30,
@@ -641,7 +714,7 @@ class Scene:
     def bars(self, data, t, unit="", region="main", d=1.2) -> str:
         """biểu đồ cột: data [(nhãn, giá trị)] — chỉ số liệu có nguồn."""
         K = self.K
-        x, y = K.F.center(region)
+        x, y = K.F.center(region) if not K.centered() else ((K.zone(region)[0] + K.zone(region)[2]) / 2, (K.zone(region)[1] + K.zone(region)[3]) / 2)
         bid = self.add({"type": "bars", "data": [{"label": l, "value": v} for l, v in data], "unit": unit, "w": K.F.width(region) * 0.8,
                         "h": K.F.height(region) * 0.5, "x": x, "y": y, "progress": 0, "space": "screen"}, t, "fade", 0.3)
         self.animate(bid, t, d, {"progress": 1}, "out")
@@ -706,7 +779,7 @@ class Scene:
     def photos(self, items, region="main", real=False) -> list[str]:
         """2–3 ảnh lần lượt theo lời: items [(src, nhãn, t)] — ảnh mới trượt lên chồng, ảnh trước lùi nhẹ/nghiêng."""
         K = self.K
-        x, y = K.F.center(region)
+        x, y = K.F.center(region) if not K.centered() else ((K.zone(region)[0] + K.zone(region)[2]) / 2, (K.zone(region)[1] + K.zone(region)[3]) / 2)
         w = K.F.width(region) * (0.8 if K.V else 0.7)
         h = w * (0.66 if K.V else 0.58)
         ids = []
@@ -727,7 +800,7 @@ class Scene:
     def before_after(self, src_a, src_b, t_a, t_b, labels=("TRƯỚC", "SAU"), region="main") -> list[str]:
         """trước / sau: ảnh sau quét mở đè lên ảnh trước đúng lúc nói; nhãn góc + dòng nguồn đổi theo ảnh đang thấy."""
         K = self.K
-        x, y = K.F.center(region)
+        x, y = K.F.center(region) if not K.centered() else ((K.zone(region)[0] + K.zone(region)[2]) / 2, (K.zone(region)[1] + K.zone(region)[3]) / 2)
         w = K.F.width(region) * 0.86
         h = w * (0.72 if K.V else 0.6)
         ids = []
@@ -816,7 +889,7 @@ class Scene:
         K = self.K
         x0, y0, x1, y1 = K.zone(region)
         n = len(items)
-        sz = 50 if K.V else 44
+        sz = 64 if K.V else 48
         gap = min((y1 - y0) * 0.86 / max(n, 1), sz * 3.0)
         w = (x1 - x0) * 0.9
         cx = (x0 + x1) / 2
@@ -830,7 +903,7 @@ class Scene:
             tick = self.add({"type": "icon", "name": "check-circle", "size": sz * 1.2, "color": K.th["good"], "parent": rid,
                              "x": -w / 2 + sz * 1.1, "y": 0})
             self.reveal(tick, t + tick_after, "pop", 0.3)
-            self.add({"type": "text", "text": text, "font": "bold", "size": sz, "color": K.th["text"], "parent": rid, "x": -w / 2 + sz * 2.2,
+            self.add({"type": "text", "text": text, "font": "bold", "size": fit_size(text, "bold", sz, w - sz * 3, 0.6), "color": K.th["text"], "parent": rid, "x": -w / 2 + sz * 2.2,
                       "y": 0, "anchor": "left", "align": "left", "max_w": w - sz * 3, "shadow": 0})
             ids.append(rid)
         for i, (_, t) in enumerate(items[1:], 1):

@@ -30,6 +30,9 @@ def asr_language() -> str | None:
     return None if v in ("", "auto") else v
 
 
+BRAND_VOCAB = ["C-Cut"]
+
+
 def transcribe(wav_path: str, model_name: str = "large-v3", vocab: list[str] | None = None,
                progress=None, language: str | None = "") -> tuple[list[TranscriptWord], list[Sentence]]:
     """language: "" = theo cài đặt (mặc định tự nhận), None = tự nhận, "vi"/"en"/… = cố định."""
@@ -39,6 +42,7 @@ def transcribe(wav_path: str, model_name: str = "large-v3", vocab: list[str] | N
     lang = asr_language() if language == "" else language
 
     model = WhisperModel(model_name, device="cpu", compute_type="int8")
+    vocab = list(dict.fromkeys([*(vocab or []), *BRAND_VOCAB]))     # tên app/sản phẩm hay bị nghe sai (C-Cut → “Secod”)
     prompt = ", ".join(vocab) if vocab else None
     segs, info = model.transcribe(
         wav_path, language=lang, word_timestamps=True, vad_filter=True,

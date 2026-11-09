@@ -406,7 +406,7 @@ def affine(cx: float, cy: float, scale: float, rot_deg: float, ax: float, ay: fl
 
 
 # ---------------- clip video trong khung ----------------
-@lru_cache(maxsize=12)
+@lru_cache(maxsize=3)      # clip giải mã sẵn rất nặng (b-roll phủ khung 4s ≈ 750 MB) — chỉ giữ vài clip đang/sắp dùng
 def video_frames(path: str, t_in: float, dur: float, w: int, h: int, fps: int, gray: bool = False) -> np.ndarray:
     """giải mã một đoạn clip, cắt vừa khung w×h (cover) → mảng uint8 (n, h, w, 3) RGB."""
     import subprocess

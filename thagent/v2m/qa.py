@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import json
 import math
 
 import numpy as np
@@ -72,7 +73,7 @@ def static(tl: R.Timeline, transcript: dict | None = None) -> list[tuple[str, st
         if k > max(4, 0.45 * len(ev)):
             out.append(("warn", f"SFX “{top}*” dùng {k}/{len(ev)} lần — đa dạng theo vai trò (click điểm đến, whoosh chuyển vùng, impact thông điệp)"))
         for (a, na), (b, nb) in zip(ev, ev[1:]):
-            if b - a < 0.12:
+            if b - a < 0.12 and "riser" not in (na, nb):          # riser dâng lên CỐ Ý chạm đúng cú đập
                 out.append(("warn", f"hai SFX sát nhau {a:.2f}s/{b:.2f}s ({na}, {nb})"))
         dens = len(ev) / max(tl.duration, 1)
         if dens > 0.9:
@@ -81,6 +82,8 @@ def static(tl: R.Timeline, transcript: dict | None = None) -> list[tuple[str, st
     out += camera_jerk(tl)
     # 8) nhịp hình theo lời: không đứng im quá 3s, không khung trống
     out += rhythm(tl)
+    # 9) độ thu hút: hook, cảnh không quá dài, có điểm nhấn lớn, không lặp kiểu cảnh, không một nền suốt video
+    out += engagement(tl)
     # 7) nhãn bản đồ cỡ cố định nên có mức chi tiết (lod) để không tụ lại khi zoom xa
     has_map = any(o["type"] in ("map", "geo", "region") for o in tl.objs.values())
     if has_map:
@@ -243,3 +246,95 @@ def determinism(tl, t: float | None = None) -> list[tuple[str, str]]:
     if not np.array_equal(a, b):
         return [("error", f"frame {t:.2f}s dựng 2 lần cho kết quả khác nhau — animation không tất định")]
     return []
+
+
+# ---------------- độ thu hút (Text to Video + Voice to Motion) ----------------
+ILLUS_MIN = 0.5
+SCENE_MAX = 6.0          # cảnh dài hơn → người xem lướt qua
+HERO_T = 1.2             # khối chính phải vào trong 1.2s đầu mỗi cảnh
+HOOK_T = 1.0             # trong 1s đầu phải có hình mạnh / chữ lớn
+
+
+def _hero(o) -> float:
+    """“độ lớn thị giác” của một khối (px cạnh lớn hoặc cỡ chữ quy đổi); 0 = khối phụ."""
+    if o.get("role") in ("caption", "source") or o.get("parent"):
+        return 0.0
+    ty = o["type"]
+    if ty == "counter":
+        return float(o.get("size", 0)) * 1.8          # số khổng lồ
+    if ty == "text":
+        return float(o.get("size", 0)) * 2.6          # chữ 100px ≈ khối 260px
+    if ty == "icon":
+        return float(o.get("size", 0)) * (1.3 if o.get("tile") == "glass" or o.get("bg") else 1.0)
+    if ty in ("image", "video"):
+        return max(float(o.get("w", 0)), float(o.get("h", 0)))
+    if ty == "hf":
+        return 600.0                                   # cảnh Motion Graphics bố cục (mg) — khối lớn
+    if ty in ("map", "geo", "region"):
+        return 900.0
+    if ty in ("rect", "circle"):
+        if o["type"] == "circle":
+            return 2 * float(o.get("r", 0)) * 0.9
+        return (float(o.get("w", 0)) * float(o.get("h", 0))) ** 0.5 * 0.8      # dải mỏng (pill) không phải điểm nhấn
+    return 0.0
+
+
+def engagement(tl) -> list[tuple[str, str]]:
+    """chặn video nhạt: không hook, cảnh quá dài, cảnh không có điểm nhấn lớn, một nền suốt video, lặp một kiểu cảnh."""
+    out = []
+    W = min(tl.W, tl.H)                                 # khung dọc: 1080; ngang: 1080 (cạnh ngắn)
+    need = 0.24 * W                                     # khối chính ≥ ~260px ở 1080
+    objs = list(tl.objs.values())
+    # 1) hook: 1s đầu có chữ lớn (≥ 96px) hoặc hình phủ khung
+    first = [o for o in objs if o.get("_vis") and float(o["_vis"][0]) <= HOOK_T and _hero(o) >= 0.9 * 96 * 2.6]
+    if not first:
+        out.append(("error", f"mở đầu thiếu hook: trong {HOOK_T:.0f}s đầu chưa có chữ lớn (≥ 96px, s.title size=\"xl\") hay hình phủ khung "
+                             "(s.photo_bg) — người xem lướt qua ngay giây đầu"))
+    # 2) từng cảnh: không quá dài, phải có một khối lớn
+    sigs, illus, icon_only = [], [], []
+    for sc in tl.scenes:
+        d = sc["end_s"] - sc["start_s"]
+        if d > SCENE_MAX + 0.05 and sc is not tl.scenes[-1]:
+            out.append(("error", f"{sc['id']}: cảnh dài {d:.1f}s (> {SCENE_MAX:.0f}s) — tách thành 2 cảnh theo ý / theo câu"))
+        mine = [o for o in objs if o.get("_scene") == sc["id"]]
+        big = max((_hero(o) for o in mine), default=0)
+        early = max((_hero(o) for o in mine if o.get("_vis") and float(o["_vis"][0]) <= sc["start_s"] + HERO_T), default=0)
+        if big >= need and early < need and d > 2.0:
+            out.append(("error", f"{sc['id']}: {HERO_T:.1f}s đầu cảnh chưa có khối lớn — đầu cảnh trống, người xem mất nhịp; cho chữ khoá / "
+                                 "hình chính vào ngay đầu cảnh, chi tiết theo lời vào sau"))
+        if big < need:
+            out.append(("error", f"{sc['id']}: không có điểm nhấn lớn (khối lớn nhất ≈ {big:.0f}px < {need:.0f}px) — thêm chữ khoá cỡ xl, "
+                                 "icon 3D ≥ 260px, số khổng lồ (s.stat), s.mg(...) hoặc video/ảnh phủ khung"))
+        kinds = sorted({("hf:" + o.get("kind", "") if o["type"] == "hf" else
+                         "photo_bg" if o.get("role") == "backdrop" else o["type"])
+                        for o in mine if o.get("role") not in ("caption", "source") and not o.get("parent")})
+        if any(k == "photo_bg" or (k.startswith("hf:") and any(o.get("full") for o in mine if o["type"] == "hf")) for k in kinds):
+            illus.append(d)
+        elif any(o["type"] == "icon" for o in mine) and not any(o["type"] in ("hf", "image", "video", "map", "region", "geo") for o in mine):
+            icon_only.append(sc["id"])
+        sigs.append((sc["id"], tuple(kinds), json.dumps(sc.get("bg") or {}, sort_keys=True)))
+    # 2b) minh hoạ THẬT: hình/video phủ khung hoặc cảnh hoạt hình toàn khung (bản đồ vẽ, công nghệ, gõ lệnh, thiết bị, dây chuyền,
+    #     chữ động) — không phải icon đặt cho có
+    if tl.duration > 15 and sum(illus) < ILLUS_MIN * tl.duration:
+        out.append(("error", f"minh hoạ thật chỉ {sum(illus):.0f}s / {tl.duration:.0f}s (< {ILLUS_MIN:.0%}) — dùng b-roll phủ khung (s.photo_bg video) "
+                             "hoặc cảnh hoạt hình đúng lời: s.mg(\"mapdraw\"|\"tech\"|\"prompt\"|\"devices\"|\"pipeline\"|\"kinetic\") — "
+                             "nói bản đồ thì VẼ bản đồ, nói công nghệ thì dựng cảnh công nghệ, không chỉ đặt icon"))
+    if len(tl.scenes) >= 4 and len(icon_only) > max(1, 0.25 * len(tl.scenes)):
+        out.append(("error", f"{len(icon_only)} cảnh chỉ minh hoạ bằng icon ({', '.join(icon_only)}) — tối đa 25% số cảnh; thay bằng b-roll "
+                             "hoặc cảnh hoạt hình đúng lời (s.mg mapdraw/tech/prompt/devices/pipeline/kinetic)"))
+    # 3) lặp một kiểu cảnh ≥ 3 lần liền
+    run = 1
+    for (a, ka, _), (b, kb, _) in zip(sigs, sigs[1:]):
+        run = run + 1 if ka == kb else 1
+        if run == 3:
+            out.append(("error", f"3 cảnh liền ({b} và 2 cảnh trước) cùng một kiểu hình {list(kb)} — đổi kiểu: b-roll phủ khung, số lớn, "
+                                 "mg (chart/money/compare/checklist…), chữ động toàn khung, ảnh thật"))
+    # 4) một nền suốt video (không đổi màu/kiểu, không có hình phủ khung)
+    if tl.duration > 15:
+        bgs = {s for _, _, s in sigs}
+        cover = sum(float(o["_vis"][1]) - float(o["_vis"][0]) for o in objs
+                    if o.get("role") == "backdrop" and o.get("_vis"))
+        if len(bgs) < 2 and cover < 0.2 * tl.duration:
+            out.append(("error", "cả video một nền phẳng — đổi nền theo đoạn ý (2 màu chủ đạo, kiểu gradient/spot/dots), "
+                                 "chen b-roll / ảnh phủ khung (s.photo_bg) ≥ 20% thời lượng"))
+    return out

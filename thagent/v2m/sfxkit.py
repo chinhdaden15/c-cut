@@ -115,11 +115,14 @@ def pick(role: str, k: int) -> dict | None:
 
 # ---------------- SFX tự động theo chuyển động thật của timeline ----------------
 def auto_events(tl) -> list[dict]:
-    """sinh sự kiện {t, role, gain_db?} từ hành động thị giác của timeline (đỉnh âm = thời điểm hành động).
-    Không thay SFX khai báo tay: bỏ sự kiện tự động trong ±0,3s quanh một SFX tay. Mật độ ≤ 0,9/giây, cách nhau ≥ 0,25s."""
+    """SFX hiện đại sinh từ chính chuyển động của timeline (đỉnh âm = thời điểm hành động), ÍT mà có lực:
+    chuyển cảnh → swoosh · chữ lớn mở đầu / câu kết / chữ lớn giữa cảnh → boom (+ riser dâng trước nếu có chỗ) ·
+    thẻ, nhãn, mục, icon → blip (thưa) · số liệu → data · ảnh/clip khung nhỏ, tuyến vẽ, camera đi xa → swoosh.
+    Không thay SFX khai báo tay (bỏ sự kiện tự động trong ±0,3s quanh SFX tay). Mật độ ≤ 0,7/giây."""
     from .render import camera_at
+    have = set(manifest())
+    R = lambda modern, old: modern if modern in have else old          # kho chưa có bộ hiện đại → vai trò cũ
     ev = []
-    # 1) camera đi xa / đổi zoom lớn → whoosh (đỉnh ở giữa quãng di chuyển)
     for k in tl.camera:
         dur = float(k.get("dur", 0.6))
         if dur < 0.35:
@@ -128,72 +131,87 @@ def auto_events(tl) -> list[dict]:
         dz = abs(math.log(max(b[2], 1e-6) / max(a[2], 1e-6)))
         dmov = math.hypot(b[0] - a[0], b[1] - a[1]) * max(a[2], b[2]) / tl.W
         if dz > 0.45 or dmov > 0.45:
-            ev.append({"t": float(k["t"]) - dur * 0.5, "role": "whoosh", "why": "camera chuyển vùng"})
-    # 2) theo đối tượng xuất hiện
+            ev.append({"t": float(k["t"]) - dur * 0.5, "role": R("swoosh", "whoosh"), "why": "camera chuyển vùng"})
+    # chuyển cảnh: mỗi lần đổi cảnh một swoosh (đỉnh ngay điểm cắt)
+    for j, sc in enumerate(tl.scenes):
+        if j > 0:
+            tr = (sc.get("transition_in") or {}).get("type")
+            ev.append({"t": float(sc["start_s"]), "role": R("glitch", "transition") if tr in ("glitch",) else R("swoosh", "whoosh"),
+                       "why": f"chuyển cảnh {sc['id']}"})
     big_done = set()
+    last_id = tl.scenes[-1]["id"] if tl.scenes else None
+    first_id = tl.scenes[0]["id"] if tl.scenes else None
     for oid, o in tl.objs.items():
         rev = [e for e in tl.events.get(oid, []) if e["action"] == "reveal"]
         if not rev:
             continue
         t = float(rev[0]["start_s"]) + 0.06
         typ = o["type"]
-        if o.get("role") in ("caption", "backdrop"):   # phụ đề chạy chữ / phủ nền: không gắn SFX
+        if o.get("role") in ("caption", "backdrop", "source"):
             continue
         kids = [c for c in tl.objs.values() if c.get("parent") == oid]
         if typ == "icon" and "check" in str(o.get("name", "")):
             ev.append({"t": t, "role": "success", "why": f"dấu tích {oid}"}); continue
         if typ == "counter":
-            ev.append({"t": t, "role": "data", "why": f"số liệu {oid}"}); continue
-        if typ == "rect" and any(c["type"] == "text" for c in kids) and float(o.get("h", 0)) <= 140:
-            ev.append({"t": t, "role": "click", "why": f"nhãn/từ khóa {oid}"}); continue
+            ev.append({"t": t, "role": R("data", "data"), "why": f"số liệu {oid}"}); continue
+        if typ == "rect" and any(c["type"] == "text" for c in kids) and float(o.get("h", 0)) <= 200:
+            ev.append({"t": t, "role": R("blip", "click"), "why": f"nhãn/từ khóa {oid}"}); continue
         if typ in ("callout", "routelabel"):
-            ev.append({"t": t + 0.15, "role": "click", "why": f"callout {oid}"})
+            ev.append({"t": t + 0.15, "role": R("blip", "click"), "why": f"callout {oid}"})
         elif typ == "text" and float(o.get("size", 0)) >= 80 and o.get("space") == "screen":
             sc = o.get("_scene")
-            if sc not in big_done:
-                big_done.add(sc)
-                last = sc == tl.scenes[-1]["id"]
-                ev.append({"t": t + 0.1, "role": "impact" if last else "flash", "why": f"tiêu đề lớn {oid}"})
-        elif typ in ("rect", "icon", "circle", "stack") and not o.get("parent") and float(o.get("r", 0) or 0) < 300:
-            ev.append({"t": t, "role": "pop", "why": f"{typ} {oid}"})
-        elif typ in ("image", "video", "quote"):
-            ev.append({"t": t, "role": "camera" if typ != "quote" else "paper", "why": f"{typ} {oid}"})
+            if sc in big_done:
+                continue
+            big_done.add(sc)
+            sc_start = next((float(x["start_s"]) for x in tl.scenes if x["id"] == sc), 0.0)
+            if sc in (first_id, last_id) or t - sc_start > 0.5:   # mở đầu, câu kết, hoặc chữ lớn bật giữa cảnh (không trùng chuyển cảnh)
+                ev.append({"t": t + 0.05, "role": R("boom", "impact"), "why": f"chữ lớn {oid}", "riser": True})
+        elif typ in ("rect", "icon", "circle", "stack", "image") and not o.get("parent") and float(o.get("r", 0) or 0) < 300:
+            ev.append({"t": t, "role": R("blip", "pop"), "why": f"{typ} {oid}"})
+        elif typ in ("video", "quote"):
+            ev.append({"t": t, "role": R("swoosh", "camera"), "why": f"{typ} {oid}"})
         if typ == "list":
             for it in o.get("items", []):
                 if isinstance(it, dict) and it.get("t") is not None:
-                    ev.append({"t": float(it["t"]), "role": "tick", "why": f"mục {it.get('text', '')[:12]}"})
-    # 3) tuyến/đường bắt đầu vẽ → swish nhẹ; nét gạch chân (marker) → write
+                    ev.append({"t": float(it["t"]), "role": R("blip", "tick"), "why": f"mục {it.get('text', '')[:12]}"})
     for oid, evs in tl.events.items():
         o = tl.objs[oid]
         for e in evs:
             if e["action"] == "draw" and o["type"] in ("geoline", "line") and float(e.get("end_s", e["start_s"])) - float(e["start_s"]) >= 0.5:
-                ev.append({"t": float(e["start_s"]) + 0.1, "role": "swish", "why": f"vẽ {oid}"})
+                ev.append({"t": float(e["start_s"]) + 0.1, "role": R("swoosh", "swish"), "why": f"vẽ {oid}"})
     for oid, o in tl.objs.items():
         if o["type"] == "text" and (o.get("marker") or {}).get("t") is not None:
             ev.append({"t": float(o["marker"]["t"]), "role": "write", "why": f"marker {oid}"})
-    # 4) chuyển cảnh phủ
-    for sc in tl.scenes:
-        tr = sc.get("transition_in") or {}
-        if tr.get("type") in ("bars", "wipe", "flip"):
-            ev.append({"t": float(sc["start_s"]), "role": "transition", "why": f"chuyển cảnh {sc['id']}"})
-    # lọc: tránh SFX tay, giãn cách, giới hạn mật độ (ưu tiên vai trò quan trọng)
     manual = sorted(float(e["t"]) for sc in tl.scenes for e in sc.get("audio_events", []))
-    prio = {"impact": 0, "flash": 1, "transition": 1, "whoosh": 2, "click": 3, "write": 3, "camera": 3, "paper": 3,
-            "pop": 4, "swish": 5, "tick": 5}
+    prio = {"boom": 0, "impact": 0, "glitch": 1, "transition": 1, "swoosh": 2, "whoosh": 2, "data": 3, "success": 3, "write": 3,
+            "blip": 5, "click": 5, "pop": 5, "camera": 5, "tick": 6, "swish": 6}
     ev = [e for e in ev if 0 <= e["t"] < tl.duration and not any(abs(e["t"] - m) < 0.3 for m in manual)]
     ev.sort(key=lambda e: (prio.get(e["role"], 9), e["t"]))
     out = []
     for e in ev:
-        if any(abs(e["t"] - o["t"]) < 0.25 for o in out):
+        p = prio.get(e["role"], 9)
+        if any(abs(e["t"] - o["t"]) < (0.35 if p < 5 else 0.6) for o in out):
             continue
-        win = [o for o in out if abs(o["t"] - e["t"]) < 1.0]
-        if len(win) >= 1 and prio.get(e["role"], 9) >= 4:   # âm nhẹ: tối đa ~1/giây quanh đó
+        if p >= 5 and len([o for o in out if abs(o["t"] - e["t"]) < 1.5]) >= 1:   # âm nhẹ thưa: ≤ 1 trong 1,5s quanh đó
             continue
+        if e["role"] in ("boom", "impact") and any(o["role"] in ("boom", "impact") and abs(o["t"] - e["t"]) < 4.0 for o in out):
+            e = dict(e, role=R("swoosh", "whoosh"), riser=False)       # boom dày quá thì mất lực → swoosh
         out.append(e)
+    # riser dâng lên trước boom (đỉnh riser = lúc đập) nếu 1,2s trước đó trống
+    for e in list(out):
+        if e.get("riser") and e["role"] == "boom" and e["t"] > 1.3 and "riser" in have and \
+                not any(o is not e and e["t"] - 1.2 < o["t"] < e["t"] - 0.05 and prio.get(o["role"], 9) < 5 for o in out):
+            out.append({"t": e["t"] - 0.02, "role": "riser", "why": f"dâng trước {e['why']}"})
+    if tl.duration > 0:                                                  # trần mật độ 0,7/giây: bỏ bớt âm nhẹ nhất
+        cap = int(tl.duration * 0.7)
+        if len(out) > cap:
+            out.sort(key=lambda e: (prio.get(e["role"], 9), e["t"]))
+            out = out[:cap]
     out.sort(key=lambda e: e["t"])
     counters: dict = {}
-    for e in out:   # xoay vòng âm trong từng vai trò → không lặp một âm liên tục
+    for e in out:
         k = counters.get(e["role"], 0)
         e["k"] = k
         counters[e["role"]] = k + 1
+        e.pop("riser", None)
     return out

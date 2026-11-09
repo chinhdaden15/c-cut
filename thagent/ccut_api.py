@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.4"
+APP_VERSION = "2.5.5"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1199,6 +1199,12 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
     else:
         job["done"].append("ingest")
     job["done"].append("transcribe"); job["stage"] = "clean"
+    if item.get("script") and not (pdir / "transcript_raw.json").exists():   # có kịch bản → phụ đề đúng chữ kịch bản (C-Cut, tên riêng…)
+        from . import t2v as T2V
+        try:
+            T2V.retext(pdir, item["script"], log=log)
+        except Exception as e:
+            log(f"Không đối chiếu được kịch bản: {e}")
     if not (pdir / "voice_edit.json").exists():
         from .v2m import voiceprep as VP
         r = VP.clean(pdir, log=log)

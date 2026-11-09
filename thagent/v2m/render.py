@@ -374,6 +374,9 @@ def transition_overlay(tl: Timeline, frame: np.ndarray, t: float):
         sc = tl.scenes[j]
         tr = sc.get("transition_in") or {}
         typ = tr.get("type")
+        if typ in ("zoom", "glitch"):
+            _fx_transition(tl, frame, t, float(sc["start_s"]), typ, tr)
+            continue
         if typ not in ("bars", "wipe"):
             continue
         dur = float(tr.get("dur", 0.6))
@@ -402,6 +405,41 @@ def transition_overlay(tl: Timeline, frame: np.ndarray, t: float):
             else:
                 x0 = int(tl.W * ease("inout", k * 2 - 1))
                 frame[:, x0:] = col
+
+
+def _fx_transition(tl, frame, t, cut, typ, tr):
+    """chuyển cảnh kiểu video ngắn hiện đại (áp lên khung đã dựng, đỉnh đúng điểm cắt):
+    zoom   — phóng nhanh vào điểm cắt rồi bung ra ở cảnh mới, nhoè chuyển động + loé sáng nhẹ;
+    glitch — tách kênh màu RGB + lệch các lát ngang trong ~0,25s quanh điểm cắt."""
+    dur = float(tr.get("dur", 0.42 if typ == "zoom" else 0.26))
+    d = t - cut
+    if abs(d) >= dur / 2:
+        return
+    k = 1 - abs(d) / (dur / 2)                 # 0 → 1 (tại điểm cắt) → 0
+    H, W = frame.shape[:2]
+    src = frame.copy()
+    if typ == "zoom":
+        amt = float(tr.get("amount", 0.28))
+        acc = np.zeros_like(src, dtype=np.float32)
+        taps = (1.0, 0.965, 0.93, 0.895)
+        for j, f in enumerate(taps):           # nhoè hướng tâm: chồng vài mức phóng
+            s_ = 1 + amt * (k ** 1.6) * f
+            M = np.float32([[s_, 0, W / 2 * (1 - s_)], [0, s_, H / 2 * (1 - s_)]])
+            acc += cv2.warpAffine(src, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT).astype(np.float32)
+        out = acc / len(taps)
+        top = 1.0 if frame.dtype.kind == "f" else 255.0   # khung dựng là float 0..1 (hoặc uint8 0..255)
+        out += 0.12 * top * k ** 6             # loé sáng rất nhẹ ngay điểm cắt
+        frame[:] = np.clip(out, 0, top).astype(frame.dtype)
+    else:
+        sh = int(26 * k * (1 if d < 0 else -1))
+        src = frame.copy()
+        if sh:
+            frame[..., 0] = np.roll(src[..., 0], sh, axis=1)
+            frame[..., 2] = np.roll(src[..., 2], -sh, axis=1)
+        rnd = np.random.default_rng(int(t * 1000))
+        for _ in range(int(6 * k) + 1):
+            y0 = int(rnd.integers(0, H - 10)); hh = int(rnd.integers(8, max(9, H // 12)))
+            frame[y0:y0 + hh] = np.roll(frame[y0:y0 + hh], int(rnd.integers(-60, 60) * k), axis=1)
 
 
 # ---------------- vẽ từng loại đối tượng ----------------
@@ -581,6 +619,9 @@ class Renderer:
         prerender_hf(self.tl, ids=[o["id"]])
         rd = getattr(self, "_hf_readers", {})
         self._hf_readers = rd
+        t_abs = float(o["_vis"][0]) + lt
+        for k in [k for k in rd if k != o["id"] and float(self.tl.objs[k]["_vis"][1]) < t_abs]:
+            rd.pop(k).close()                  # clip hoạt hình đã hết → đóng ffmpeg + giải phóng bộ nhớ
         if o["id"] not in rd:
             rd[o["id"]] = _Reader(o["_hf_path"], self.tl.W, self.tl.H, self.tl.fps)
         fr = rd[o["id"]].frame(int(round(lt * self.tl.fps)))

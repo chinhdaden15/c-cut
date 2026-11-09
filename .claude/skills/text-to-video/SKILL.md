@@ -21,15 +21,17 @@ Bộ dựng dùng chung với Voice to Motion: ĐỌC `.claude/skills/voice-to-m
 | số liệu | thẻ số đếm, cột/tròn, so sánh (stat, bars, compare, meter) |
 | quy trình, liệt kê, nguyên nhân–kết quả | sơ đồ / steps / checklist hiện dần |
 | địa điểm, kết nối | bản đồ (region/pin/route) |
-| ý trừu tượng, câu chuyển | chữ động + icon |
+| bản đồ / công nghệ, AI / gõ lệnh / đăng mạng xã hội / quy trình A→B | cảnh hoạt hình đúng lời: `s.mg("mapdraw"|"tech"|"prompt"|"devices"|"pipeline")` (engagement.md §2b) |
+| ý trừu tượng, câu khẳng định, câu chuyển | chữ động toàn khung `s.mg("kinetic", lines=[…])` |
 VIDEO MINH HOẠ LÀ HÌNH CHÍNH: `s.photo_bg("assets_web/v_x.mp4", dim=0.35, in=<giây>)` phủ kín khung, chữ nhấn / thẻ số / nhãn đè lên.
 Không đặt clip nhỏ giữa nền trống. Chủ đề cụ thể (sản phẩm, BĐS, du lịch, ẩm thực, sức khoẻ) → motion-only ≤ 40% thời lượng.
 MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son mịn”, “giữ màu”, “bảng màu” = 4 clip khác nhau).
 
 ## 3. Tìm hình KỸ, đúng ngữ cảnh
 - Từ khoá tạo từ CẢ câu + chủ đề video, tiếng Anh cụ thể (vd video son, câu “đầu cọ mềm” → "lipstick applicator close up", không phải "brush").
-- Video minh hoạ: Pexels trước (WebSearch `<từ khoá> site:pexels.com/video`), không có thì Pinterest (`<từ khoá> video site:pinterest.com`),
-  Pixabay chỉ khi tải được. Tải: `.venv/bin/python -m thagent.v2m broll {pdir} <url> v_ten.mp4 "<nguồn>"` → Read ảnh xem trước in ra.
+- Video minh hoạ: **Mixkit trước** — `.venv/bin/python -m thagent.v2m brollsearch {pdir} "<1–2 từ tiếng Anh>"` → Read ảnh ghép có mã →
+  `.venv/bin/python -m thagent.v2m broll {pdir} mixkit:<mã> v_ten.mp4` → Read ảnh xem trước in ra. Không có clip hợp thì Pexels / Pinterest
+  (WebSearch tìm link, `broll {pdir} <url> v_ten.mp4 "<nguồn>"`).
 - Ảnh: `.venv/bin/python -m thagent.tools imgsearch {pdir} "<từ khoá>"` hoặc `tools imgpage {pdir} <link trang>` → Read ảnh ghép → `tools img {pdir} #số i_ten.jpg`.
 - Trên video chỉ ghi “Hình ảnh minh họa” / “Hình ảnh thực tế”; KHÔNG ghi nguồn (nguồn lưu trong illus_sources.json).
 
@@ -45,7 +47,9 @@ MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son 
 - Ảnh tĩnh luôn có chuyển động chậm (kb); chuyển cảnh đúng chỗ ngắt câu, kèm SFX vai trò tương ứng.
 - Mở đầu: hook trong 1s đầu (hình mạnh nhất + chữ lớn). Kết: ~5s cuối CTA chữ lớn, nhịp chậm lại.
 
-## 5b. Thu hút, không đơn điệu (app kiểm một phần)
+## 5b. Thu hút, không đơn điệu (app kiểm, chặn xuất)
+**Đọc `.claude/skills/voice-to-motion/references/engagement.md` trước khi lập cảnh** — hook 1s đầu, mỗi cảnh ≤ 6s có một điểm nhấn lớn,
+không 3 cảnh liền cùng kiểu, không một nền suốt video, thẻ kết logo lớn. Các điểm dưới đây bổ sung riêng cho Text to Video.
 - **Hình thật ≥ 40% thời lượng (check báo LỖI)** — kể cả video giới thiệu app/dịch vụ/khái niệm: tìm b-roll đúng ý câu
   (người ngồi máy tính gõ ý tưởng, người quay điện thoại, màn hình dựng phim, người xem TikTok…). Nền màu + icon chỉ là cảnh chen.
 - **Khung đầy:** nội dung chính chiếm ≥ 55% chiều cao, nằm giữa khung; tiêu đề dọc dùng `size="xl"|"l"` (140/112), không để
@@ -55,10 +59,14 @@ MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son 
 - **Nhấn nhá mỗi ý chính:** chữ khoá to bật vào đúng lúc nói (`s.keyword` / `s.title(... size="xl")`) + `s.pulse`, ~4s một lần;
   con số → `s.mg("money"|"chart"…)` hoặc `s.stat`; chuyển cảnh có SFX. Nền đổi theo đoạn ý (2 màu chủ đạo, gradient/bokeh/
   ảnh mờ từ b-roll), không giữ một nền phẳng suốt video.
-- **Phụ đề:** mỗi lúc 1 cụm, cụm cũ tắt hẳn rồi cụm mới vào (app tự lo); cảnh có chữ nhấn trùng lời → `s.captions = False`.
+- **Phụ đề:** app tự vẽ kiểu mạng xã hội (cụm 4–6 từ, chữ đậm viền, từ đang đọc đổi màu nhấn); cụm cũ tắt hẳn rồi cụm mới vào;
+  cảnh có chữ nhấn trùng lời → `s.captions = False`.
 - **App / sản phẩm của chính người làm video** (C-Cut, thương hiệu kênh): khi nói tới cài / dùng / tải app → hiện ĐÚNG icon / logo thật
   (C-Cut: `packaging/icon.png`, chép vào assets_web rồi đặt như ảnh bo góc), không thay bằng icon chung (hộp tải xuống, laptop…).
 - **Số tiền:** viết gọn — “một trăm chín mươi chín nghìn đồng” → `199K` (unit="K"), triệu → `M` hoặc “triệu”, tỷ → “tỷ”; tiền ngoại giữ ký hiệu như lời ($, €). Cả cụm một dòng (app tự co chữ).
+
+## 5c. Âm thanh + chuyển động
+Nhạc nền (Mixkit, `musicsearch` → `music` → `K.music`), SFX hiện đại, chuyển cảnh zoom/glitch, icon nét `ui:` — engagement.md §4b.
 
 ## 6. Sửa
 Người dùng góp ý → chỉ sửa đúng cảnh được nhắc. Sửa LỜI → app đọc lại câu đó (người dùng sửa trong ô kịch bản), không tự đổi lời.

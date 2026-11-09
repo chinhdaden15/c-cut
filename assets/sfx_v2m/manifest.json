@@ -320,16 +320,165 @@
   "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
  },
  "data": {
-  "desc": "bản đồ, biểu đồ, dữ liệu hiện ra",
+  "desc": "bản đồ, mạch, tiến trình — xử lý dữ liệu",
+  "gain_db": -22,
+  "items": [
+   {
+    "file": "data_01.wav",
+    "source": "Chính Dùng/SFX/User Interface/Computer, Futuristic, Data Processing, Loading 06.mp3",
+    "peak_ms": 1124.6,
+    "dur_s": 1.4
+   },
+   {
+    "file": "data_02.wav",
+    "source": "Chính Dùng/SFX/User Interface/Computer, Futuristic, Data Processing, Loading 13.mp3",
+    "peak_ms": 26.7,
+    "dur_s": 1.4
+   }
+  ],
+  "license": "tự tổng hợp + thư viện SFX của người dùng"
+ },
+ "boom": {
+  "desc": "hook, chữ lớn, thẻ kết — sub drop có lực",
+  "gain_db": -12,
+  "items": [
+   {
+    "file": "boom_00.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 55.0,
+    "dur_s": 1.3
+   },
+   {
+    "file": "boom_01.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 8.5,
+    "dur_s": 1.1
+   },
+   {
+    "file": "boom_02.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 9.5,
+    "dur_s": 1.5
+   }
+  ],
+  "license": "tự tổng hợp + thư viện SFX của người dùng"
+ },
+ "riser": {
+  "desc": "dâng lên trước cú đập (đỉnh ở cuối âm)",
+  "gain_db": -20,
+  "items": [
+   {
+    "file": "riser_00.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 1170.7,
+    "dur_s": 1.2
+   },
+   {
+    "file": "riser_01.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 738.0,
+    "dur_s": 0.8
+   }
+  ],
+  "license": "tự tổng hợp + thư viện SFX của người dùng"
+ },
+ "swoosh": {
+  "desc": "chuyển cảnh, khối lớn vào — gió lướt sạch",
   "gain_db": -18,
   "items": [
    {
-    "file": "data_00.wav",
-    "source": "Chính Dùng/SFX/User Interface/Digital Transmission, Loading, Moving, Panning.mp3",
-    "peak_ms": 609.1,
-    "dur_s": 1.2
+    "file": "swoosh_00.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 289.4,
+    "dur_s": 0.55
+   },
+   {
+    "file": "swoosh_01.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 218.3,
+    "dur_s": 0.45
+   },
+   {
+    "file": "swoosh_02.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 355.1,
+    "dur_s": 0.6
+   },
+   {
+    "file": "swoosh_03.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 173.8,
+    "dur_s": 0.4
    }
   ],
-  "license": "thư viện SFX của người dùng (cùng nguồn với Talking Head)"
+  "license": "tự tổng hợp + thư viện SFX của người dùng"
+ },
+ "blip": {
+  "desc": "thẻ / mục / nhãn bật ra — tiếng số ngắn",
+  "gain_db": -22,
+  "items": [
+   {
+    "file": "blip_00.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 4.1,
+    "dur_s": 0.16
+   },
+   {
+    "file": "blip_01.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 4.2,
+    "dur_s": 0.16
+   },
+   {
+    "file": "blip_02.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 4.2,
+    "dur_s": 0.12
+   },
+   {
+    "file": "blip_03.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 4.1,
+    "dur_s": 0.16
+   },
+   {
+    "file": "blip_04.wav",
+    "source": "Chính Dùng/SFX/User Interface/Sci Fi Games, UI Menu, Very Short, Open 10.mp3",
+    "peak_ms": 275.0,
+    "dur_s": 0.4
+   }
+  ],
+  "license": "tự tổng hợp + thư viện SFX của người dùng"
+ },
+ "glitch": {
+  "desc": "cảnh công nghệ, đổi cảnh mạnh — nhiễu số",
+  "gain_db": -21,
+  "items": [
+   {
+    "file": "glitch_00.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 10.6,
+    "dur_s": 0.4
+   },
+   {
+    "file": "glitch_01.wav",
+    "source": "C-Cut tự tổng hợp (sfxsynth)",
+    "peak_ms": 71.8,
+    "dur_s": 0.3
+   },
+   {
+    "file": "glitch_02.wav",
+    "source": "Chính Dùng/SFX/User Interface/Glitch Hit Noise Burst and Metallic Tone.mp3",
+    "peak_ms": 93.5,
+    "dur_s": 0.8
+   },
+   {
+    "file": "glitch_03.wav",
+    "source": "Chính Dùng/SFX/User Interface/Hitech GUI, Scifi, Interact, Digital, Glitch 05.mp3",
+    "peak_ms": 392.2,
+    "dur_s": 0.8
+   }
+  ],
+  "license": "tự tổng hợp + thư viện SFX của người dùng"
  }
 }

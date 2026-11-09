@@ -1,6 +1,9 @@
 """Lệnh Voice to Motion.
 
-  python -m thagent.v2m broll  <dự-án> <url> v_ten.mp4 [nguồn]  tải video b-roll (ưu tiên Pinterest, không được thì Pexels)
+  python -m thagent.v2m musicsearch "<thể loại>"            nhạc nền Mixkit (tech, upbeat, corporate…) → mã
+  python -m thagent.v2m music <dự-án> mixkit:<mã>          tải nhạc → assets_web/m_<mã>.mp3, dùng K.music(...)
+  python -m thagent.v2m brollsearch <dự-án> "<từ khoá EN>"   tìm b-roll Mixkit (miễn phí) → ảnh ghép có mã clip
+  python -m thagent.v2m broll  <dự-án> <url|mixkit:mã> v_ten.mp4 [nguồn]  tải video b-roll (Mixkit, Pexels, Pinterest, link .mp4)
   python -m thagent.v2m icons  <từ khóa…>                    tra tên icon trong kho của app (tiếng Anh/Việt)
   python -m thagent.v2m init   <voice|video> <thư-mục-dự-án>   kiểm tra file, chép voice, chép lời → transcript.json
   python -m thagent.v2m clean  <dự-án> [--no-denoise]           cắt vấp/lắp bắp/từ đệm/khoảng lặng (như Talking Head) → voice_clean.wav
@@ -495,7 +498,25 @@ def broll(pdir, url, name, source=""):
     fetch(pdir, url, name, source)
 
 
-CMDS = {"broll": broll, "icons": icons, "_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise}
+def musicsearch(query="upbeat"):
+    """musicsearch "<thể loại>" — danh sách nhạc nền Mixkit miễn phí (mã + tên)."""
+    from .broll import music_search
+    music_search(query)
+
+
+def music(pdir, mid):
+    """music <dự-án> mixkit:<mã> — tải nhạc nền vào assets_web/."""
+    from .broll import music_fetch
+    music_fetch(pdir, mid)
+
+
+def brollsearch(pdir, query):
+    """brollsearch <dự-án> "<từ khoá tiếng Anh>" — ảnh ghép clip Mixkit có mã."""
+    from .broll import search
+    search(pdir, query)
+
+
+CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise}
 
 
 def main():

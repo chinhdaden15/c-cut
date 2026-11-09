@@ -24,6 +24,7 @@ Kind (tham số):
    mỗi mục hiện đúng lúc nói, mục cuối hiện trước khi cảnh hết ≥ 0.8s)
   custom     html, css, js (GSAP: biến `tl`, `sel`) — Claude TỰ THIẾT KẾ theo chủ đề; dùng lớp sẵn .card .t1 .gold .blue .red .sub
              .chip .ic .sweep, biến --s (tỉ lệ khung), {{icon:3d:id}} → ảnh icon 3D. Giữ luật: nền đơn giản, ≤ 3 khối, chữ ≥ 34px×s.
+  mapdraw / tech / prompt / devices / pipeline / kinetic — cảnh hoạt hình TOÀN KHUNG minh hoạ đúng lời (tự có nền; tham số: thagent/fx.py)
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);
@@ -39,7 +40,8 @@ from pathlib import Path
 
 import numpy as np
 
-KINDS = {"chart", "money", "notif", "question", "photos", "doc", "iconrow", "chips", "compare", "checklist", "custom"}
+KINDS = {"chart", "money", "notif", "question", "photos", "doc", "iconrow", "chips", "compare", "checklist", "custom",
+         "mapdraw", "tech", "prompt", "devices", "pipeline", "kinetic"}          # 6 kind cuối: cảnh hoạt hình toàn khung (thagent/fx.py)
 BGS = {"blur", "gradient", "cream", "charcoal", "dots", "spot", "none"}
 OVERLAY_KINDS = {"iconrow", "chips"}
 TONES = {"gold": ("#FFE47A", "#FF9A1F", "#FFB000"), "blue": ("#A6EEFF", "#1E86FF", "#1E86FF"), "red": ("#FF9A86", "#FF2B3A", "#FF2B3A")}
@@ -460,6 +462,9 @@ T = {"chart": _t_chart, "money": _t_money, "notif": _t_notif, "question": _t_que
 
 def beats(sc: dict, D: float) -> list[float]:
     """mốc có chuyển động bên trong cảnh (giây từ đầu) — cho bộ kiểm nhịp của Voice to Motion."""
+    from . import fx as FX
+    if sc.get("kind") in FX.FULL:
+        return FX.beats(sc, D)
     n = len(sc.get("items") or sc.get("icons") or sc.get("images") or [])
     out = [0.0, 0.5, 1.6] + (delays(sc, n, .3, .35) if n else [])
     return sorted({round(x, 2) for x in out if x < D})
@@ -468,6 +473,9 @@ def beats(sc: dict, D: float) -> list[float]:
 def sfx(sc: dict, D: float) -> list[tuple[float, str, float]]:
     """SFX hợp từng mẫu (giây từ đầu cảnh, tên âm trong assets/sfx, dB): vào cảnh + từng mục + số chạy. Không whoosh."""
     k = sc.get("kind")
+    from . import fx as FX
+    if k in FX.FULL:
+        return FX.sfx(sc, D)
     out = [(0.0, "mgtrans_01" if full(sc) else "card_01", -14.0)]
     n = len(sc.get("items") or sc.get("icons") or sc.get("images") or [])
     if k in ("checklist",):
@@ -501,11 +509,15 @@ def sound_events(plan) -> list:
 
 
 def bg_of(sc: dict) -> str:
+    from . import fx as FX
+    if sc.get("kind") in FX.FULL:
+        return "none"                                     # mẫu toàn khung tự vẽ nền riêng
     return sc.get("bg") or ("none" if sc.get("kind") in OVERLAY_KINDS else "charcoal")
 
 
 def full(sc: dict) -> bool:
-    return bg_of(sc) != "none"
+    from . import fx as FX
+    return bg_of(sc) != "none" or sc.get("kind") in FX.FULL
 
 
 def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dict:
@@ -514,7 +526,19 @@ def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dic
         sc = dict(sc, at=at_seconds(sc, fps))
     V = H > W
     tone = sc.get("tone") if sc.get("tone") in TONES else "gold"
-    fn = T[sc["kind"]]
+    from . import fx as FX
+    if sc["kind"] in FX.FULL:
+        sc = dict(sc, _W=W, _H=H, _D=D)
+        sc.setdefault("fade_out", False)              # toàn khung: giữ hình tới điểm cắt (chuyển cảnh zoom/glitch nối cảnh)
+        sc.pop("box", None)
+        cl = lambda t: round(min(max(float(t), 0.05), max(0.1, D - 0.4)), 3)   # mốc âm / quá cuối cảnh làm HyperFrames chụp hình lỗi
+        if sc.get("at"):
+            sc["at"] = [cl(t) for t in sc["at"]]
+        for key in ("pins", "lines"):
+            sc[key] = [dict(x, at=cl(x["at"])) if isinstance(x, dict) and "at" in x else x for x in sc.get(key) or []]
+        if sc.get("routes"):
+            sc["routes"] = [list(r[:2]) + ([cl(r[2])] if len(r) > 2 else []) for r in sc["routes"]]
+    fn = T.get(sc["kind"]) or FX.T[sc["kind"]]
     html, js = fn(sc, V, tone, face) if sc["kind"] in ("iconrow", "chips") else fn(sc, V, tone)
     bg = bg_of(sc)
     bgcss = _bgcss(bg, sc.get("colors"))

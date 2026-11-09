@@ -33,14 +33,17 @@ ZONES = {
     },
     "16x9": {
         "title":   (110, 80, 1810, 250),     # dải tiêu đề phía trên (khi minh họa chiếm toàn ngang)
-        "main":    (860, 80, 1830, 1000),    # minh họa bên phải
-        "caption": (110, 900, 820, 1000),    # chú thích dưới cột chữ
+        "main":    (860, 80, 1830, 880),     # minh họa bên phải (chừa dải phụ đề dưới)
+        "caption": (260, 905, 1660, 1000),   # phụ đề: GIỮA khung, dưới cùng (không lệch theo cột chữ)
         "text":    (110, 150, 800, 880),     # cột chữ bên trái
         "map":     (840, 70, 1840, 1010),    # bản đồ bên phải khi có cột chữ trái
         "full":    (90, 70, 1830, 1010),     # bản đồ toàn khung
         "source":  (90, 1040, 1830, 1070),
     },
 }
+# ngang, cảnh PHỦ KÍN khung (b-roll / ảnh nền / cảnh hoạt hình toàn khung): chữ + khối căn GIỮA cả khung, không chia cột
+CENTER_16x9 = {"text": (260, 110, 1660, 870), "title": (260, 80, 1660, 260), "main": (260, 110, 1660, 870),
+               "map": (260, 70, 1660, 880)}
 
 
 def fmt_of(W: int, H: int) -> str:

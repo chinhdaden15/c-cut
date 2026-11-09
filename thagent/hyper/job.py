@@ -108,7 +108,7 @@ class Job:
                 raise HyperError("check (trình duyệt) báo lỗi — xem " + str(self.dir / "check.json") + ": " + _brief(chk),
                                  self._save(status="failed", stage="check", error=_brief(chk)))
         T = float(s["duration"])
-        tmo = timeout or max(180.0, T * 40 + 120)
+        tmo = timeout or max(420.0, T * 60 + 180)   # khung dọc nhiều lớp phát sáng chụp chậm (~1 khung/giây)
         last = None
         for k in range(1, MAX_ATTEMPTS + 1):
             if self.cancelled():

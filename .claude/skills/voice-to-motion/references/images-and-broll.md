@@ -40,8 +40,10 @@ không để nhiều cảnh liền nhau chỉ toàn icon. Mức gợi ý: mỗi 
    Tải: `.venv/bin/python -m thagent.tools img <dự-án> <url> i_ten.jpg "<tác giả / nguồn (giấy phép)>"`.
    Tìm ảnh: `.venv/bin/python -m thagent.tools imgsearch <dự-án> "<từ khoá>"` hoặc WebSearch tìm trang rồi `tools imgpage <dự-án> <link trang>`
    → Read `work/imgsearch.jpg` (ảnh ghép đánh số) → `tools img <dự-án> #số w_ten.jpg` (nguồn = trang chứa ảnh, tự ghi).
-4. **Video b-roll ngoài — ƯU TIÊN Pinterest, không được thì Pexels** (người dùng đã chọn cả hai, Pinterest trước):
-   - Tìm: WebSearch “<từ khóa tiếng Anh/Việt> video” giới hạn `pinterest.com` → lấy link pin video; không có/không tải được → `pexels.com` (link `pexels.com/video/…`).
+4. **Video b-roll ngoài — Mixkit trước (miễn phí, tải thẳng, ổn định), rồi Pinterest / Pexels:**
+   - Tìm: `.venv/bin/python -m thagent.v2m brollsearch <dự-án> "<1–2 từ tiếng Anh>"` (vd `podcast`, `smartphone`, `coffee shop`,
+     `city traffic`) → Read ảnh ghép (mỗi ô ghi mã clip) → chọn clip ĐÚNG ý câu → tải `broll <dự-án> mixkit:<mã> v_ten.mp4`.
+     Không có clip hợp → thử từ khoá khác; vẫn không có → WebSearch Pinterest (`pinterest.com`) / Pexels (`pexels.com/video/…`).
    - Tải: `.venv/bin/python -m thagent.v2m broll <dự-án> <url> v_ten.mp4 "<nguồn>"` — chuẩn hoá H.264, bỏ tiếng, ≤1080p, ≤30s,
      lưu `assets_web/`, nguồn vào `illus_sources.json`, ảnh xem trước 4 khung `assets_web/_xem/v_ten.jpg`.
    - BẮT BUỘC Read ảnh xem trước, kiểm ĐÚNG nội dung (cùng quy tắc chính xác như ảnh); có watermark/chữ lớn/logo lạ → bỏ.

@@ -1,6 +1,6 @@
 ---
 name: voice-to-motion
-version: 1.4.0
+version: 1.6.0
 description: Dựng hoặc chỉnh sửa video motion graphic minh họa từ voice thu sẵn, ưu tiên tiếng Việt và bất động sản. Dùng khi người dùng yêu cầu biến file voice/audio thành video giải thích, infographic động, bản đồ/sơ đồ có diễn hoạt hoặc sửa một đoạn của video đã dựng. Tự phân tích, lập storyboard nội bộ, dựng, kiểm tra và xuất final mà không dừng duyệt. Không tự kích hoạt để tạo voice từ kịch bản, phân tích mẫu đơn thuần hoặc xây app khi chưa được yêu cầu.
 ---
 
@@ -12,9 +12,11 @@ Biến voice có sẵn thành video motion graphic diễn giải đúng nội du
 
 Đây là hướng dẫn vận hành cho AI có công cụ dựng/render; không phải ứng dụng hoặc renderer đã được triển khai. Không tuyên bố cài đặt app, dựng xong video hoặc nghe được âm thanh nếu chưa thực hiện và kiểm chứng. Không giả lập thành công khi môi trường thiếu công cụ.
 
-**Phiên bản 1.4.0** — xem `CHANGELOG.md`.
+**Phiên bản 1.5.0** — xem `CHANGELOG.md`.
 
-**Motion Graphics bố cục + chuyển động (v1.4.0, ưu tiên)**: cho số liệu, liệt kê, so sánh, câu hỏi, tài liệu, thông báo… dùng `s.mg(kind, t0, t1, …)` (mẫu dùng chung với Talking Head — định dạng `.claude/shared/schemas/talking-head-mg2.md`; bg mặc định "none" để thấy nền cảnh) thay vì tự xếp khối rời; `at=[giây…]` để từng mục hiện đúng lúc nói; `kind="custom"` khi cần thiết kế riêng theo chủ đề (html/css/GSAP). Mỗi video ≥ 3 mẫu khác nhau, không lặp liền nhau.
+**Giữ chân người xem (v1.5.0, bắt buộc, app chặn xuất)**: đọc `references/engagement.md` TRƯỚC khi lập storyboard — hook chữ lớn/hình phủ khung trong 1s đầu, mỗi cảnh ≤ 6s và có MỘT điểm nhấn lớn (chữ ≥ 100px, icon 3D ≥ 260px, số khổng lồ, mg, ảnh/video phủ khung), không 3 cảnh liền cùng kiểu, không một nền phẳng suốt video, thẻ kết có logo lớn. Có kịch bản (script.txt) → phụ đề/chữ theo kịch bản, không theo lỗi chép lời.
+
+**Motion Graphics bố cục + chuyển động (v1.4.0, ưu tiên)**: cho số liệu, liệt kê, so sánh, câu hỏi, tài liệu, thông báo… dùng `s.mg(kind, t0, t1, …)` (mẫu dùng chung với Talking Head — định dạng `.claude/shared/schemas/talking-head-mg2.md`; bg mặc định "none" để thấy nền cảnh) thay vì tự xếp khối rời; `at=[giây…]` để từng mục hiện đúng lúc nói; `kind="custom"` khi cần thiết kế riêng theo chủ đề (html/css/GSAP). Mỗi video ≥ 3 mẫu khác nhau, không lặp liền nhau. **Cảnh hoạt hình toàn khung đúng lời (v1.6.0):** `mapdraw` (vẽ bản đồ + ghim + tuyến), `tech` (chip + mạch công nghệ), `prompt` (gõ lệnh → ra video), `devices` (điện thoại + laptop), `pipeline` (vào → xử lý → ra), `kinetic` (chữ động) — xem `references/engagement.md` §2b; app chặn video chỉ có icon.
 **Nền đơn giản (v1.4.0, bắt buộc)**: `K.scene(..., bg={"style": "gradient"|"charcoal"|"dots"|"spot"|"cream", "color": "#…", "color2": "#…"})` hoặc `theme.bg_style` — chọn 1–2 kiểu cho cả video, đổi màu theo chủ đề; "cream" chỉ với theme chữ tối. Không dùng nền nhiều chi tiết (skyline, nến chứng khoán, mạch…) — rối, khó đọc chữ.
 **Icon 3D (v1.4.0)**: `"3d:<id>"` từ kho chung (`python -m thagent.tools icon3d <từ khoá tiếng Anh>`) cho icon lớn / mẫu MG; icon phải nhận ra ngay đúng vật (vd giá nhà → nhà / tiền giấy).
 
@@ -39,6 +41,7 @@ Biến voice có sẵn thành video motion graphic diễn giải đúng nội du
 - Mỗi tỷ lệ có bố cục riêng (`timeline_9x16.json`, `timeline_16x9.json`) viết từ một builder dùng `thagent.v2m.layout.Frame(fmt)`; không kéo giãn/crop/viền đen. Renderer thực thi skill: `thagent/v2m` (`references/renderer-api.md`).
 
 Đọc trước khi dựng, theo thứ tự:
+0. `references/engagement.md` — giữ chân người xem (hook, điểm nhấn, nhịp, đổi kiểu cảnh); app kiểm và chặn xuất.
 1. `references/style-and-motion.md` — phong cách nền.
 2. `references/layout-typography.md` — vùng khung, **xuống dòng theo nghĩa tiếng Việt (bắt buộc)**, hệ thống chữ, bộ hiệu ứng chữ.
 3. `references/motion-system.md` — pha của cảnh, easing, camera, chuyển cảnh dựa trên đối tượng chung.

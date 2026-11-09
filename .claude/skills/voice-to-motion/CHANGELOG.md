@@ -1,5 +1,23 @@
 # Changelog — voice-to-motion
 
+## 1.6.0 — 2026-11-09
+- 6 cảnh hoạt hình toàn khung minh hoạ ĐÚNG LỜI (`thagent/fx.py`, HyperFrames/GSAP, dùng chung Talking Head): `mapdraw` (vẽ bản đồ, ghim, tuyến; VN tự kèm Hoàng Sa, Trường Sa), `tech`, `prompt`, `devices`, `pipeline`, `kinetic`.
+- App kiểm thêm: ≥ 50% thời lượng là hình thật phủ khung hoặc cảnh hoạt hình; ≤ 25% cảnh chỉ có icon; kiểu cảnh phân biệt theo mẫu MG.
+- B-roll: lệnh `brollsearch` (Mixkit miễn phí, ảnh ghép có mã) + `broll … mixkit:<mã>`.
+- Nhạc nền: `musicsearch` / `music` (Mixkit) + `K.music(...)`, tự hạ dưới giọng nói.
+- SFX hiện đại (tự tổng hợp + thư viện): boom, riser, swoosh, blip, glitch, data; tự rải thưa theo chuyển động (≤ 0,7/giây).
+- Chuyển cảnh mặc định `zoom` (phóng qua điểm cắt), thêm `glitch`.
+- Icon nét gradient `"ui:<tên>"` trong cảnh hoạt hình; nút dây chuyền kiểu kính tròn viền gradient xoay.
+- Khổ ngang: cảnh phủ kín khung căn giữa cả khung; phụ đề luôn giữa dưới.
+
+## 1.5.0 — 2026-11-08
+- Thêm `references/engagement.md`: hook 1s đầu, điểm nhấn lớn mỗi cảnh, cảnh ≤ 6s, luân phiên kiểu cảnh, đổi nền, thẻ kết.
+- App kiểm `qa.engagement` (lỗi chặn xuất) cho cả Voice to Motion và Text to Video.
+- Phụ đề kiểu mạng xã hội cho cả hai luồng: cụm ngắn, chữ đậm có viền, từ đang đọc đổi màu nhấn.
+- Có kịch bản (script.txt) → chữ phụ đề lấy theo kịch bản, chỉ giữ mốc thời gian chép lời (sửa “C-Cut” bị nghe thành “Secod”).
+- Icon mặc định to hơn (2 icon 300px, 3 icon ≤ 220px ở khung dọc).
+
+
 ## 1.4.0
 - Motion Graphics có bố cục + chuyển động (mẫu dùng chung với Talking Head, HyperFrames): `s.mg(kind, t0, t1, …)` — `chart`, `money`, `notif`, `question`, `photos`, `doc`, `iconrow`, `chips`, `compare`, `checklist`, `custom` (tự thiết kế html/css/GSAP theo chủ đề). `at=[giây voice…]` cho từng mục hiện đúng lúc nói; check tính chuyển động bên trong mẫu.
 - Nền đơn giản tinh tế (đã duyệt): `bg={"style": "gradient"|"charcoal"|"dots"|"spot"|"cream", "color", "color2"}` theo cảnh, hoặc `theme.bg_style` cho cả video — chữ dễ đọc, không chi tiết chạy qua chỗ đặt chữ; không dùng nền rối.
