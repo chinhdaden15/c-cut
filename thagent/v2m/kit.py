@@ -614,23 +614,29 @@ class Scene:
             else:
                 sc["box"] = list(K.zone(region))       # căn + co cả cụm vào vùng minh hoạ của khung (không đè tiêu đề / phụ đề)
         D = round(t1 - t0, 3)
-        oid = self.add({"type": "hf", "kind": kind, "full": kind in FX.FULL, "spec": {"layers": [M.layer(sc, K.W, K.H, D)]},
+        oid = self.add({"type": "hf", "kind": kind, "full": kind in FX.FULL, "space": "screen", "layer": -20,   # trên nền b-roll (-40), dưới chữ
+                        "spec": {"layers": [M.layer(sc, K.W, K.H, D)]},
                         "beats": M.beats(sc, D)}, t0, style="fade", d=0.01)
         self.hide(oid, t1, "fade", 0.01)
         from .sfxkit import manifest as _man
         modern = "swoosh" in _man()
         role = ({"mgtrans_01": "swoosh", "card_01": "blip", "u_money": "money", "tick_01": "data", "soft_00": "swoosh", "hit_03": "swoosh"}
                 if modern else {"mgtrans_01": "transition", "card_01": "pop", "u_money": "money", "tick_01": "data", "soft_00": "paper"})
-        last = -9.0
-        for t, asset, _ in M.sfx(sc, D):                # SFX theo chuyển động của mẫu (vai trò trong kho sfx_v2m), thưa ≥ 0,45s
-            r = asset[5:] if asset.startswith("role:") else role.get(asset, "success" if asset.startswith("check") else
+        last, tk = -9.0, 0
+        for t, asset, g in M.sfx(sc, D):
+            if asset.startswith("tick_") and g <= -23:      # tick số chạy: V2M lấy 1/2 (đỡ dày — đã có nhạc nền)
+                tk += 1
+                if tk % 2 == 0:
+                    continue                # SFX theo chuyển động của mẫu (vai trò trong kho sfx_v2m), thưa ≥ 0,45s
+            r = asset[5:] if asset.startswith("role:") else "tick" if asset.startswith("tick_") else \
+                "swoosh" if asset == "u_swish" else role.get(asset, "success" if asset.startswith("check") else
                                                                      ("blip" if modern else "pop") if asset.startswith("pop") else ("blip" if modern else "click"))
             if t - last < 0.45 and r in ("blip", "pop", "click"):
                 continue
             if t <= 0.05 and modern and r == "swoosh":     # điểm cắt cảnh đã có swoosh chuyển cảnh tự động
                 continue
             last = t
-            self.sound(t0 + t, r)
+            self.sound(t0 + t, r, -22 if asset.startswith("tick_") else None)   # tick số chạy: nhỏ, dồn dập
         return oid
 
     def cards(self, items, region="main", w=None, h=None) -> list[str]:

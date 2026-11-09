@@ -1,5 +1,9 @@
 # Changelog — Review Editor
 
+## 1.3.0 — 2026-11-09
+- Cấu trúc review ngắn (phán → mở hộp → 2–3 điểm → 1 nhược điểm thật → giá + CTA), nhịp 3–6s, giữ lần nói sạch cuối, cảnh cận một từ / chú thích đường dẫn.
+- Tài liệu chung `.claude/shared/editatlas/` (thông số chuyển động, luật cắt / âm / phụ đề).
+
 ## 1.2.3
 - Chọn font chữ ngay trong app (khung Review): 14 font đã duyệt (chỉ hiện font có cài trên máy), ảnh mẫu "CẢM ƠN / đây là C-Cut", đánh dấu font chỉ có chữ HOA. Một font cho cả clip — chữ nhấn + chữ phụ (vẽ chữ PIL lẫn HyperFrames).
 

@@ -24,6 +24,8 @@ Kind (tham số):
    mỗi mục hiện đúng lúc nói, mục cuối hiện trước khi cảnh hết ≥ 0.8s)
   custom     html, css, js (GSAP: biến `tl`, `sel`) — Claude TỰ THIẾT KẾ theo chủ đề; dùng lớp sẵn .card .t1 .gold .blue .red .sub
              .chip .ic .sweep, biến --s (tỉ lệ khung), {{icon:3d:id}} → ảnh icon 3D. Giữ luật: nền đơn giản, ≤ 3 khối, chữ ≥ 34px×s.
+             Vật ẩn dụ theo lời (.claude/shared/editatlas/y-tuong-theo-loi.md): ghi "at" = giây các nhịp đổi theo từ → preflight tính
+             là thứ mới xuất hiện; ≥ 3 nhịp thì cảnh được dài tới 10s. Chữ / số trong html được tính là đã làm nổi bật.
   mapdraw / tech / prompt / devices / pipeline / kinetic — cảnh hoạt hình TOÀN KHUNG minh hoạ đúng lời (tự có nền; tham số: thagent/fx.py)
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
@@ -470,6 +472,14 @@ def beats(sc: dict, D: float) -> list[float]:
     return sorted({round(x, 2) for x in out if x < D})
 
 
+def _roll_ticks(t0: float, t1: float) -> list[tuple[float, str, float]]:
+    out, t, i = [], t0, 0
+    while t < t1:
+        out.append((round(t, 2), f"tick_0{i % 3}", -23.0))
+        t += 0.15; i += 1
+    return out
+
+
 def sfx(sc: dict, D: float) -> list[tuple[float, str, float]]:
     """SFX hợp từng mẫu (giây từ đầu cảnh, tên âm trong assets/sfx, dB): vào cảnh + từng mục + số chạy. Không whoosh."""
     k = sc.get("kind")
@@ -483,15 +493,27 @@ def sfx(sc: dict, D: float) -> list[tuple[float, str, float]]:
     elif k in ("notif", "chips", "iconrow", "photos"):
         first, gap = {"notif": (.15, .45), "chips": (.15, .3), "iconrow": (.1, .14), "photos": (.2, .35)}[k]
         out += [(t + 0.05, f"pop_0{(i * 3) % 10}", -16.0) for i, t in enumerate(delays(sc, n, first, gap))]
-    elif k == "money":                                   # tiếng tiền ĐÚNG lúc chạm số
-        out += [(hit_at(sc, 1.55), "u_money", -13.0)]
+    elif k == "money":                                   # số đang chạy: tick dồn dập nhỏ → tiếng tiền ĐÚNG lúc chạm số
+        h = hit_at(sc, 1.55)
+        out += _roll_ticks(max(0.35, h - 1.3), h - 0.12) + [(h, "u_money", -13.0)]
     elif k == "chart":
-        out += [(0.45, "tick_01", -16.0), (hit_at(sc, 2.0), "u_money" if sc.get("money") else "hit_03", -14.0)]
+        h = hit_at(sc, 2.0)
+        out += [(0.45, "tick_01", -16.0)] + _roll_ticks(max(0.7, h - 1.1), h - 0.12) + [(h, "u_money" if sc.get("money") else "hit_03", -14.0)]
     elif k == "compare":
         out += [(0.05, "pop_02", -16.0), (0.7, "pop_05", -16.0)]
     elif k in ("question", "doc"):
         out += [(0.5, "soft_00", -16.0)]
-    return [(t, a, g) for t, a, g in out if t < D - 0.2]
+    if full(sc):                                          # trả về người nói: tiếng lướt nhẹ đúng lúc loé
+        out.append((D - 0.08, "u_swish", -15.0))
+    return [(t, a, g) for t, a, g in out if t < D]
+
+
+def flash_events(plan) -> list[tuple[int, int, float]]:
+    """cảnh MG phủ khung: loé trắng nhẹ lúc vào, loé mạnh hơn lúc trả về người nói (kiểu editor short: sáng loá rồi về cảnh quay)."""
+    out = []
+    for a, b in covers(plan):
+        out += [(a - 2, a + 6, 0.22), (b - 3, b + 7, 0.45)]
+    return out
 
 
 def sound_events(plan) -> list:
@@ -622,8 +644,9 @@ def check(plan, fps: int, open_close: tuple[int, int] | None = None, demo: list[
         if bg_of(s) not in BGS:
             out.append(("error", f"{tag}: nền “{s.get('bg')}” không có — chỉ {', '.join(sorted(BGS))}")); continue
         d = (int(s["end"]) - int(s["start"])) / fps
-        if not 2.5 <= d <= 8.0:
-            out.append(("error", f"{tag}: dài {d:.1f}s — mỗi cảnh 2.5–8s"))
+        dmax = 10.0 if s.get("kind") == "custom" and len(s.get("at") or []) >= 3 else 8.0   # vật ẩn dụ có ≥ 3 nhịp đổi theo lời → tới 10s
+        if not 2.5 <= d <= dmax:
+            out.append(("error", f"{tag}: dài {d:.1f}s — mỗi cảnh 2.5–8s (custom có ≥ 3 nhịp `at` theo lời: tới 10s)"))
         for n in _icons(s):
             if not K.exists(n.removeprefix("3d:")):
                 out.append(("error", f"{tag}: không có icon 3D {n} — tra: python -m thagent.tools icon3d <từ khoá>"))

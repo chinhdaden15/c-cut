@@ -1,6 +1,6 @@
 ---
 name: talking-head-style
-version: 1.6.2
+version: 1.7.0
 description: Phong cách dựng video Talking Head “Talking Head Style” (mọi lĩnh vực, tiếng Việt, dọc 9:16) đã được người dùng duyệt — chữ neon Montserrat 3 màu (vàng cam/đỏ/xanh), chữ dẫn rơi từng từ + tick, xếp lớp sau đầu/trước ngực, icon Flaticon gradient phát sáng, Motion Graphics bố cục + chuyển động (nền đơn giản 6 kiểu) ~10s/cảnh, SFX tiết chế, preflight trước render. Dùng khi người dùng chọn “Talking Head Style”, nói “dựng theo Talking Head Style”, “dựng video talking head như bản B.TA”, hoặc đưa video người nói vào app và muốn dựng full. Bản chuẩn hiện hành: Agency v5 (phụ đề theo ý + chữ nhấn chỉ chữ chính).
 ---
 
@@ -44,6 +44,26 @@ Hai mẫu đó là video BĐS — **chỉ học cấu trúc và nhịp, không h
 ghi mục đầu `confirm.json` `{"id":"domain","text":"Lĩnh vực: … · Khán giả: … · Chủ thể: …","status":"auto"}`. Chữ, ảnh, icon, bối cảnh minh họa theo đúng lĩnh vực đó.
 
 Giọng nói và ý nghĩa nguyên bản là nền tảng. Không đổi số, đơn vị, điều kiện, tên riêng.
+
+## Ý TƯỞNG THEO LỜI (1.7.0): mỗi ý chính là một vật có diễn biến
+Đọc `.claude/shared/editatlas/y-tuong-theo-loi.md` khi lập kế hoạch. Callout thẻ + icon vẫn dùng cho ý phụ, còn **2–4 ý chính / phút**
+phải là MỘT VẬT ẨN DỤ biến đổi theo đúng từ được nói (pin tụt theo ngày → nứt ở "kiệt sức"; bảng lật sân bay cho từng con số;
+dấu KHÔNG đóng mực đúng từ "không"; lịch 7 ngày sáng dần; checklist tick theo lời…). Dựng bằng `mg2` kind `custom` (bg `none`, chồng
+lên người, dưới cằm) hoặc `plan.hf` (`behind_subject` khi chữ sau người).
+  Ghi `"at": [giây các nhịp]` cho cảnh custom (preflight tính nhịp; ≥ 3 nhịp → dài tới 10s). Người đang cúi / quay đi → `bg: "blur"` để che.
+- Mỗi vật 3–5 nhịp đổi, mỗi nhịp neo frame đầu của một từ khoá (tra words); có trạng thái chốt trùng câu chốt rồi dọn sạch.
+- Một vật chính một lúc, ở khoảng trống: dưới cằm (kết thúc trước dải phụ đề), cột bên, hoặc sau đầu.
+- Chữ sau người bị đầu / thân che > 1/3 → dời ra tường trống hoặc đưa ra trước; alpha nhấp nháy ở tóc / tay → bỏ lớp sau-người lúc đó.
+- Chọn ý tưởng theo LOẠI CÂU (số liệu / thời gian / thất bại / so sánh / danh sách / kết nối / phát triển) và đổi vật theo lĩnh vực video.
+  Không lặp cùng một ý tưởng trong một video; không lấy vật trùng video trước (lịch sử `th_history.json`).
+- Vẫn giữ luật của style này: không thanh tiến độ / bộ đếm góc / nhãn chương, không che mặt, chữ / số chỉ từ lời nói.
+**Bảng motion riêng mỗi video:** trước khi lập cảnh chọn 8–12 kỹ thuật hợp lĩnh vực + công thức nhịp từ
+`.claude/shared/editatlas/danh-muc-ky-thuat.md` (2.010 kỹ thuật), ghi `plan.notes` dòng `motion: …`; cả video dùng trong bảng đó, đổi ≥ 1/2 so với video trước.
+**Cỡ cảnh + nhạc + SFX (học từ video mẫu, `.claude/shared/editatlas/sfx-va-nhip.md`):** app tự đổi cỡ cảnh trung / rộng / cận mỗi 3–6s ở chỗ
+ngắt câu (`plan.framing`, None = tự động); có nhạc nền `plan.music` (Mixkit, tự hạ dưới giọng, tắt ngắn trước cảnh MG lớn);
+cảnh MG phủ khung tự loé + swish khi vào / ra; số chạy có tick dồn dập. Mỗi SFX gắn một thứ thấy trên hình; 3s cuối không SFX.
+Thông số chuyển động (frame, scale, ease) cho phần `custom`: `.claude/shared/editatlas/thong-so-chuyen-dong.md`.
+Luật cắt, âm, phụ đề chung: `.claude/shared/editatlas/quy-tac-dung.md` (luật trong file này ưu tiên hơn nếu khác).
 
 ## Quy trình (theo đúng thứ tự — render là bước CUỐI)
 

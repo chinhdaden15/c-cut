@@ -1,5 +1,9 @@
 # Changelog — voice-to-motion
 
+## 1.7.0 — 2026-11-09
+- Ý tưởng theo lời: vật ẩn dụ có diễn biến neo theo từ (`.claude/shared/editatlas/y-tuong-theo-loi.md`), thông số chuyển động, luật dựng chung — học từ thư viện EditAtlas.
+- Text to Video dùng chung (mục 5d).
+
 ## 1.6.0 — 2026-11-09
 - 6 cảnh hoạt hình toàn khung minh hoạ ĐÚNG LỜI (`thagent/fx.py`, HyperFrames/GSAP, dùng chung Talking Head): `mapdraw` (vẽ bản đồ, ghim, tuyến; VN tự kèm Hoàng Sa, Trường Sa), `tech`, `prompt`, `devices`, `pipeline`, `kinetic`.
 - App kiểm thêm: ≥ 50% thời lượng là hình thật phủ khung hoặc cảnh hoạt hình; ≤ 25% cảnh chỉ có icon; kiểu cảnh phân biệt theo mẫu MG.

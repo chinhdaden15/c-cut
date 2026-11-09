@@ -65,6 +65,13 @@ không 3 cảnh liền cùng kiểu, không một nền suốt video, thẻ kế
   (C-Cut: `packaging/icon.png`, chép vào assets_web rồi đặt như ảnh bo góc), không thay bằng icon chung (hộp tải xuống, laptop…).
 - **Số tiền:** viết gọn — “một trăm chín mươi chín nghìn đồng” → `199K` (unit="K"), triệu → `M` hoặc “triệu”, tỷ → “tỷ”; tiền ngoại giữ ký hiệu như lời ($, €). Cả cụm một dòng (app tự co chữ).
 
+## 5d. Ý tưởng theo lời (từ 11/2026)
+Câu khẳng định trừu tượng, con số, thời gian, so sánh, danh sách → ưu tiên MỘT VẬT ẨN DỤ có 3–5 nhịp đổi neo theo từ (`s.mg("custom")`),
+thay cho kinetic chữ trơn hoặc thẻ icon: `.claude/shared/editatlas/y-tuong-theo-loi.md`. Thông số chuyển động: `.claude/shared/editatlas/thong-so-chuyen-dong.md`.
+Không lặp cùng một ý tưởng trong một video; b-roll thật vẫn là hình chính (≥ 40%).
+
+**Bảng motion + SFX theo hình:** chọn 8–12 kỹ thuật mỗi video từ `.claude/shared/editatlas/danh-muc-ky-thuat.md` (hợp phong cách, khác video trước, ghi `motion: …` vào ghi chú); nhạc nền + tắt ngắn trước cảnh lớn, mỗi SFX gắn đúng một thứ trên hình, loé trắng khi trở về người nói — `.claude/shared/editatlas/sfx-va-nhip.md`.
+
 ## 5c. Âm thanh + chuyển động
 Nhạc nền (Mixkit, `musicsearch` → `music` → `K.music`), SFX hiện đại, chuyển cảnh zoom/glitch, icon nét `ui:` — engagement.md §4b.
 

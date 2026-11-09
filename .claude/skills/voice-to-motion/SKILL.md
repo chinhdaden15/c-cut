@@ -1,6 +1,6 @@
 ---
 name: voice-to-motion
-version: 1.6.0
+version: 1.7.0
 description: Dựng hoặc chỉnh sửa video motion graphic minh họa từ voice thu sẵn, ưu tiên tiếng Việt và bất động sản. Dùng khi người dùng yêu cầu biến file voice/audio thành video giải thích, infographic động, bản đồ/sơ đồ có diễn hoạt hoặc sửa một đoạn của video đã dựng. Tự phân tích, lập storyboard nội bộ, dựng, kiểm tra và xuất final mà không dừng duyệt. Không tự kích hoạt để tạo voice từ kịch bản, phân tích mẫu đơn thuần hoặc xây app khi chưa được yêu cầu.
 ---
 
@@ -15,6 +15,14 @@ Biến voice có sẵn thành video motion graphic diễn giải đúng nội du
 **Phiên bản 1.5.0** — xem `CHANGELOG.md`.
 
 **Giữ chân người xem (v1.5.0, bắt buộc, app chặn xuất)**: đọc `references/engagement.md` TRƯỚC khi lập storyboard — hook chữ lớn/hình phủ khung trong 1s đầu, mỗi cảnh ≤ 6s và có MỘT điểm nhấn lớn (chữ ≥ 100px, icon 3D ≥ 260px, số khổng lồ, mg, ảnh/video phủ khung), không 3 cảnh liền cùng kiểu, không một nền phẳng suốt video, thẻ kết có logo lớn. Có kịch bản (script.txt) → phụ đề/chữ theo kịch bản, không theo lỗi chép lời.
+
+**Ý tưởng theo lời + thông số chuyển động (v1.7.0)**: ý trừu tượng / số liệu / thời gian / thất bại / so sánh → thay vì thẻ chữ + icon, dựng MỘT VẬT ẨN DỤ
+biến đổi đúng từng từ (pin tụt rồi nứt, bảng lật sân bay, hoá đơn in dần, lịch 7 ngày, dấu đóng mực, checklist tick, mạng nút nối…) bằng `s.mg("custom")` —
+thư viện ý tưởng `.claude/shared/editatlas/y-tuong-theo-loi.md`; thông số frame / scale / ease cho chữ, số, chuyển cảnh, phụ đề
+`.claude/shared/editatlas/thong-so-chuyen-dong.md`. Dạng giải thích: câu hỏi / vấn đề → từng bước (mỗi ý một khung) → ví dụ → điều cần nhớ;
+số liệu giữ đủ lâu để đọc 2 lần. Luật cắt / âm / phụ đề chung: `.claude/shared/editatlas/quy-tac-dung.md` (luật trong skill này ưu tiên hơn nếu khác).
+
+**Bảng motion + SFX theo hình:** chọn 8–12 kỹ thuật mỗi video từ `.claude/shared/editatlas/danh-muc-ky-thuat.md` (hợp phong cách, khác video trước, ghi `motion: …` vào ghi chú); nhạc nền + tắt ngắn trước cảnh lớn, mỗi SFX gắn đúng một thứ trên hình, loé trắng khi trở về người nói — `.claude/shared/editatlas/sfx-va-nhip.md`.
 
 **Motion Graphics bố cục + chuyển động (v1.4.0, ưu tiên)**: cho số liệu, liệt kê, so sánh, câu hỏi, tài liệu, thông báo… dùng `s.mg(kind, t0, t1, …)` (mẫu dùng chung với Talking Head — định dạng `.claude/shared/schemas/talking-head-mg2.md`; bg mặc định "none" để thấy nền cảnh) thay vì tự xếp khối rời; `at=[giây…]` để từng mục hiện đúng lúc nói; `kind="custom"` khi cần thiết kế riêng theo chủ đề (html/css/GSAP). Mỗi video ≥ 3 mẫu khác nhau, không lặp liền nhau. **Cảnh hoạt hình toàn khung đúng lời (v1.6.0):** `mapdraw` (vẽ bản đồ + ghim + tuyến), `tech` (chip + mạch công nghệ), `prompt` (gõ lệnh → ra video), `devices` (điện thoại + laptop), `pipeline` (vào → xử lý → ra), `kinetic` (chữ động) — xem `references/engagement.md` §2b; app chặn video chỉ có icon.
 **Nền đơn giản (v1.4.0, bắt buộc)**: `K.scene(..., bg={"style": "gradient"|"charcoal"|"dots"|"spot"|"cream", "color": "#…", "color2": "#…"})` hoặc `theme.bg_style` — chọn 1–2 kiểu cho cả video, đổi màu theo chủ đề; "cream" chỉ với theme chữ tối. Không dùng nền nhiều chi tiết (skyline, nến chứng khoán, mạch…) — rối, khó đọc chữ.

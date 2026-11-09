@@ -328,6 +328,13 @@ def text_rules(pl, words, fps: int) -> list[tuple[str, str]]:
             txt = " ".join(str(v) for k, v in co.items() if k in ("text", "sub", "lead", "a", "b", "label", "title", "bad", "good"))
             txt += " ".join(str(it.get("text", "")) + " " + str(it.get("value", "")) for it in co.get("items") or [])
             shown.append((int(co["start"]), int(co["end"]), txt))
+    for m in getattr(pl, "mg2", None) or []:                  # chữ / số trong cảnh MG2 (kể cả html của custom) cũng là chữ nổi bật
+        if m.get("enabled", True):
+            txt = " ".join(str(v) for k, v in m.items() if k in ("title", "sub", "heading", "highlight", "label", "text", "a", "b", "items",
+                                                                  "value_from", "value_to"))
+            if m.get("kind") == "custom":
+                txt += " " + re.sub(r"<[^>]+>", " ", m.get("html") or "")
+            shown.append((int(m["start"]), int(m["end"]), txt.replace(",", "")))
     for fl in sorted({p[1] for p in photos} | {v.file for v in pl.visuals if getattr(v, "file", None)}):
         if imgio.imread(fl) is None:
             add("error", f"ảnh {fl.split('/')[-1]} không đọc được (thiếu file / hỏng / không phải ảnh) — tải ảnh khác bằng tools img")

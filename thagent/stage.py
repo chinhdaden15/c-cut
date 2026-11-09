@@ -356,7 +356,8 @@ def zoom_events(plan) -> list:
         if a and a[0]:
             s0 = int(st["start"])
             if st.get("kind") == "giant_text":          # chữ sau lưng: zoom vào người suốt lúc chữ hiện → bớt trống phía trên, chữ tràn khung
-                out.append(NS(type="zoom", enabled=True, start=s0, end=int(st["end"]), params={"scale": GIANT_ZOOM, "mode": "punch", "cx": 0.5, "cy": st.get("_zcy", 0.6)}))
+                out.append(NS(type="zoom", enabled=True, start=s0, end=int(st["end"]),   # CẮT vào / ra + loé (trượt 1.5× trông như khựng)
+                              params={"scale": GIANT_ZOOM, "mode": "cut", "absolute": True, "cx": 0.5, "cy": st.get("_zcy", 0.6)}))
                 continue
             out.append(NS(type="zoom", enabled=True, start=s0, end=s0 + (14 if a[0] == "punch" else min(60, int(st["end"]) - s0)),
                           params={"scale": a[1], "mode": a[0], "cx": 0.5, "cy": 0.32}))
@@ -365,8 +366,11 @@ def zoom_events(plan) -> list:
 
 def flash_events(plan) -> list:
     from types import SimpleNamespace as NS
-    return [NS(type="flash", enabled=True, start=int(st["start"]), end=int(st["start"]) + 8, params={"opacity": a[2]})
-            for st in getattr(plan, "stage", None) or [] if (a := _accent(st)) and a[2] > 0]
+    out = [NS(type="flash", enabled=True, start=int(st["start"]), end=int(st["start"]) + 8, params={"opacity": a[2]})
+           for st in getattr(plan, "stage", None) or [] if (a := _accent(st)) and a[2] > 0]
+    out += [NS(type="flash", enabled=True, start=int(st["end"]) - 2, end=int(st["end"]) + 6, params={"opacity": 0.22})   # cắt ra khỏi zoom chữ khổng lồ
+            for st in getattr(plan, "stage", None) or [] if st.get("kind") == "giant_text" and _accent(st)]
+    return out
 
 
 def sound_events(plan) -> list:

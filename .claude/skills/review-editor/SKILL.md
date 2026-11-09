@@ -1,6 +1,6 @@
 ---
 name: review-editor
-version: 1.2.2
+version: 1.3.0
 description: Dựng video review hoàn chỉnh từ bộ footage người dùng cung cấp (bất động sản; sản phẩm công nghệ, mỹ phẩm, đồ dùng) — kiểm kê tư liệu, chọn take, xây mạch review, ghép lời với B-roll đúng đối tượng, phụ đề/thông tin/chữ nhấn, xuất dọc 9:16 và/hoặc ngang 16:9. Dùng khi người dùng chọn style Review hoặc yêu cầu dựng review từ nhiều đoạn quay. Không dùng cho Talking Head một người nói (skill talking-head-style) hay motion graphic từ voice (skill voice-to-motion).
 ---
 
@@ -37,6 +37,16 @@ Thứ gì đã tốt ở Talking Head / Voice to Motion mà áp dụng chung đ�
   tiền, data; cách nhau ≥ 10 khung; tắt `"sfx": false`, thêm tay `sfx_events`.
 - **Nói hỏng rồi nói lại** (kể cả khi máy chép lời bỏ sót lần nói thứ hai): `clean` tự nghe lại sau chỗ ngừng, cắt mẩu hỏng, giữ câu trơn.
 - **Chữ hai tầng** (nhãn trên số / dòng nhỏ trên chữ nhấn): chữ phụ ≈ 0,6 chữ chính — không để chênh lệch quá.
+
+## Học từ thư viện kỹ thuật dựng (v1.3.0)
+- Cấu trúc review ngắn 30–60s: câu phán / câu bất ngờ nhất của người review trên cận sản phẩm → mở hộp, gọi tên bộ phận → 2–3 điểm, mỗi điểm một cận đúng
+  thứ đang nói → **MỘT nhược điểm thật** (người review có nói thì phải giữ) → phán + giá đúng lời + CTA. Đổi khung / chèn cận sản phẩm mỗi 3–6s; giữ sản phẩm yên đủ để nhìn.
+- Câu nói lại nhiều lần: mặc định giữ lần sạch CUỐI. Không thêm giá, thông số, công dụng người review không nói; không dùng stock thay cho chính sản phẩm.
+- Cảnh không có người nói vào máy (cận sản phẩm, món ăn): một động từ / một từ mỗi cảnh trồi lên từ mặt nạ đúng lúc cắt; chú thích đường dẫn mảnh
+  (vòng trắng đáp lên chi tiết → nhãn chữ hoa giãn cách); vệt sáng quét mặt kính sản phẩm đúng phách.
+- Thông số chuyển động, phụ đề, chuyển cảnh: `.claude/shared/editatlas/thong-so-chuyen-dong.md`; luật cắt / âm / phụ đề chung: `.claude/shared/editatlas/quy-tac-dung.md`.
+
+**Bảng motion + SFX theo hình:** chọn 8–12 kỹ thuật mỗi video từ `.claude/shared/editatlas/danh-muc-ky-thuat.md` (hợp phong cách, khác video trước, ghi `motion: …` vào ghi chú); nhạc nền + tắt ngắn trước cảnh lớn, mỗi SFX gắn đúng một thứ trên hình, loé trắng khi trở về người nói — `.claude/shared/editatlas/sfx-va-nhip.md`.
 
 ## Font chữ do người dùng chọn trong app
 

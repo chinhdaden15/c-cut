@@ -96,30 +96,37 @@ def timeline_anchors(plan: Plan, anchors_src: list[dict]) -> list[dict]:
 
 def zoom_at(plan: Plan, f: int) -> tuple[float, float, float]:
     """(zoom, cx, cy). mode=punch: vào nhanh 4 frame, giữ, ra 10 frame; mode=out: bắt đầu phóng rồi lùi dần về 1."""
-    z, cx, cy = 1.0, 0.5, 0.4
+    from . import framing as FR
+    bz, cx, cy = FR.at(plan, f)                # cỡ cảnh nền (rộng / trung / cận — đổi ở chỗ ngắt câu)
+    z = bz
     from .callouts import zoom_events
     from .stage import zoom_events as stage_zoom
     for e in list(plan.fx) + zoom_events(plan) + stage_zoom(plan):
-        if e.type != "zoom" or not e.enabled or not (e.start <= f < e.end + 10):
+        if e.type != "zoom" or not e.enabled or not (e.start <= f < e.end + 12):
             continue
         tgt = e.params.get("scale", 1.06)
-        if e.params.get("mode") == "cut":      # phóng tức thì đúng đoạn (giấu jump cut), không chuyển động
+        if e.params.get("mode") == "cut":      # phóng tức thì đúng đoạn (cắt cảnh, giấu jump cut), không trượt
             if f >= e.end:
                 continue
             k = 1.0
         elif e.params.get("mode") == "out":
             k = 1 - clamp01((f - e.start) / max(e.end - e.start, 1))
             k = k * k * (3 - 2 * k)
-        else:
-            if f < e.start + 4:
-                k = 1 - (1 - (f - e.start + 1) / 4) ** 3
+        else:                                  # punch: vào 6 frame ease-out, giữ, nhả 12 frame (4 frame cũ trông như giật)
+            if f < e.start + 6:
+                k = 1 - (1 - (f - e.start + 1) / 6) ** 3
             elif f < e.end:
                 k = 1.0
             else:
-                k = 1 - (f - e.end + 1) / 10
+                k = 1 - (f - e.end + 1) / 12
                 k = 0.5 - 0.5 * math.cos(math.pi * max(0, min(1, k)))
-        z = 1 + (tgt - 1) * max(0.0, min(1.0, k))
-        cx, cy = e.params.get("cx", 0.5), e.params.get("cy", 0.4)
+        k = max(0.0, min(1.0, k))
+        if e.params.get("absolute"):           # cỡ tuyệt đối (chữ khổng lồ sau lưng) — không nhân với cỡ cảnh
+            z = max(bz, 1 + (tgt - 1) * k)
+        else:
+            z = bz * (1 + (tgt - 1) * k)
+        if k > 0:
+            cx, cy = e.params.get("cx", cx), e.params.get("cy", cy)
     return z, cx, cy
 
 
@@ -185,6 +192,11 @@ def flash_at(plan: Plan, f: int) -> float:
         if e.start <= f < e.end:
             t = (f - e.start + 0.5) / d
             o = max(o, e.params.get("opacity", 0.2) * (min(t / 0.3, 1) if t < 0.3 else (1 - t) / 0.7))
+    from .mg2 import flash_events as mg2_flash      # cảnh MG phủ khung: loé sáng lúc vào / lúc trả về người nói
+    for a, b, op in mg2_flash(plan):
+        if a <= f < b:
+            t = (f - a + 0.5) / (b - a)
+            o = max(o, op * (min(t / 0.25, 1) if t < 0.25 else (1 - t) / 0.75))
     return o
 
 
@@ -478,6 +490,9 @@ def frame_sigs(plan: Plan, pos: dict, colay: dict) -> dict:
     for k, lst in (("v", plan.visuals), ("fx", plan.fx)):
         for x in lst:
             put(f"{k}:{x.id}", x.start, x.end, x.model_dump())
+    from . import framing as FR
+    for a, b, z, cx, cy in FR._SHOTS.get(id(plan), ()):          # cỡ cảnh đổi → vẽ lại đúng cảnh đó
+        put(f"fr:{a}", a, b, [z, round(cx, 3), round(cy, 3)])
     return out
 
 
@@ -681,8 +696,27 @@ def mix_audio(plan: Plan, voice: str, sfx_dir: Path, manifest: dict, out_wav: st
                        "start_s": round(start + t0, 3), "peak_offset_ms": m["peak_offset_ms"],
                        "gain_db": s.gain_db, "trimmed_head_s": round(trim, 3), "status": "placed"})
         k += 1
-    mix_in = "[v]" + "".join(f"[s{i}]" for i in range(1, k))
-    parts.append(f"{mix_in}amix=inputs={k}:normalize=0:duration=first[mx]")
+    mus = getattr(plan, "music", None) or {}
+    vlab = "[v]"
+    if mus.get("file") and Path(mus["file"]).is_file():
+        # nhạc nền: lặp đủ dài, hạ dưới giọng (sidechain), TẮT NGẮN ~0.4s trước cảnh MG phủ khung rồi vào lại đúng lúc cảnh nổ
+        from .mg2 import covers
+        drops = [(a / fps - t0 - 0.4, a / fps - t0) for a, _ in covers(plan)] if mus.get("drops", True) else []
+        drops = [(max(0.0, x), y) for x, y in drops if y > 0]
+        expr = "1" + "".join(f"-0.92*between(t,{x:.2f},{y:.2f})" for x, y in drops)
+        dur = t1 - t0
+        inputs += ["-stream_loop", "-1", "-i", mus["file"]]
+        parts[0] = parts[0].replace("[v]", "[v0]")
+        parts.append(f"[v0]asplit=2[v][vsc]")
+        parts.append(f"[{k}:a]aresample=48000,atrim=start={mus.get('offset', 0)},asetpts=PTS-STARTPTS,atrim=end={dur:.3f},"
+                     f"volume={mus.get('gain_db', -20)}dB,volume='{expr}':eval=frame,afade=t=out:st={max(0.0, dur - 1.5):.3f}:d=1.5[mu0]")
+        parts.append("[mu0][vsc]sidechaincompress=threshold=0.02:ratio=5:attack=15:release=350[mu]")
+        report.append({"id": "music", "file": mus["file"], "gain_db": mus.get("gain_db", -20), "drops": len(drops), "status": "placed"})
+        mus_lab = "[mu]"
+    else:
+        mus_lab = ""
+    mix_in = vlab + "".join(f"[s{i}]" for i in range(1, k)) + mus_lab
+    parts.append(f"{mix_in}amix=inputs={k + (1 if mus_lab else 0)}:normalize=0:duration=first[mx]")
     tmp = out_wav + ".pre.wav"
     run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(parts), "-map", "[mx]",
          "-ar", "48000", "-ac", "1", tmp])

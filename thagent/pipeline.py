@@ -294,6 +294,8 @@ def step_render(c: Ctx, frame_range=None, label="full", plan: Plan | None = None
     from . import captions_th as CAP
     reuse = _reuse(c, plan, fr, wide)
     c.log(f"Compositing frame {fr[0]}–{fr[1]}")
+    from . import framing as FR
+    FR.prepare(plan, c.project.words, R.timeline_anchors(plan, anchors))
     layout = R.composite(plan, rc, anchors, str(vdir / "video_noaudio.mp4"), fr, progress=c.log,
                          snapshots=snaps, snap_dir=vdir, cancel=c.cancel, hf_items=hf_items,
                          wide_out=str(vdir / "video_wide_noaudio.mp4") if wide else None,

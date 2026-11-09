@@ -175,6 +175,8 @@ class Plan(BaseModel):
     recipe: str = ""             # công thức nhịp (thagent/variety.py RECIPES) — trống thì app tự chọn cái ít dùng gần đây
     sfx_pack: str = ""           # bộ âm (variety.PACKS) — trống thì theo công thức
     callouts: list[dict] = []    # chữ nổi bật + icon / callout / ảnh kẹp — thagent/callouts.py (app tự đặt, tránh mặt)
+    framing: list[dict] | None = None   # cỡ cảnh rộng / trung / cận đổi ở chỗ ngắt câu — None: app tự chia; []: tắt (thagent/framing.py)
+    music: dict = {}             # nhạc nền {"file", "gain_db": -20, "drops": True} — tự hạ dưới giọng, tắt ngắn trước cảnh MG lớn
 
 
 class Project(BaseModel):
