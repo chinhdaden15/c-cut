@@ -64,6 +64,14 @@ def setup_env():
     return res, home
 
 
+def _ver() -> str:
+    try:
+        from thagent.ccut_api import APP_VERSION
+        return APP_VERSION
+    except Exception:
+        return ""
+
+
 def seed(res: Path, home: Path):
     """chép tài nguyên đi kèm vào thư mục dữ liệu (lần đầu hoặc khi đổi phiên bản); không động vào dự án/cài đặt."""
     src = res / "seed"
@@ -223,7 +231,8 @@ def run_app():
         _applog(home, f"cổng 8765 bận → dùng {port}")
     try:                                        # app khác (CN.AI…) đọc file này để biết C-Cut đang ở cổng nào
         (home / "api.json").write_text(json.dumps({"url": f"http://127.0.0.1:{port}/api/ccut", "port": port, "pid": os.getpid(),
-                                                   "started": time.strftime("%Y-%m-%d %H:%M:%S")}), encoding="utf-8")
+                                                   "started": time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                   "auth_header": "X-CCut-Key", "version": _ver()}), encoding="utf-8")
     except Exception:
         pass
     srv = uvicorn.Server(uvicorn.Config(server.app, host="127.0.0.1", port=port, log_level="warning"))

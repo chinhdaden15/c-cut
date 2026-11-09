@@ -22,12 +22,24 @@ app = FastAPI(title="C-Cut")
 async def _api_client(request, call_next):
     """app khác (vd CN.AI) điều khiển C-Cut: gửi header X-CCut-Client: <tên>.
     Ghi nhận lần gọi gần nhất (giữ app không thoát ngang) và gắn tên nguồn vào việc mới thêm vào hàng chờ."""
-    from . import ccut_api as C
-    who = (request.headers.get("x-ccut-client") or "").strip()[:40]
+    from . import ccut_api as C, apikeys as AK
     path = request.url.path
+    if path.startswith("/api/"):             # giao diện C-Cut: cookie phiên; phần mềm ngoài: khoá API (Cài đặt → API)
+        ok, code, msg = AK.check(request)
+        if not ok:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": msg}, status_code=code)
+    ui = AK.is_ui(request)
+    who = "" if ui else (request.headers.get("x-ccut-client") or "").strip()[:40]
+    if not who and not ui and path.startswith("/api/") and AK.key_from(request):
+        k = AK.match(AK.key_from(request))
+        who = (k or {}).get("name", "")[:40]     # chưa gửi X-CCut-Client → lấy tên khoá làm tên nguồn
     track = bool(who) and path.startswith("/api/ccut") and request.method == "POST" and "/workspace" not in path
     before = list(C.STATE["queue"]) if track else None
     resp = await call_next(request)
+    if not path.startswith("/api/") and (path in ("/", "/index.html") or "text/html" in (resp.headers.get("content-type") or "")):
+        # trang chính (kể cả 304 dùng lại bản trong bộ đệm) → luôn gắn cookie phiên của giao diện
+        resp.set_cookie(AK.COOKIE, AK.UI_TOKEN, httponly=True, samesite="strict", path="/")
     if who and path.startswith("/api/ccut"):
         import time as _t
         C.CLIENT.update(name=who, at=_t.time())
@@ -45,6 +57,8 @@ from .setup_api import router as setup_router
 app.include_router(setup_router)
 from .updater import router as update_router
 app.include_router(update_router)
+from .apikeys import router as apikeys_router
+app.include_router(apikeys_router)
 load_settings()
 from .paths import RES
 WEB = RES / "web"

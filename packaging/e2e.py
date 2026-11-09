@@ -557,12 +557,44 @@ def _api():
                 break
             time.sleep(0.1)
 
-        class _C:
-            def get(self, path):
-                with urllib.request.urlopen("http://127.0.0.1:8799" + path, timeout=60) as r:
-                    return _R(r.status, r.read().decode("utf-8"))
+        import http.cookiejar
+        import urllib.error
+
+        class _C:                            # giữ cookie phiên của giao diện (API chặn lệnh không có cookie / khoá)
+            def __init__(self, cookies=True):
+                hs = [urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())] if cookies else []
+                self.op = urllib.request.build_opener(*hs)
+
+            def _do(self, method, path, body=None, headers=None):
+                req = urllib.request.Request("http://127.0.0.1:8799" + path, method=method, headers=dict(headers or {}),
+                                             data=None if body is None else json.dumps(body).encode())
+                if body is not None:
+                    req.add_header("content-type", "application/json")
+                try:
+                    with self.op.open(req, timeout=60) as r:
+                        return _R(r.status, r.read().decode("utf-8"))
+                except urllib.error.HTTPError as e:
+                    return _R(e.code, e.read().decode("utf-8"))
+
+            def get(self, path, headers=None):
+                return self._do("GET", path, headers=headers)
+
+            def post(self, path, json=None, headers=None):
+                return self._do("POST", path, json if json is not None else {}, headers)
+
+            def put(self, path, json=None, headers=None):
+                return self._do("PUT", path, json if json is not None else {}, headers)
+
+            def delete(self, path, headers=None):
+                return self._do("DELETE", path, headers=headers)
         c = _C()
+        c.raw = _C(cookies=False)
     out = {}
+    raw = getattr(c, "raw", None)
+    if raw is None:                          # TestClient: client riêng không cookie = phần mềm ngoài
+        from fastapi.testclient import TestClient
+        raw = TestClient(app)
+    assert raw.get("/api/ccut/state").status_code == 401, "API phải chặn lệnh không có khoá"
     for path in ("/", "/api/ccut/setup", "/api/ccut/state", "/api/ccut/channels", "/api/ccut/workspace"):
         r = c.get(path)
         assert r.status_code == 200, f"GET {path} → {r.status_code} {r.text[:300]}"
@@ -571,9 +603,22 @@ def _api():
     os.environ["CCUT_PROJECTS"] = str(WORK / "projects")      # server đặt lại CCUT_PROJECTS theo thư mục đang mở — trả về cho các mục sau
     assert "hyperframes" in st, "thiết lập thiếu mục HyperFrames"
     html = c.get("/").text
-    for k in ("rvCat", "cong_nghe", "my_pham", "am_thuc", "instHF"):
+    for k in ("rvCat", "cong_nghe", "my_pham", "am_thuc", "instHF", "apiKeys"):
         assert k in html, f"giao diện thiếu {k}"
-    return f"{len(out)} endpoint"
+    # khoá API: tạo → phần mềm ngoài gọi được; tắt API → 403; đổi / xoá khoá → khoá cũ 401; ngoài không quản lý khoá được
+    k = c.post("/api/ccut/apikeys", json={"name": "E2E"}).json()["created"]
+    H = {"X-CCut-Key": k["key"], "X-CCut-Client": "E2E"}
+    assert raw.get("/api/ccut/state", headers=H).status_code == 200, "khoá đúng phải gọi được"
+    assert raw.get("/api/ccut/apikeys", headers=H).status_code == 403, "phần mềm ngoài không được xem khoá"
+    c.put("/api/ccut/apikeys", json={"enabled": False})
+    assert raw.get("/api/ccut/state", headers=H).status_code == 403, "API tắt phải chặn"
+    c.put("/api/ccut/apikeys", json={"enabled": True})
+    k2 = c.post(f"/api/ccut/apikeys/{k['id']}/rotate").json()["created"]
+    assert raw.get("/api/ccut/state", headers=H).status_code == 401, "khoá cũ sau khi đổi phải hết hiệu lực"
+    assert raw.get("/api/ccut/state", headers={"X-CCut-Key": k2["key"]}).status_code == 200, "khoá mới phải dùng được"
+    c.delete(f"/api/ccut/apikeys/{k['id']}")
+    assert raw.get("/api/ccut/state", headers={"X-CCut-Key": k2["key"]}).status_code == 401, "khoá đã xoá phải hết hiệu lực"
+    return f"{len(out)} endpoint · khoá API tạo/đổi/xoá/tắt đúng"
 
 
 # ===================== HyperFrames =====================

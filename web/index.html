@@ -161,6 +161,9 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
 .mhead{display:flex;align-items:center;margin-bottom:14px}.mhead b{font-size:16px;font-weight:500}.mhead button{margin-left:auto;border:0}
 .mgrid{display:grid;grid-template-columns:140px 1fr;gap:16px}
 .tabs{display:flex;flex-direction:column;gap:4px}
+.akey{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:var(--panel2)}
+.akey .an{flex:1;min-width:0}.akey .an b{font-size:13px}.akey code{font-size:12px;color:var(--fg2)}.akey .am{font-size:11px;color:var(--fg3)}
+.akey button{font-size:12px;padding:4px 9px;white-space:nowrap}.akey button.danger{color:var(--err)}.akey.fresh{border-color:var(--ok)}
 .tab{padding:7px 10px;border-radius:7px;color:var(--fg2);cursor:pointer;font-size:13px}
 .tab.on{background:var(--acc-bg);color:var(--acc-fg2)}
 .field{margin-bottom:12px}
@@ -297,7 +300,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
   <div class="modal">
     <div class="mhead"><b>Cài đặt</b><button id="closeSettings" aria-label="Đóng">✕</button></div>
     <div class="mgrid">
-      <div class="tabs"><div class="tab on" data-t="project">Dự án</div><div class="tab" data-t="tools">Công cụ</div><div class="tab" data-t="notify">Thông báo</div><div class="tab" data-t="bgs">Nền kênh</div></div>
+      <div class="tabs"><div class="tab on" data-t="project">Dự án</div><div class="tab" data-t="tools">Công cụ</div><div class="tab" data-t="notify">Thông báo</div><div class="tab" data-t="bgs">Nền kênh</div><div class="tab" data-t="api">API</div></div>
       <div>
         <div data-p="project">
           <div class="field"><label>Nơi lưu dữ liệu làm việc của dự án (mặc định khi tạo dự án mới)</label><div class="row"><input id="sProj"><button id="pickProj">Chọn</button></div></div>
@@ -313,6 +316,14 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <div data-p="bgs" hidden>
           <p class="small dim" style="margin:0 0 10px">Nền Motion Graphics theo kênh của video. Mỗi kênh 5 nền, cứ <b id="bgEvery">15</b> video xuất xong thì đổi sang nền kế tiếp, xoay vòng.</p>
           <div id="bglist" style="max-height:62vh;overflow:auto;padding-right:6px"></div>
+        </div>
+        <div data-p="api" hidden>
+          <p class="small dim" style="margin:0 0 10px">Cho phần mềm khác trên máy này (CN.AI, trợ lý tự động…) điều khiển C-Cut: mở dự án, thêm video, theo dõi tiến độ. Mỗi phần mềm nên có một khoá riêng — xoá / đổi khoá là phần mềm đó mất quyền ngay.</p>
+          <label class="small" style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input type="checkbox" id="apiOn" style="width:auto"> <b>Bật API</b> <span class="dim" id="apiOnNote"></span></label>
+          <div class="field"><label>Địa chỉ API</label><div class="row"><input id="apiUrl" readonly><button id="apiUrlCp">Sao chép</button></div>
+            <div class="small dim" style="margin-top:4px">Dán địa chỉ và khoá vào phần mềm cần kết nối. Chỉ dùng được trên máy này, khi C-Cut đang mở.</div></div>
+          <div class="field"><label>Khoá API</label><div id="apiKeys"></div>
+            <div class="row" style="margin-top:8px"><input id="apiNewName" placeholder="Tên phần mềm dùng khoá (vd CN.AI)" maxlength="40"><button class="primary" id="apiNew" style="white-space:nowrap">+ Tạo khoá</button></div></div>
         </div>
         <div data-p="notify" hidden>
           <label class="small"><input type="checkbox" id="nSound" style="width:auto"> Âm báo khi xong / lỗi</label><br>
@@ -756,7 +767,26 @@ function openSettings(tab='project'){
 async function loadBgs(){try{const d=await api('/api/ccut/channels');$('#bgEvery').textContent=d.every;
   $('#bglist').innerHTML=d.channels.map(c=>`<div class="bgrow"><div class="bghd"><b>${c.name}</b><span class="small dim">đã xuất ${c.exported} video · nền ${c.current} còn ${c.left} video nữa thì đổi</span></div>
   <div class="bgimgs">${c.bgs.map(k=>`<figure class="${k===c.current?'on':''}"><img loading="lazy" src="/backgrounds/${c.id}/nen-${k}.png" alt="${c.name} nền ${k}"><figcaption>${k===c.current?'● đang dùng':'Nền '+k}</figcaption></figure>`).join('')}</div></div>`).join('')}catch(e){$('#bglist').textContent=e.message}}
-function selTab(t){if(t==='bgs')loadBgs();document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.querySelectorAll('[data-p]').forEach(x=>x.hidden=x.dataset.p!==t)}
+let AK={keys:[]},akFresh='',akArm='';
+const agoTxt=t=>{if(!t)return'chưa dùng';const d=Date.now()/1000-t;return d<60?'vừa xong':d<3600?Math.floor(d/60)+' phút trước':d<86400?Math.floor(d/3600)+' giờ trước':Math.floor(d/86400)+' ngày trước'};
+function copyTxt(t){try{navigator.clipboard.writeText(t).then(()=>toast('Đã sao chép'),()=>fb())}catch(e){fb()}
+  function fb(){const x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();document.execCommand('copy');x.remove();toast('Đã sao chép')}}
+function renderAK(){$('#apiOn').checked=!!AK.enabled;$('#apiOnNote').textContent=AK.enabled?'— phần mềm có khoá đúng được phép gọi':'— đang tắt, mọi lệnh gọi từ ngoài đều bị từ chối';
+  $('#apiUrl').value=AK.url||'(mở lại C-Cut để có địa chỉ)';
+  $('#apiKeys').innerHTML=AK.keys.length?AK.keys.map(k=>`<div class="akey${k.id===akFresh?' fresh':''}"><div class="an"><b>${esc(k.name)}</b><br><code>${k.id===akFresh?esc(k.key):esc(k.key.slice(0,9)+'••••••••'+k.key.slice(-4))}</code><div class="am">${k.last_used?'dùng '+agoTxt(k.last_used)+(k.last_client?' · '+esc(k.last_client):''):'chưa dùng'}${k.id===akFresh?' · <span style="color:var(--ok)">khoá mới — sao chép dán vào phần mềm</span>':''}</div></div>
+  <button data-ak="cp" data-id="${k.id}">Sao chép</button><button data-ak="rot" data-id="${k.id}">${akArm==='rot'+k.id?'Bấm lần nữa':'Đổi khoá'}</button><button class="danger" data-ak="del" data-id="${k.id}">${akArm==='del'+k.id?'Bấm lần nữa':'Xoá'}</button></div>`).join(''):'<div class="small dim">Chưa có khoá nào. Tạo một khoá cho mỗi phần mềm cần điều khiển C-Cut.</div>'}
+async function loadAK(){try{AK=await api('/api/ccut/apikeys');renderAK()}catch(e){$('#apiKeys').textContent=e.message}}
+$('#apiOn').onchange=async e=>{AK=await api('/api/ccut/apikeys',{method:'PUT',body:JSON.stringify({enabled:e.target.checked})});renderAK();toast(AK.enabled?'Đã bật API':'Đã tắt API')};
+$('#apiUrlCp').onclick=()=>copyTxt($('#apiUrl').value);
+$('#apiNew').onclick=async()=>{const r=await post('/api/ccut/apikeys',{name:$('#apiNewName').value});AK=r;akFresh=r.created.id;$('#apiNewName').value='';renderAK();copyTxt(r.created.key)};
+$('#apiKeys').onclick=async e=>{const b=e.target.closest('button[data-ak]');if(!b)return;const id=b.dataset.id,k=AK.keys.find(x=>x.id===id);
+  if(b.dataset.ak==='cp')return copyTxt(k.key);
+  if(akArm!==b.dataset.ak+id){akArm=b.dataset.ak+id;renderAK();setTimeout(()=>{if(akArm===b.dataset.ak+id){akArm='';renderAK()}},4000);return}
+  akArm='';
+  if(b.dataset.ak==='del'){AK=await api('/api/ccut/apikeys/'+id,{method:'DELETE'});toast('Đã xoá khoá “'+k.name+'” — phần mềm dùng khoá này mất quyền ngay')}
+  else{const r=await post('/api/ccut/apikeys/'+id+'/rotate');AK=r;akFresh=id;copyTxt(r.created.key);toast('Đã đổi khoá — khoá cũ hết hiệu lực, khoá mới đã sao chép')}
+  renderAK()};
+function selTab(t){if(t==='bgs')loadBgs();if(t==='api'){akFresh='';loadAK()}document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.querySelectorAll('[data-p]').forEach(x=>x.hidden=x.dataset.p!==t)}
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>selTab(t.dataset.t));
 $('#gear').onclick=()=>openSettings();$('#sys').onclick=()=>openSettings('tools');
 $('#closeSettings').onclick=()=>$('#settings').classList.remove('show');
