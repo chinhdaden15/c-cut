@@ -19,8 +19,8 @@ from pathlib import Path
 from .paths import ROOT
 
 NOTO_DIR = ROOT / "assets" / "fonts" / "noto"
-_CJK = "https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/{k}/NotoSans{k}-{w}.otf"
-_NOTO = "https://github.com/notofonts/notofonts.github.io/raw/main/fonts/{f}/hinted/ttf/{f}-{w}.ttf"
+_CJK = "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/SubsetOTF/{k}/NotoSans{k}-{w}.otf"
+_NOTO = "https://raw.githubusercontent.com/notofonts/notofonts.github.io/main/fonts/{f}/hinted/ttf/{f}-{w}.ttf"
 
 # ngôn ngữ → họ font Noto (None = font của style đã đủ: Latin + tiếng Việt)
 SCRIPT = {
@@ -93,6 +93,32 @@ def _files(lang: str) -> list[tuple[str, Path]]:
     return out
 
 
+def _mirrors(url: str) -> list[str]:
+    """raw.githubusercontent → thử lại, rồi bản sao jsDelivr (GitHub hay trả 504 với file font lớn)."""
+    import re as _re
+    m = _re.match(r"https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)", url)
+    return [url, url] + ([f"https://cdn.jsdelivr.net/gh/{m.group(1)}/{m.group(2)}@{m.group(3)}/{m.group(4)}"] if m else [])
+
+
+def _fetch(url: str, f: Path):
+    import time
+    err = None
+    for i, u in enumerate(_mirrors(url)):
+        try:
+            req = urllib.request.Request(u, headers={"User-Agent": "C-Cut"})
+            data = urllib.request.urlopen(req, timeout=120).read()
+            if len(data) < 10_000:
+                raise IOError(f"file font quá nhỏ ({len(data)} byte)")
+            tmp = f.with_suffix(f.suffix + ".part")
+            tmp.write_bytes(data)
+            tmp.replace(f)
+            return
+        except Exception as e:
+            err = e
+            time.sleep(1 + i)
+    raise err
+
+
 def ensure(lang: str) -> list[Path]:
     if lang not in SCRIPT:
         return []
@@ -100,10 +126,7 @@ def ensure(lang: str) -> list[Path]:
     got = []
     for url, f in _files(lang):
         if not f.exists():
-            req = urllib.request.Request(url, headers={"User-Agent": "C-Cut"})
-            tmp = f.with_suffix(f.suffix + ".part")
-            tmp.write_bytes(urllib.request.urlopen(req, timeout=120).read())
-            tmp.replace(f)
+            _fetch(url, f)
         got.append(f)
     return got
 
