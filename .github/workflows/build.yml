@@ -20,11 +20,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.11", cache: pip, cache-dependency-path: "requirements.lock.txt"}
+      - uses: actions/cache@v4             # ffmpeg ghim: tải 1 lần, các lần sau lấy từ cache (GitHub hay trả 504 khi tải file release)
+        id: ffcache
+        with: {path: build/ffmpeg, key: "ffmpeg-mac-${{ matrix.arch }}-tools-ffmpeg-1"}
       - name: ffmpeg tĩnh (bản ghim ở release tools-ffmpeg-1 — không phụ thuộc trang ngoài)
         run: |
           mkdir -p build/ffmpeg && cd build/ffmpeg
-          curl -fsSL --retry 3 -o ff.zip "https://github.com/chinhdaden15/c-cut/releases/download/tools-ffmpeg-1/ffmpeg-mac-${{ matrix.arch }}.zip"
-          unzip -o ff.zip && rm ff.zip && chmod +x ffmpeg ffprobe
+          if [ ! -x ffmpeg ]; then
+            curl -fsSL --retry 8 --retry-all-errors --retry-delay 10 -o ff.zip "https://github.com/chinhdaden15/c-cut/releases/download/tools-ffmpeg-1/ffmpeg-mac-${{ matrix.arch }}.zip"
+            unzip -o ff.zip && rm ff.zip && chmod +x ffmpeg ffprobe
+          fi
           ./ffmpeg -hide_banner -filters | grep -E "zscale|loudnorm|ebur128"
       - uses: actions/cache@v4             # model chép lời / giọng đọc / Node của lần trước → không tải lại, tránh bị giới hạn lượt
         with:
@@ -71,12 +76,19 @@ jobs:
       - run: pip install -r packaging/requirements-build.txt
       - run: pip install --no-deps vieneu==3.2.1
       - run: choco install innosetup -y --no-progress
+      - uses: actions/cache@v4
+        with: {path: build/ffmpeg, key: "ffmpeg-win64-tools-ffmpeg-1"}
       - name: ffmpeg tĩnh (bản ghim)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force build\ffmpeg | Out-Null
-          Invoke-WebRequest "https://github.com/chinhdaden15/c-cut/releases/download/tools-ffmpeg-1/ffmpeg-win64.zip" -OutFile build\ffw.zip
-          Expand-Archive build\ffw.zip -DestinationPath build\ffmpeg -Force; Remove-Item build\ffw.zip
+          if (-not (Get-ChildItem build\ffmpeg -Recurse -Filter ffmpeg.exe -ErrorAction SilentlyContinue)) {
+            for ($i = 1; $i -le 8; $i++) {
+              try { Invoke-WebRequest "https://github.com/chinhdaden15/c-cut/releases/download/tools-ffmpeg-1/ffmpeg-win64.zip" -OutFile build\ffw.zip; break }
+              catch { if ($i -eq 8) { throw }; Start-Sleep -Seconds (10 * $i) }
+            }
+            Expand-Archive build\ffw.zip -DestinationPath build\ffmpeg -Force; Remove-Item build\ffw.zip
+          }
       - uses: actions/cache@v4
         with:
           path: |
