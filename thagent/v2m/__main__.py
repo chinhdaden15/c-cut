@@ -163,14 +163,15 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
             out.append(("error", f"video/ảnh minh hoạ thật chỉ {cov:.0f}s / {tl.duration:.0f}s (< 40%) — thêm b-roll đúng ý từng câu "
                                  "(s.photo_bg video phủ khung + chữ/thẻ đè lên), kể cả video giới thiệu app/dịch vụ: người dùng, màn hình, thiết bị…"))
         from .kit import Kit
-        cap = Kit(pdir, "9x16").claude_captions()
+        _K = Kit(pdir, "9x16")
+        cap = _K.claude_captions()
         if cap is None:
-            out.append(("error", "thiếu/sai captions.json — ghi danh sách cụm phụ đề theo ĐÚNG chữ và thứ tự của transcript (≤ 2 dòng × 28 ký tự, "
-                                 "xuống dòng bằng \\n, không tách từ ghép)"))
+            out.append(("error", f"captions.json sai: {getattr(_K, 'cap_err', '') or 'không khớp transcript'} — mỗi cụm là chữ ĐÚNG và ĐỦ theo "
+                                 "thứ tự của transcript.json (≤ 2 dòng × 28 ký tự, xuống dòng bằng \\n)"))
         else:
             for a, b, t in cap:
                 ls = t.split("\n")
-                if len(ls) > 2 or any(len(x) > 30 for x in ls):
+                if len(ls) > 2 or any(len(x) > 30 and len(x.split()) > 1 for x in ls):   # 1 từ quá dài (mã, tên) đứng riêng 1 dòng vẫn được
                     out.append(("error", f"phụ đề “{t[:40]}…” quá dài (≤ 2 dòng × 28 ký tự) — chia lại cụm"))
                 elif len(t.split()) <= 1 and b - a < 1.0:
                     out.append(("warn", f"cụm phụ đề “{t}” chỉ 1 từ — gộp vào cụm bên cạnh"))

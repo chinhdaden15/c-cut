@@ -4,6 +4,8 @@ Mỗi dòng: tên kỹ thuật (tên chuẩn trong nghề, để tra cứu) — 
 Quy đổi GSAP: 30 frame = 1s → `duration: frames/30`. HyperFrames chỉ animate transform + opacity (không top/left/boxShadow).
 HyperFrames chụp từng frame bằng cách TUA timeline: không dùng `tl.call`, `classList`, `setTimeout` để đổi trạng thái (khi tua sẽ không chạy) —
 muốn đổi màu / bật sáng thì đặt sẵn một lớp phủ rồi tween `opacity`; số chạy dùng `onUpdate` của một tween (an toàn khi tua).
+Voice to Motion / Text to Video xuất CẢ dọc lẫn ngang: cảnh `custom` để `region="main"` (mặc định) — app tự co cả cụm vào vùng minh hoạ của
+từng khổ. KHÔNG dùng `region=None` với toạ độ khung dọc (sang khổ ngang sẽ tràn xuống đè phụ đề). Mốc trong js tính từ ĐẦU LỚP custom (t0 của s.mg), không từ đầu cảnh.
 
 ## Chữ vào / ra
 | Kỹ thuật | Thông số |

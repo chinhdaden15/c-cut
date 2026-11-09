@@ -197,6 +197,23 @@ def _prompt_docs():
     return f"{len(refs)} tài liệu"
 
 
+@case("common", "Text to Video: kịch bản kèm ghi chú / mốc giờ / link nguồn → chỉ đọc lời (không đọc thành tiếng phần thừa)")
+def _t2v_spoken():
+    from thagent import t2v as T
+    raw = ("*Ở đây, tôi hiểu “đồng ngoại tài chính” là ngoại tệ.*\n\n**0–8 giây · Mở đầu**  \n*Hình ảnh gợi ý: Căn hộ, bảng tỷ giá.*\n\n"
+           "“Đồng đô la tăng giá thì người mua nhà có bị ảnh hưởng không? Có thể.”\n\n**8–24 giây · Thân**  \n"
+           "“Khi một đô la đổi được nhiều tiền Việt hơn, hàng nhập khẩu có thể đắt lên.” [BIS](https://www.bis.org/x)\n"
+           "Nguồn: https://imf.org/abc")
+    sp = T.spoken(raw)
+    bad = [x for x in ("http", "bis.org", "giây", "Hình ảnh", "*", "đồng ngoại", "Nguồn", "[") if x in sp]
+    assert not bad, f"còn phần không đọc: {bad} → {sp!r}"
+    assert sp.startswith("Đồng đô la tăng giá") and "hàng nhập khẩu có thể đắt lên." in sp, sp
+    plain = "Mỗi ngày một ly cà phê ba mươi lăm nghìn, nghe thì nhỏ. Anh ấy nói “tôi làm được” rồi đi."
+    assert T.spoken(plain) == plain, T.spoken(plain)
+    assert T.spoken("**Hook:** Bạn có biết điều này?") == "Bạn có biết điều này?"
+    return f"{len(sp.split())} từ lời đọc"
+
+
 @case("common", "bản quyền skill: mọi skill bán (Talking Head, Review, Voice to Motion) bị chặn khi chưa mua/không có lượt thử, mã giả bị từ chối")
 def _license():
     import base64

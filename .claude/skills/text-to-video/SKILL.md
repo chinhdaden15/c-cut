@@ -12,6 +12,9 @@ Bộ dựng dùng chung với Voice to Motion: ĐỌC `.claude/skills/voice-to-m
 - `voice.wav` do app đọc từ kịch bản (giọng người dùng chọn, tốc độ 1.1). KHÔNG chạy `v2m clean / restore / speed` — giọng đã sạch, đúng tốc độ.
 - `transcript.json`: chữ = ĐÚNG chữ kịch bản (không phải bản chép lời) → phụ đề, chữ nhấn dùng thẳng, không sửa chính tả.
 - `script.json`: từng câu + mốc giây (start/end) + `match` (độ khớp giọng đọc; < 0.6 → nghe lại câu đó trước khi dựng).
+- App đã LỌC kịch bản trước khi đọc (2.5.8): bỏ dòng ghi chú `*…*`, tiêu đề mốc giờ, "Hình ảnh gợi ý:", link nguồn; lời trong “…” mới đọc.
+  `script.txt` = lời đã đọc; `script_goc.txt` = bản gốc (lấy link nguồn từ đây cho phần ghi nguồn, KHÔNG đưa vào phụ đề / chữ trên hình).
+  Phụ đề (`captions.json`) dựng từ `transcript.json`, không từ kịch bản gốc. Check báo captions sai → đọc đúng cụm / từ nó chỉ ra, sửa đúng chỗ đó.
 
 ## 2. Mỗi câu = một nhịp hình (kiểu KẾT HỢP)
 | Câu nói về… | Hình |
@@ -66,6 +69,7 @@ không 3 cảnh liền cùng kiểu, không một nền suốt video, thẻ kế
 - **Số tiền:** viết gọn — “một trăm chín mươi chín nghìn đồng” → `199K` (unit="K"), triệu → `M` hoặc “triệu”, tỷ → “tỷ”; tiền ngoại giữ ký hiệu như lời ($, €). Cả cụm một dòng (app tự co chữ).
 
 ## 5d. Ý tưởng theo lời (từ 11/2026)
+Cảnh `s.mg("custom")` để `region="main"` (mặc định) — một html dùng cho cả 9:16 lẫn 16:9; mốc trong js tính từ t0 của chính lớp đó.
 Câu khẳng định trừu tượng, con số, thời gian, so sánh, danh sách → ưu tiên MỘT VẬT ẨN DỤ có 3–5 nhịp đổi neo theo từ (`s.mg("custom")`),
 thay cho kinetic chữ trơn hoặc thẻ icon: `.claude/shared/editatlas/y-tuong-theo-loi.md`. Thông số chuyển động: `.claude/shared/editatlas/thong-so-chuyen-dong.md`.
 Không lặp cùng một ý tưởng trong một video; b-roll thật vẫn là hình chính (≥ 40%).

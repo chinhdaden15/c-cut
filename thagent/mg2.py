@@ -469,6 +469,8 @@ def beats(sc: dict, D: float) -> list[float]:
         return FX.beats(sc, D)
     n = len(sc.get("items") or sc.get("icons") or sc.get("images") or [])
     out = [0.0, 0.5, 1.6] + (delays(sc, n, .3, .35) if n else [])
+    if sc.get("kind") == "custom":                       # vật ẩn dụ tự thiết kế: nhịp đổi trạng thái theo lời = "at" (+ tween ~0.4s sau)
+        out += [float(t) for t in sc.get("at") or []] + [float(t) + 0.4 for t in sc.get("at") or []]
     return sorted({round(x, 2) for x in out if x < D})
 
 

@@ -373,22 +373,36 @@ class Kit:
     def claude_captions(self) -> list[tuple[float, float, str]] | None:
         """captions.json (Claude chia): ["cụm 1 dòng", "dòng trên\\ndòng dưới", …] theo đúng thứ tự lời → gắn mốc từ.
         Sai chữ / thiếu / thừa so với lời → None (dùng cách chia tự động)."""
+        self.cap_err = ""
         f = self.pdir / "captions.json"
         if not f.exists():
+            self.cap_err = "chưa có captions.json"
             return None
         try:
             items = json.loads(f.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as e:
+            self.cap_err = f"captions.json không đọc được JSON ({e})"
             return None
         out, k = [], 0
-        for it in items:
+        for j, it in enumerate(items):
             n = len(str(it).split())
             ws = self.words[k:k + n]
-            if n == 0 or len(ws) < n or [_norm(w["text"]) for w in ws] != [_norm(x) for x in str(it).split()]:
+            got = [_norm(x) for x in str(it).split()]
+            want = [_norm(w["text"]) for w in ws]
+            if n == 0 or len(ws) < n or want != got:
+                i = next((i for i, (a, b) in enumerate(zip(want, got)) if a != b), min(len(want), len(got)))
+                exp = " ".join(w["text"] for w in self.words[k:k + n + 2]) or "(hết lời)"
+                self.cap_err = (f"cụm {j + 1} “{str(it)[:50]}”: từ thứ {i + 1} là “{str(it).split()[i] if i < len(got) else '(thiếu)'}” "
+                                f"nhưng transcript là “{self.words[k + i]['text'] if k + i < len(self.words) else '(hết lời)'}” — "
+                                f"lời đúng từ đây: “{exp[:80]}”")
                 return None
             out.append((ws[0]["start"], ws[-1]["end"], str(it)))
             k += n
-        return out if k == len(self.words) else None
+        if k != len(self.words):
+            self.cap_err = (f"captions.json mới phủ {k}/{len(self.words)} từ — thiếu đoạn cuối từ “"
+                            + " ".join(w["text"] for w in self.words[k:k + 8]) + "…”")
+            return None
+        return out
 
     def _captions_block(self, scenes):
         """phụ đề kiểu mạng xã hội: cụm ngắn hiện cả cụm, chữ đậm to có viền, TỪ ĐANG ĐỌC đổi màu nhấn (karaoke)."""

@@ -85,6 +85,56 @@ def split(text: str) -> list[dict]:
     return out or [{"title": "Video 1", "text": text.strip()}]
 
 
+_LINK = re.compile(r"!?\[([^\]]*)\]\((?:https?://|www\.)[^)]*\)")         # [nhãn](url) — chú thích nguồn, không đọc
+_URL = re.compile(r"(?:https?://|www\.)\S+")
+_NOTE = re.compile(r"^\s*(?:[-•>]\s*)?(?:\*{1,2}|_)?\s*(?:hình ảnh(?: gợi ý)?|hinh anh(?: goi y)?|gợi ý hình|cảnh|canh|b-?roll|hình|visual|"
+                   r"âm thanh|am thanh|sfx|nhạc(?: nền)?|nhac(?: nen)?|music|ghi chú|ghi chu|lưu ý|luu y|chú thích|chu thich|"
+                   r"nguồn|nguon|source|tham khảo|tham khao|text trên màn hình|chữ trên màn hình|on-?screen(?: text)?|ctas?|hashtag)\s*:", re.I)
+_TIME = re.compile(r"(?:\d{1,2}:\d{2}|\d+\s*[–—-]\s*\d+\s*(?:giây|giay|s\b|sec)|\d+\s*(?:giây|giay)\b)", re.I)
+_QUOTE = re.compile(r"[“\"]([^”\"]{8,})[”\"]")
+
+
+def spoken(text: str) -> str:
+    """CHỈ lời đọc trong kịch bản: bỏ dòng ghi chú (*…*), tiêu đề mốc giờ (**0–8 giây · Mở đầu**), hướng dẫn hình / âm,
+    link nguồn [..](url) + url trần, dấu markdown. Kịch bản đặt lời trong ngoặc kép “…” → chỉ đọc phần trong ngoặc.
+    (Kịch bản từ CN.AI / ChatGPT hay kèm các phần này — đọc thành tiếng làm giọng dài, phụ đề chứa link, bộ kiểm chặn.)"""
+    out = []
+    for raw in text.replace("\r", "").split("\n"):
+        ln = _URL.sub("", _LINK.sub("", raw)).strip()
+        if not ln:
+            out.append("")
+            continue
+        core = ln.strip("*_ ").strip()
+        if _NOTE.match(ln) or _NOTE.match(core):
+            continue
+        if re.fullmatch(r"\*[^*].*[^*]\*|_[^_].*[^_]_", ln) and not core.startswith(("“", '"')):   # cả dòng in nghiêng = ghi chú
+            continue
+        if re.fullmatch(r"\*\*.+\*\*", ln) and (_TIME.search(ln) or len(core.split()) <= 12) and not core.startswith(("“", '"')):
+            continue                                                                           # tiêu đề đậm / mốc giờ
+        if re.fullmatch(r"[\[(].*[\])]", ln):                                                 # [chỉ dẫn] / (chỉ dẫn)
+            continue
+        if _TIME.match(core) and len(core.split()) <= 12 and not _QUOTE.search(ln):
+            continue
+        ln = re.sub(r"^\s*(?:\*\*|__)?\s*(?:hook|mở đầu|mo dau|mở bài|thân bài|than bai|kết bài|kết|ket|cta|kêu gọi|lời dẫn|loi dan|"
+                    r"lời đọc|loi doc|voice ?over|vo|phần \d+|phan \d+|đoạn \d+|doan \d+|ý \d+)\s*(?:\*\*|__)?\s*[:：]\s*(?:\*\*|__)?\s*", "", ln, flags=re.I)
+        if ln.strip():
+            out.append(ln)
+    body = "\n".join(out)
+    quotes = [m.group(1).strip() for m in _QUOTE.finditer(body)]
+    if len(quotes) >= 2 and sum(len(q.split()) for q in quotes) >= 0.5 * len(re.sub(r"[“”\"*_#>`]", " ", body).split()):
+        paras = []
+        for para in re.split(r"\n\s*\n", body):
+            qs = [m.group(1).strip() for m in _QUOTE.finditer(para)]
+            if qs:
+                paras.append(" ".join(qs))
+        body = "\n\n".join(paras)
+    body = re.sub(r"[*_`#>]+", "", body)                 # dấu markdown còn sót
+    body = re.sub(r"\[[^\]]*\]", "", body)               # [chú thích] trong câu
+    body = re.sub(r"[ \t]+", " ", body)
+    body = re.sub(r"\n{3,}", "\n\n", body)
+    return "\n".join(l.strip() for l in body.split("\n")).strip()
+
+
 def sentences(text: str) -> list[dict]:
     """[{"text", "para"}] — câu kết bằng . ! ? … hoặc xuống dòng; câu quá dài (>36 từ) cắt ở dấu phẩy."""
     out = []
@@ -183,7 +233,10 @@ def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print)
     pdir = Path(pdir)
     work = pdir / "work_t2v"
     work.mkdir(parents=True, exist_ok=True)
-    text = read_text(src)
+    raw = read_text(src)
+    text = spoken(raw)                                   # chỉ lời đọc — bỏ ghi chú, mốc giờ, link nguồn
+    if text != raw.strip():
+        (pdir / "script_goc.txt").write_text(raw, encoding="utf-8")   # bản gốc (có link nguồn) để ghi nguồn
     sents = sentences(text)
     if not sents:
         raise T2VError("kịch bản trống")

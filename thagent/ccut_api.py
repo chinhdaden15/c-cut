@@ -1202,7 +1202,7 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
     if item.get("script") and not (pdir / "transcript_raw.json").exists():   # có kịch bản → phụ đề đúng chữ kịch bản (C-Cut, tên riêng…)
         from . import t2v as T2V
         try:
-            T2V.retext(pdir, item["script"], log=log)
+            T2V.retext(pdir, T2V.spoken(item["script"]), log=log)
         except Exception as e:
             log(f"Không đối chiếu được kịch bản: {e}")
     if not (pdir / "voice_edit.json").exists():
@@ -1318,7 +1318,8 @@ def t2v_add(b: T2VIn):
         if not raw.strip():
             raise HTTPException(400, "chưa có kịch bản")
         for v in TV.split(raw):
-            items.append({"name": v["title"][:60], "script": v["text"]})
+            sp = TV.spoken(v["text"])                    # số từ / thời lượng tính theo LỜI ĐỌC (không tính ghi chú, link)
+            items.append({"name": v["title"][:60], "script": sp, **({"script_raw": v["text"]} if sp != v["text"].strip() else {})})
     for it in items:
         words = len((it.get("script") or "").split())
         it.update(kind="t2v", path=f"t2v:{int(time.time() * 1000)}:{len(STATE['queue'])}", status="wait", project=None,
