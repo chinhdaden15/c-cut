@@ -847,6 +847,8 @@ class Scene:
             self.hide(prev[0], t_ + 0.6, "fade", 0.01)
             lab = prev[1]
         else:
+            lab = None
+        if not prev and FT.SHOW_LABEL:
             lab = self.add({"type": "text", "text": FT.label(), "font": "medium", "size": 22, "color": "#FFFFFF",
                             "space": "screen", "x": K.W / 2, "y": K.F.center("source")[1], "shadow": 0.6, "role": "source", "layer": 30},
                            t_, "fade", 0.4)

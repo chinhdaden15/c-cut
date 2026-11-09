@@ -33,7 +33,7 @@ MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son 
   `.venv/bin/python -m thagent.v2m broll {pdir} mixkit:<mã> v_ten.mp4` → Read ảnh xem trước in ra. Không có clip hợp thì Pexels / Pinterest
   (WebSearch tìm link, `broll {pdir} <url> v_ten.mp4 "<nguồn>"`).
 - Ảnh: `.venv/bin/python -m thagent.tools imgsearch {pdir} "<từ khoá>"` hoặc `tools imgpage {pdir} <link trang>` → Read ảnh ghép → `tools img {pdir} #số i_ten.jpg`.
-- Trên video chỉ ghi “Hình ảnh minh họa” / “Hình ảnh thực tế”; KHÔNG ghi nguồn (nguồn lưu trong illus_sources.json).
+- Trên video KHÔNG ghi nhãn loại ảnh (“Hình ảnh minh họa / thực tế”) lên video — app tự ẩn; vẫn phân loại ảnh thật (w_*, real=True) để app kiểm; KHÔNG ghi nguồn (nguồn lưu trong illus_sources.json).
 
 ## 4. Mô tả + nhãn vật (bắt buộc, app kiểm)
 `assets_web/illus_check.json` cho MỌI ảnh/video web: `{"v_dau_co.mp4": {"noi_dung_anh": "cận cảnh đầu cọ son đang tán lên môi", "vat": "đầu cọ son", "cau_noi": "…", "khop": true}}`

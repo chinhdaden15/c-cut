@@ -131,7 +131,10 @@ def photo_card(path: str, w: int, h: int, label: str = "") -> np.ndarray:
         box = np.zeros((lh + 16, lw + 24, 4), np.float32); box[..., 3] = 0.45
         _blend(out, box, pad + 18, pad + 18)
         _blend(out, lab, pad + 30, pad + 26)
-    if os.path.basename(path).startswith("i_"):   # ảnh minh họa ngoài dự án → ghi rõ, chữ nghiêng góc dưới phải
+    from . import fonts as _FT
+    if label and not _FT.visible(label):
+        label = None
+    if os.path.basename(path).startswith("i_") and _FT.SHOW_LABEL:   # ảnh minh họa ngoài dự án → ghi rõ, chữ nghiêng góc dưới phải
         from . import fonts as FT
         t = ink_text(FT.label(), "semi", 24, "#FFFFFF")
         th, tw = t.shape[:2]

@@ -27,6 +27,6 @@ Kind (tham số):
   kẹp ảnh      photo_card(image, text) · photo_circle(image, label) · polaroid(image, script, text) · photo_split(image, lead, text, icon)
                photo_strip(images[3], title, at[frame…]) · photo_compare(a_image, b_image, a_label, b_label)
                photo_behind(image, label — layer behind, trên đầu) · thought(image, text) · phone(image, label)
-  Ảnh: assets_web/i_* (minh hoạ — app ghi nhãn “Hình ảnh minh họa”), w_* (ảnh thật của chủ thể), c_* (khung cắt từ clip).
+  Ảnh: assets_web/i_* (minh hoạ — không hiện nhãn), w_* (ảnh thật của chủ thể), c_* (khung cắt từ clip).
   Icon: tên Uicons như các phần khác (tra bằng neon.icon_exists).
 ```

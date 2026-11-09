@@ -43,6 +43,8 @@ Hai mẫu đó là video BĐS — **chỉ học cấu trúc và nhịp, không h
 **Mọi lĩnh vực:** trước khi lập kế hoạch, đọc transcript và xác định lĩnh vực + khán giả + chủ thể chính (thương hiệu/sản phẩm/địa điểm/người/sự kiện),
 ghi mục đầu `confirm.json` `{"id":"domain","text":"Lĩnh vực: … · Khán giả: … · Chủ thể: …","status":"auto"}`. Chữ, ảnh, icon, bối cảnh minh họa theo đúng lĩnh vực đó.
 
+**Nhãn ảnh (2.5.8):** KHÔNG ghi nhãn loại ảnh (“Hình ảnh minh họa / thực tế”) lên video — app tự ẩn; vẫn phân loại ảnh thật (w_*, real=True) để app kiểm.
+
 Giọng nói và ý nghĩa nguyên bản là nền tảng. Không đổi số, đơn vị, điều kiện, tên riêng.
 
 ## Ý TƯỞNG THEO LỜI (1.7.0): mỗi ý chính là một vật có diễn biến

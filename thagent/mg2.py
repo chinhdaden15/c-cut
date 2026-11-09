@@ -14,7 +14,7 @@ Kind (tham số):
   money      value_from, value_to, decimals, unit "tỷ" | prefix "$", locale "en" (2,000), hit_at (GIÂY từ đầu cảnh lúc NÓI số cuối — số chạy chạm đúng lúc đó + khung phóng lên + loé sáng + tiếng tiền), title, sub, badge, icon — số tiền chạy + thẻ phụ
   notif      items [{icon, title, text}] (2–4)                                 — chồng thông báo trượt xuống
   question   image (ẢNH MINH HOẠ đúng ý câu hỏi — bắt buộc), lead "Câu hỏi:", text, sub, icon — thẻ câu hỏi: ảnh trong khung + dấu ? 3D
-  photos     title, images [{src, label}] (1–3), note "Hình ảnh minh họa"      — ảnh xếp nghiêng có nhãn
+  photos     title, images [{src, label}] (1–3), note (tuỳ chọn)              — ảnh xếp nghiêng có nhãn tên vật
   doc        title, heading, highlight, icon                                   — tài liệu, dòng quan trọng tô sáng
   iconrow    icons [3d:…] (3–5), lead, text                                    — hàng huy hiệu tròn bật lên trên đầu (bg none)
   chips      items [{icon, text}] (2–4), side "left"|"right"                   — chip nhãn cạnh người nói (bg none)
@@ -313,9 +313,9 @@ def _t_question(sc, V, tone):
     if sc.get("image"):                                 # ảnh minh hoạ trong khung + dấu ? 3D nhỏ ở góc
         head = (f'<div class=pnl style="position:absolute;left:{_px(40)};right:{_px(40)};top:{_px(40)};height:52%;border-radius:{_px(28)};overflow:hidden">'
                 f'<img src="{_uri(sc["image"])}" style="width:100%;height:100%;object-fit:cover;display:block"></div>'
-                f'<div style="position:absolute;right:{_px(56)};top:{_px(56)};padding:{_px(6)} {_px(16)};border-radius:10px;background:rgba(0,0,0,.55);'
-                f'font-size:{_px(24)};font-weight:600">{E(sc.get("note") or _label())}</div>'
-                f'<img class=q src="{qi}" style="position:absolute;width:{_px(150)};left:{_px(60)};top:calc(52% - 40px*var(--s))">')
+                + (f'<div style="position:absolute;right:{_px(56)};top:{_px(56)};padding:{_px(6)} {_px(16)};border-radius:10px;background:rgba(0,0,0,.55);'
+                   f'font-size:{_px(24)};font-weight:600">{E(sc.get("note") or _label())}</div>' if (sc.get("note") or _label()) else "")
+                + f'<img class=q src="{qi}" style="position:absolute;width:{_px(150)};left:{_px(60)};top:calc(52% - 40px*var(--s))">')
     else:
         head = (f'<div class=pnl style="position:absolute;left:{_px(40)};right:{_px(40)};top:{_px(40)};height:52%;border-radius:{_px(28)};'
                 f'background:linear-gradient(135deg,{g} 60%,#FFB86B)"></div>'
@@ -356,7 +356,7 @@ background:#fff;border-radius:{_px(18)};box-shadow:0 {_px(30)} {_px(60)} rgba(60
 
 def _label():
     from . import fonts as FT
-    return FT.label()
+    return FT.label() if FT.SHOW_LABEL else ""
 
 
 def _t_doc(sc, V, tone):

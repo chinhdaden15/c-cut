@@ -217,6 +217,20 @@ LABELS = {
 }
 
 
+SHOW_LABEL = False   # 2.5.8: KHÔNG vẽ nhãn “Hình ảnh minh họa / thực tế” lên video (người dùng thấy thừa); app vẫn giữ để phân loại ảnh
+
+
+def is_type_label(text) -> bool:
+    """chữ là nhãn loại ảnh (minh hoạ / thực tế, mọi ngôn ngữ) — dùng để KHÔNG vẽ khi SHOW_LABEL tắt."""
+    t = str(text or "").strip()
+    return bool(t) and (t in {x for pair in LABELS.values() for x in pair} or t == "Phối cảnh dự án")
+
+
+def visible(text) -> str:
+    """chữ nhãn để VẼ: nhãn loại ảnh bị ẩn khi SHOW_LABEL tắt, nhãn khác (tên vật, tên chủ thể) giữ nguyên."""
+    return "" if (not SHOW_LABEL and is_type_label(text)) else (text or "")
+
+
 def label(real: bool = False) -> str:
     a, b = LABELS.get(current(), LABELS["en"] if current() != "vi" else LABELS["vi"])
     return b if real else a

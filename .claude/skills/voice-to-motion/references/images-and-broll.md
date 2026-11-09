@@ -19,7 +19,7 @@ không để nhiều cảnh liền nhau chỉ toàn icon. Mức gợi ý: mỗi 
 ## 2. Ảnh đúng chủ thể vs ảnh minh họa
 
 - **Chủ thể có thật** (dự án, phân khu, thương hiệu, địa điểm, người, sự kiện): chỉ dùng ảnh THẬT của chính chủ thể đó, nguồn rõ ràng
-  (website chủ đầu tư, báo chí, trang chính thức) → `real=True`, nhãn trên video: “Hình ảnh thực tế”.
+  (website chủ đầu tư, báo chí, trang chính thức) → `real=True` (không hiện nhãn trên video).
   **Dự án / phân khu BĐS có tên → BẮT BUỘC ảnh thật từ chủ đầu tư**: tìm trên website chủ đầu tư, trang dự án chính thức,
   bài báo về dự án (Báo Đầu Tư, VnExpress, CafeLand…) — ảnh phối cảnh hoặc ảnh chụp thực tế của chính dự án đó.
   TUYỆT ĐỐI không thay bằng ảnh minh họa chung (nhà phố khác, phố cổ…) khi lời đang nói tên dự án.
@@ -27,8 +27,8 @@ không để nhiều cảnh liền nhau chỉ toàn icon. Mức gợi ý: mỗi 
   **App kiểm (check)**: ghi `entities.json` ở thư mục dự án — `[{"name": "Vinhomes Central Park", "aka": ["Vinhomes Tân Cảng"], "photos": ["w_vhcp_1.jpg"], "no_photo": null}]`;
   ảnh trong `photos` dựng với `real=True`, nguồn là URL trang; cảnh đang nói tên chủ thể phải có ảnh của nó (không có ảnh thật → `"no_photo": "lý do"`,
   dùng bản đồ/chữ tên). Không có chủ thể nào → `[]`. Nội thất/tiện ích/khái niệm nói chung chung vẫn dùng ảnh minh họa.
-- **Ảnh minh họa** (khái niệm, cảnh chung): nhãn trên video: “Hình ảnh minh họa”.
-- **Trên video KHÔNG ghi nguồn** — chỉ ghi “Hình ảnh minh họa” / “Hình ảnh thực tế” (người dùng tự ghi nguồn khi đăng bài).
+- **Ảnh minh họa** (khái niệm, cảnh chung): không hiện nhãn trên video.
+- **Trên video KHÔNG ghi nguồn, KHÔNG ghi nhãn loại ảnh** (người dùng tự ghi nguồn khi đăng bài).
   Nguồn vẫn BẮT BUỘC lưu khi tải (`assets_web/illus_sources.json`) để app hiện ở mục “Nguồn và bản quyền”.
 - Mỗi ảnh/b-roll hiện ≥ 1,8s; cảnh ngắn chỉ 1 ảnh. Không dùng ảnh có watermark, chữ lớn, logo bên thứ ba.
 

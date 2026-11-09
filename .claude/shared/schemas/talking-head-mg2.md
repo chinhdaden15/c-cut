@@ -19,7 +19,7 @@ Kind (tham số):
   money      value_from, value_to, decimals, unit "tỷ" | prefix "$", locale "en" (2,000), hit_at (GIÂY từ đầu cảnh lúc NÓI số cuối — số chạy chạm đúng lúc đó + khung phóng lên + loé sáng + tiếng tiền), title, sub, badge, icon — số tiền chạy + thẻ phụ
   notif      items [{icon, title, text}] (2–4)                                 — chồng thông báo trượt xuống
   question   image (ẢNH MINH HOẠ đúng ý câu hỏi — bắt buộc), lead "Câu hỏi:", text, sub, icon — thẻ câu hỏi: ảnh trong khung + dấu ? 3D
-  photos     title, images [{src, label}] (1–3), note "Hình ảnh minh họa"      — ảnh xếp nghiêng có nhãn
+  photos     title, images [{src, label}] (1–3), note (tuỳ chọn)              — ảnh xếp nghiêng có nhãn tên vật
   doc        title, heading, highlight, icon                                   — tài liệu, dòng quan trọng tô sáng
   iconrow    icons [3d:…] (3–5), lead, text                                    — hàng huy hiệu tròn bật lên trên đầu (bg none)
   chips      items [{icon, text}] (2–4), side "left"|"right"                   — chip nhãn cạnh người nói (bg none)

@@ -22,7 +22,7 @@ Kind (tham số):
   kẹp ảnh      photo_card(image, text) · photo_circle(image, label) · polaroid(image, script, text) · photo_split(image, lead, text, icon)
                photo_strip(images[3], title, at[frame…]) · photo_compare(a_image, b_image, a_label, b_label)
                photo_behind(image, label — layer behind, trên đầu) · thought(image, text) · phone(image, label)
-  Ảnh: assets_web/i_* (minh hoạ — app ghi nhãn “Hình ảnh minh họa”), w_* (ảnh thật của chủ thể), c_* (khung cắt từ clip).
+  Ảnh: assets_web/i_* (minh hoạ — không hiện nhãn), w_* (ảnh thật của chủ thể), c_* (khung cắt từ clip).
   Icon: tên Uicons như các phần khác (tra bằng neon.icon_exists).
 """
 from __future__ import annotations
@@ -285,11 +285,12 @@ def photo(path: str, w: int, h: int, color: str, shape: str = "round", rad: int 
         out = cv2.warpAffine(out, M, (Wc, Hc), flags=cv2.INTER_LINEAR)
     out = N._trim(out)
     name = Path(path).name
+    from . import fonts as FT
+    if not FT.SHOW_LABEL:
+        label = False
     if label and not name.startswith(("w_", "c_")):
-        from . import fonts as FT
         out = stack([out, T(FT.label(), 22, "white", "semi", 0.2)], gap=2)
     elif label and name.startswith("w_"):
-        from . import fonts as FT
         out = stack([out, T(FT.label(True), 22, "white", "semi", 0.2)], gap=2)
     return out
 

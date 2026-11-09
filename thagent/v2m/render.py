@@ -7,6 +7,12 @@ from __future__ import annotations
 
 import json
 import math
+
+
+def FT_visible(text) -> bool:
+    from .. import fonts as _FT
+    return bool(_FT.visible(text))
+
 import subprocess
 from functools import lru_cache
 from pathlib import Path
@@ -983,7 +989,7 @@ class Renderer:
         D.place(dst, _clip(spr, clip), M, op, bv)
         for key, dy, role, sz, col in (("label", h / 2 + 34, "bold", 34, self.tl.theme["text"]),
                                        ("source", h / 2 + (78 if p.get("label") else 30), "medium", 24, self.tl.theme["muted"])):
-            if p.get(key):
+            if p.get(key) and FT_visible(p[key]):
                 q = {"text": (("Nguồn: " if key == "source" else "") + p[key]), "font": role, "size": sz, "color": col,
                      "shadow": 0.3, "align": "center", "type": "text", "scale": 1, "rot": 0}
                 a = math.radians(rot)
@@ -1015,7 +1021,7 @@ class Renderer:
         D.place(dst, _clip(spr, clip), M, op, bv)
         for key, dy, role, sz, col in (("label", h / 2 + 34, "bold", 32, self.tl.theme["text"]),
                                        ("source", h / 2 + (74 if p.get("label") else 30), "medium", 22, self.tl.theme["muted"])):
-            if p.get(key):
+            if p.get(key) and FT_visible(p[key]):
                 q = {"text": (("Nguồn: " if key == "source" else "") + p[key]), "font": role, "size": sz, "color": col,
                      "shadow": 0, "align": "center", "type": "text", "scale": 1, "rot": 0}
                 a = math.radians(rot)
