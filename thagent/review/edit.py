@@ -269,8 +269,7 @@ def _fix(edit: dict, src: str, w: dict) -> dict:
 def words_out(edit: dict, pdir) -> list[dict]:
     """lời của các đoạn talk, đổi sang giây trên timeline xuất (theo J-cut). Chế độ lồng tiếng: lời của giọng lồng."""
     M = media(pdir)
-    from .. import contentstyle as CS
-    out = list(CS.check(pdir))
+    out = []
     v = vo(edit)
     if v:
         vin, vout = float(v.get("in", 0)), float(v.get("out") or 1e9)
@@ -324,7 +323,8 @@ def words_out(edit: dict, pdir) -> list[dict]:
 def validate(pdir, edit: dict) -> list[tuple[str, str]]:
     """kiểm bản dựng trước khi render (không cần dựng)."""
     M = media(pdir)
-    out = []
+    from .. import contentstyle as CS
+    out = list(CS.check(pdir))
     ids = set()
     if not edit.get("segments"):
         return [("error", "edit.json chưa có đoạn nào")]
