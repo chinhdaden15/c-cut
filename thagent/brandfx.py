@@ -3,7 +3,7 @@
   brand    logo THẬT bật lên trong ô có vầng sáng màu thương hiệu + tên + dòng phụ. logo (assets_web/brand_x/logo.svg|png),
            name, sub, accent (kit.json accent), at [logo, tên, dòng phụ]
   webpage  khung trình duyệt kính tối (thanh địa chỉ đúng tên miền) + ảnh chụp trang thật trượt lên rồi cuộn chậm; tuỳ chọn
-           khoanh vùng: mark {x, y, w, h} (0..1 trên ảnh) lúc at[1]. image (assets_web/web_x.jpg), url, scroll (0..0.6), at [vào, khoanh]
+           khoanh vùng: mark {x, y, w, h} (0..1 trên ảnh) lúc at[1] — camera ĐẨY VÀO đúng mục đó rồi khoanh (zoom tự tính, hoặc "zoom": 2.2). image (assets_web/web_x.jpg), url, scroll (0..0.6), at [vào, khoanh]
   paper    nhân vật / vật dạng STICKER GIẤY (assets_web/p_x.png từ tools paper) đập vào hơi nghiêng + lắc nhẹ, băng nhãn tên kiểu máy in nhãn.
            image, name, role, side "left"|"center"|"right", at [sticker, nhãn]
 Chung: y (tâm 0..1), tone / accent; mặc định chồng lên hình (bg "none"). Tư liệu thật → ảnh phải đúng thứ đang nói (illus_check).
@@ -29,7 +29,7 @@ CSS = """
 .wb-url{flex:1;margin-left:calc(10px*var(--s));padding:calc(8px*var(--s)) calc(20px*var(--s));border-radius:999px;background:rgba(255,255,255,.1);
  color:rgba(255,255,255,.88);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wb-view{position:relative;overflow:hidden}.wb-view img{display:block;width:100%}
-.wb-mark{position:absolute;border:calc(5px*var(--s)) solid var(--acc);border-radius:calc(18px*var(--s));box-shadow:0 0 0 9999px rgba(0,0,0,.42),0 0 calc(30px*var(--s)) var(--acc)}
+.wb-mark{position:absolute;border:calc(3px*var(--s)) solid var(--acc);border-radius:calc(18px*var(--s));box-shadow:0 0 0 9999px rgba(0,0,0,.42),0 0 calc(30px*var(--s)) var(--acc)}
 .pp{position:absolute}.pp img{display:block;width:100%;filter:drop-shadow(0 calc(18px*var(--s)) calc(24px*var(--s)) rgba(0,0,0,.4))}
 .pp-tape{position:absolute;padding:calc(10px*var(--s)) calc(26px*var(--s));background:#141414;color:#F4F1EA;font-family:'JetBrains Mono',Menlo,monospace;
  font-weight:800;letter-spacing:.06em;white-space:nowrap;box-shadow:0 8px 18px rgba(0,0,0,.35);border-radius:4px}
@@ -83,7 +83,13 @@ def layer(sc: dict, V: bool, tone: str, D: float):
         w = 940 if V else 1240
         img = _uri(sc["image"])
         url = E(sc.get("url", ""))
-        vh = round(w * (0.9 if V else 0.56))
+        import cv2 as _cv
+        _im = _cv.imread(str(sc["image"]))
+        ar = (_im.shape[0] / _im.shape[1]) if _im is not None else 0.62
+        sc_ = float(sc.get("scroll", 0.25))
+        vh = round(min(w * ar, w * (1.1 if V else 0.56)))          # khung theo đúng tỉ lệ ảnh chụp (không chừa trống)
+        if w * ar <= vh + 4:
+            sc_ = 0.0                                           # ảnh không cao hơn khung → không cuộn
         h = vh + 70
         top = y * H - h / 2
         mk = sc.get("mark")
@@ -93,16 +99,27 @@ def layer(sc: dict, V: bool, tone: str, D: float):
                 f'<div class="wb win" style="width:{_px(w)}"><div class="wb-bar"><i class="wb-dot" style="background:#FF5F57"></i>'
                 f'<i class="wb-dot" style="background:#FEBC2E"></i><i class="wb-dot" style="background:#28C840"></i>'
                 f'<span class="wb-url" style="font-size:{_px(30)}">🔒 {url}</span></div>'
-                f'<div class="wb-view" style="height:{_px(vh)}"><img class="shot" src="{img}">{mark}</div></div></div>')
+                f'<div class="wb-view" style="height:{_px(vh)}"><div class="cam" style="position:relative;transform-origin:0 0">'
+                f'<img class="shot" src="{img}">{mark}</div></div></div></div>')
         t0 = A(0, 0.1)
-        sc_ = float(sc.get("scroll", 0.25))
         js.append(f"gsap.set(q('.win'),{{opacity:0,y:160,rotationX:18}});ft('.win',{{opacity:0,y:160,rotationX:18}},{{opacity:1,y:0,rotationX:0,duration:.7,ease:OUT}},{t0});"
-                  f"ft('.shot',{{yPercent:0}},{{yPercent:{-sc_ * 100:.0f},duration:{max(0.5, D - t0 - 1.2):.2f},ease:'power1.inOut'}},{_r(t0 + 0.8)});"
                   f"ft('.bx',{{opacity:1}},{{opacity:0,duration:.3,ease:IN}},{t_out});")
         if mk:
+            # nói tới MỘT MỤC NHỎ: camera từ giao diện chính ĐẨY VÀO đúng chỗ đó (góp ý người dùng) rồi mới khoanh + làm tối phần còn lại
             t1 = A(1, 1.6)
-            js.append(f"gsap.set(q('.mk'),{{opacity:0,scale:1.15}});ft('.mk',{{opacity:0,scale:1.15}},{{opacity:1,scale:1,duration:.35,ease:'back.out(2)'}},{t1});")
-            beats.append(t1); sfx.append((t1, "pop_05", -15.0))
+            tz = _r(max(t0 + 0.75, t1 - 0.65))             # đẩy vào xong ngay trước lúc nói tới mục đó
+            IH = w * ar                                      # cao ảnh (px khung) — bề ngang ảnh = bề ngang khung nhìn
+            mh = mk["h"] * IH / vh                           # cao vùng khoanh theo khung nhìn
+            z = float(sc.get("zoom") or min(3.0, max(1.6, 0.5 / max(mk["w"], mh))))
+            cx, cy = mk["x"] + mk["w"] / 2, mk["y"] + mk["h"] / 2
+            xp = min(0.0, max((1 - z) * 100, (0.5 - z * cx) * 100))
+            yp = min(0.0, max((vh / IH - z) * 100, (vh / (2 * IH) - z * cy) * 100))
+            js.append(f"ft('.cam',{{scale:1,xPercent:0,yPercent:0}},{{scale:{z:.3f},xPercent:{xp:.2f},yPercent:{yp:.2f},duration:.75,ease:'power3.inOut'}},{tz});"
+                      f"gsap.set(q('.mk'),{{opacity:0,scale:1.25}});ft('.mk',{{opacity:0,scale:1.25}},{{opacity:1,scale:1,duration:.35,ease:'back.out(2)'}},{_r(tz + 0.7)});")
+            sc_ = 0.0
+            beats += [tz, _r(tz + 0.7)]; sfx += [(tz, "whoosh_short", -15.0), (_r(tz + 0.7), "pop_05", -15.0)]
+        if sc_ > 0:
+            js.append(f"ft('.shot',{{yPercent:0}},{{yPercent:{-sc_ * 100:.0f},duration:{max(0.5, D - t0 - 1.2):.2f},ease:'power1.inOut'}},{_r(t0 + 0.8)});")
         beats.append(t0); sfx.append((t0, "whoosh_short", -14.0))
     elif k == "paper":
         side = sc.get("side", "center")
@@ -112,8 +129,8 @@ def layer(sc: dict, V: bool, tone: str, D: float):
         top = y * H - w * 0.75
         rot = {"left": -4, "right": 4}.get(side, -3)
         name, role = E(sc.get("name", "")), E(sc.get("role", ""))
-        tape = (f'<div class="pp-tape tp" style="left:50%;bottom:{_px(-30)};font-size:{_px(40)};transform:translateX(-50%) rotate({-rot}deg)">{name}'
-                + (f'<span class="pp-role" style="font-size:{_px(26)}">{role}</span>' if role else "") + '</div>') if name else ""
+        tape = (f'<div class="pp-tape tp" style="left:50%;bottom:{_px(-30)};font-size:{_px(54)};transform:translateX(-50%) rotate({-rot}deg)">{name}'
+                + (f'<span class="pp-role" style="font-size:{_px(34)}">{role}</span>' if role else "") + '</div>') if name else ""
         html = (f'<div class="pp st" style="left:{_px(round(x - w / 2))};top:{_px(round(top))};width:{_px(w)};transform-origin:50% 90%">'
                 f'<img src="{img}">{tape}</div>')
         t0, t1 = A(0, 0.15), A(1, 0.7)
