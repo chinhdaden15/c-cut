@@ -200,6 +200,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     out.extend(STG.check(pl, fps))
     from . import mg2 as MG2                     # Motion Graphics thế hệ 2: mẫu / nền / ảnh / nhịp ~10s (trừ đoạn trình diễn vật)
     out.extend(MG2.check(pl, fps, open_close(pl, c.project.words, fps), demo_runs(pl, c.path("work", "gaze.json"), fps)))
+    from . import layouts as LY
+    out.extend(LY.check(pl, fps))
     # 4b) không cắt khi người còn đang nói ở cuối video
     try:
         from .cleancut import silences

@@ -35,6 +35,10 @@ Kind (tham số):
   flipstack  items [..], last_accent — thẻ chữ lật chồng lên nhau (các điều cần nhớ / kiểm tra)
   spring     text, sub — từng chữ cái rơi nảy lò xo (tiêu đề phần: "PHẦN 2", "ĐIỀU 3")
   Chung: y (0..1 chiều cao), size (tự co theo bề ngang), tone / accent / color, pocket (nền tối mờ sau chữ). Chữ giữ đủ đọc max(1s, 0,3s/từ).
+  TƯ LIỆU THẬT (tạo bằng tools brand / webshot / paper — web, app, hãng, nhân vật được nhắc tên):
+  brand      logo, name, sub, accent (kit.json), at [logo, tên, phụ] — logo thật bật lên trong ô có vầng sáng màu thương hiệu
+  webpage    image (web_x.jpg), url, scroll 0..0.6, mark {x,y,w,h} + at [vào, khoanh] — trang web thật trong khung trình duyệt, cuộn chậm
+  paper      image (p_x.png), name, role, side left|center|right, at [sticker, nhãn] — nhân vật dạng sticker giấy + băng nhãn tên
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);
@@ -52,9 +56,9 @@ import numpy as np
 
 KINDS = {"chart", "money", "notif", "question", "photos", "doc", "iconrow", "chips", "compare", "checklist", "custom",
          "mapdraw", "tech", "prompt", "devices", "pipeline", "kinetic",
-         "headline", "scramble", "drum", "flipstack", "spring"}   # 5 kind cuối: chữ động (thagent/textfx.py, học từ ghost-editor)          # 6 kind cuối: cảnh hoạt hình toàn khung (thagent/fx.py)
+         "headline", "scramble", "drum", "flipstack", "spring", "brand", "webpage", "paper"}   # 5 kind cuối: chữ động (thagent/textfx.py, học từ ghost-editor)          # 6 kind cuối: cảnh hoạt hình toàn khung (thagent/fx.py)
 BGS = {"blur", "gradient", "cream", "charcoal", "dots", "spot", "none"}
-OVERLAY_KINDS = {"iconrow", "chips", "headline", "scramble", "drum", "flipstack", "spring"}   # chồng lên hình (textfx: chữ động)
+OVERLAY_KINDS = {"iconrow", "chips", "headline", "scramble", "drum", "flipstack", "spring", "brand", "webpage", "paper"}   # chồng lên hình (textfx: chữ động)
 TONES = {"gold": ("#FFE47A", "#FF9A1F", "#FFB000"), "blue": ("#A6EEFF", "#1E86FF", "#1E86FF"), "red": ("#FF9A86", "#FF2B3A", "#FF2B3A")}
 GAP_S = 12.0
 
@@ -107,7 +111,7 @@ BASE_CSS = """
 def _uri(path: str) -> str:
     p = Path(path)
     ext = p.suffix.lower().lstrip(".")
-    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp"}.get(ext, "png")
+    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp", "svg": "svg+xml"}.get(ext, "png")
     return f"data:image/{mime};base64," + base64.b64encode(p.read_bytes()).decode()
 
 
@@ -476,9 +480,11 @@ def beats(sc: dict, D: float) -> list[float]:
     from . import fx as FX
     if sc.get("kind") in FX.FULL:
         return FX.beats(sc, D)
-    from . import textfx as TX
+    from . import textfx as TX, brandfx as BF
     if sc.get("kind") in TX.KINDS:
         return TX.layer(sc, True, sc.get("tone") if sc.get("tone") in TONES else "gold", D)[2]
+    if sc.get("kind") in BF.KINDS:
+        return BF.layer(sc, True, sc.get("tone") if sc.get("tone") in TONES else "gold", D)[2]
     n = len(sc.get("items") or sc.get("icons") or sc.get("images") or [])
     out = [0.0, 0.5, 1.6] + (delays(sc, n, .3, .35) if n else [])
     if sc.get("kind") == "custom":                       # vật ẩn dụ tự thiết kế: nhịp đổi trạng thái theo lời = "at" (+ tween ~0.4s sau)
@@ -500,9 +506,11 @@ def sfx(sc: dict, D: float) -> list[tuple[float, str, float]]:
     from . import fx as FX
     if k in FX.FULL:
         return FX.sfx(sc, D)
-    from . import textfx as TX
+    from . import textfx as TX, brandfx as BF
     if k in TX.KINDS:
         return TX.layer(sc, True, sc.get("tone") if sc.get("tone") in TONES else "gold", D)[3]
+    if k in BF.KINDS:
+        return BF.layer(sc, True, sc.get("tone") if sc.get("tone") in TONES else "gold", D)[3]
     out = [(0.0, "mgtrans_01" if full(sc) else "card_01", -14.0)]
     n = len(sc.get("items") or sc.get("icons") or sc.get("images") or [])
     if k in ("checklist",):
@@ -577,9 +585,11 @@ def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dic
             sc[key] = [dict(x, at=cl(x["at"])) if isinstance(x, dict) and "at" in x else x for x in sc.get(key) or []]
         if sc.get("routes"):
             sc["routes"] = [list(r[:2]) + ([cl(r[2])] if len(r) > 2 else []) for r in sc["routes"]]
-    from . import textfx as TX
+    from . import textfx as TX, brandfx as BF
     if sc["kind"] in TX.KINDS:
         html, js = TX.layer(sc, V, tone, D)[:2]
+    elif sc["kind"] in BF.KINDS:
+        html, js = BF.layer(sc, V, tone, D)[:2]
     else:
         fn = T.get(sc["kind"]) or FX.T[sc["kind"]]
         html, js = fn(sc, V, tone, face) if sc["kind"] in ("iconrow", "chips") else fn(sc, V, tone)
@@ -602,7 +612,7 @@ def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dic
     fade = (f"tl.from(q('.root'),{{opacity:0,duration:.25}},0);" if bgcss else "") + \
            (f"tl.to(q('{'.root' if bgcss else '.content'}'),{{opacity:0,duration:.3}},{max(0.5, D - 0.3)});" if sc.get("fade_out", True) else "")
     return {"id": "mg", "type": "html", "start": 0, "duration": D, "x": 0, "y": 0, "anchor": "top-left", "w": W, "h": H,
-            "html": root, "css": BASE_CSS + ((sc.get("css") or "") if sc["kind"] == "custom" else "") + (TX.CSS if sc["kind"] in TX.KINDS else ""), "js": pre + drift + js + ";\n" + fade}
+            "html": root, "css": BASE_CSS + ((sc.get("css") or "") if sc["kind"] == "custom" else "") + (TX.CSS if sc["kind"] in TX.KINDS else "") + (BF.CSS if sc["kind"] in BF.KINDS else ""), "js": pre + drift + js + ";\n" + fade}
 
 
 def spec(plan, sc: dict, out: Path, face=None) -> dict:
@@ -666,7 +676,9 @@ def check(plan, fps: int, open_close: tuple[int, int] | None = None, demo: list[
             out.append(("error", f"{tag}: nền “{s.get('bg')}” không có — chỉ {', '.join(sorted(BGS))}")); continue
         d = (int(s["end"]) - int(s["start"])) / fps
         dmax = 10.0 if s.get("kind") == "custom" and len(s.get("at") or []) >= 3 else 8.0   # vật ẩn dụ có ≥ 3 nhịp đổi theo lời → tới 10s
-        if not 2.5 <= d <= dmax:
+        from .textfx import KINDS as _TXK
+        dmin = 1.5 if s.get("kind") in _TXK else 2.5          # chữ động dài bằng câu nói
+        if not dmin <= d <= dmax:
             out.append(("error", f"{tag}: dài {d:.1f}s — mỗi cảnh 2.5–8s (custom có ≥ 3 nhịp `at` theo lời: tới 10s)"))
         for n in _icons(s):
             if not K.exists(n.removeprefix("3d:")):

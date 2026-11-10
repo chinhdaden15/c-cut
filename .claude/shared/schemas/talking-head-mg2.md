@@ -40,6 +40,10 @@ Kind (tham số):
   flipstack  items [..], last_accent — thẻ chữ lật chồng lên nhau (các điều cần nhớ / kiểm tra)
   spring     text, sub — từng chữ cái rơi nảy lò xo (tiêu đề phần: "PHẦN 2", "ĐIỀU 3")
   Chung: y (0..1 chiều cao), size (tự co theo bề ngang), tone / accent / color, pocket (nền tối mờ sau chữ). Chữ giữ đủ đọc max(1s, 0,3s/từ).
+  TƯ LIỆU THẬT (tạo bằng tools brand / webshot / paper — web, app, hãng, nhân vật được nhắc tên):
+  brand      logo, name, sub, accent (kit.json), at [logo, tên, phụ] — logo thật bật lên trong ô có vầng sáng màu thương hiệu
+  webpage    image (web_x.jpg), url, scroll 0..0.6, mark {x,y,w,h} + at [vào, khoanh] — trang web thật trong khung trình duyệt, cuộn chậm
+  paper      image (p_x.png), name, role, side left|center|right, at [sticker, nhãn] — nhân vật dạng sticker giấy + băng nhãn tên
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);

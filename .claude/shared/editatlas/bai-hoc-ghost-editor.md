@@ -73,6 +73,22 @@ Reel yếu KHÔNG phải vì hoạt hình kém, mà vì đưa QUÁ NHIỀU hình
 - Chọn theo CHỦ ĐỀ: `scramble` (chữ xáo kiểu giải mã) CHỈ cho video công nghệ (AI, phần mềm, dữ liệu, code); ẩm thực / BĐS / đời sống → headline viên nhấn, drum, flipstack, spring.
 - Chữ luôn RÕ: trắng đậm trên khung kính, vế bị gạch cũng 100% rõ (thanh gạch thể hiện "bị bác bỏ", không làm mờ chữ).
 
+## 6c. Kiểu khung hình + MG trám (ghost-editor recipes: Seoul list, Product page, Whiteboard, Step Deck, Face RESULT)
+- Ngoài rộng / chặt: thu người nói vào THẺ bo góc (bento) để nửa còn lại cho đồ hoạ; CHIA ĐÔI bảng trên / mặt dưới (whiteboard);
+  người nói tách nền đặt trên thẻ cảnh quay; LÙI KHUNG từ mép dưới với nền mờ để có chỗ trên đầu. App: `plan.layouts` card / split / pullback.
+- MG / thẻ phủ kín khung là để TRÁM: đoạn người nói nhìn đi (> 0,5s), không nói vào máy, hoặc chuyển chương — mỗi lần ≤ ~2,5s,
+  đẩy vào chậm; còn lại để mặt người nói (≥ 65%). Đạo cụ / thẻ đặt BÊN CẠNH, TRÊN hoặc DƯỚI mặt (đo từ khung mặt), không bao giờ đè mặt.
+- Step Deck: mỗi bước mở bằng một thẻ riêng (số lớn nghiêng thu vào chỗ), thế giới hình đổi mỗi 1–2s giữa mặt và thẻ chữ phẳng.
+- Product page: dòng nói với người xem → mặt; dòng nói về vật → trang có ảnh thật / UI dựng lại / hình vẽ mảnh, camera ảo đẩy vào chi tiết đúng từ.
+
+## 6d. Cảnh trám + tư liệu thương hiệu (ghost-editor motion.mjs, brand_kit, cutout sticker)
+- Cảnh trám phủ khung (giọng vẫn chạy): thẻ chữ có con trỏ bấm vào viên nhấn; huy hiệu số kính lần lượt đáp xuống rồi thu thành hàng;
+  chữ bay trong không gian 3D với camera lướt qua; ảnh tĩnh đẩy chậm; cửa sổ app tối gõ lệnh + kết quả tick; điện thoại nổi với tin nhắn
+  bật; 1–3 chữ hiện từ mờ trên nền shader. Vào bằng mờ (0,2s) / nở từ giữa / quét; app: fx prompt, devices, kinetic, textfx, mg2 custom.
+- Nhắc tên một công cụ / app / hãng → bộ thương hiệu lấy từ CHÍNH trang web của nó: logo thật (sáng + tối), icon app, màu chính thức
+  (Simple Icons → biến CSS → màu logo → theme-color), ảnh sản phẩm; thẻ trông "giống đúng cái đó" trong một cái liếc. App: tools brand / webshot.
+- Nhân vật: ảnh thật → xoá nền → sticker cắt viền trắng (bóng đổ, đập vào + lắc nhẹ) hoặc đạo cụ giấy (polaroid, giấy kraft, băng nhãn). App: tools paper + mg2 paper.
+
 ## 7. Duyệt trước khi dựng lâu
 - Trước render thật: một trang duyệt có ảnh tại MỖI điểm cắt + mỗi nhịp đồ hoạ (lúc vào và lúc hiện đủ) + phụ đề + bảng SFX
   → tự xem, sửa (thẻ chạm cằm, chữ xuống dòng xấu, phụ đề đụng thẻ), rồi mới dựng. Bản xem trước độ phân giải thấp trước bản cuối.

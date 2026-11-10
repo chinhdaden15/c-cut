@@ -51,7 +51,7 @@ CSS = """
 .kt-mkw{position:absolute;pointer-events:none;z-index:-1}.kt-mkw svg{display:block;width:100%;height:100%;overflow:visible}
 .kt-mk.pill{margin:0 .1em}.kt-mk.pill .kt-mkw{left:-.18em;right:-.18em;top:-.16em;bottom:-.12em;border-radius:.24em;
  background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 .08em .3em rgba(0,0,0,.35)}
-.kt-mk.pill .kt-mi{color:var(--on);text-shadow:none}
+.kt-mk{white-space:nowrap}
 .kt-mk.under .kt-mkw{left:0;right:0;top:100%;height:.12em;border-radius:99px;background:linear-gradient(90deg,var(--acc),var(--acc2))}
 .kt-mk.strike .kt-mkw{left:-.1em;right:-.1em;top:44%;height:.14em;border-radius:99px;background:#FF6F5E;box-shadow:0 0 .25em rgba(255,111,94,.55);z-index:2}
 .kt-mk.box .kt-mkw{left:-.2em;right:-.2em;top:-.14em;bottom:-.1em;border:.06em solid var(--acc);border-radius:.26em}
@@ -211,6 +211,9 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
         if mk_main and last_mark is not None:
             ma = _r(last_mark + 0.32)
             B.wipe(mk_main, ma)
+            if mark == "pill":                 # chữ trong viên: trắng tới lúc viên quét tới → đổi tối (không có lúc chữ tối trên kính tối)
+                B.js.append(f"qa('.kt-mk.pill .kt-mi').forEach(e=>tl.fromTo(e,{{color:'#FFFFFF',textShadow:'0 2px 10px rgba(0,0,0,.35)'}},"
+                            f"{{color:'{pal['on']}',textShadow:'0 0 0 rgba(0,0,0,0)',duration:.2,ease:'none',immediateRender:false}},{ma + 0.08}));")
             B.js.append(f"ft('.{mk_main}',{{opacity:1}},{{opacity:0,duration:.2,ease:IN}},{t_out});")
             sfx.append((ma, "whoosh_short", -14.0))
             beats.append(ma)

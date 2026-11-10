@@ -490,6 +490,8 @@ def frame_sigs(plan: Plan, pos: dict, colay: dict) -> dict:
     for k, lst in (("v", plan.visuals), ("fx", plan.fx)):
         for x in lst:
             put(f"{k}:{x.id}", x.start, x.end, x.model_dump())
+    for i, L in enumerate(getattr(plan, "layouts", None) or []):
+        put(f"ly:{i}", L.get("start", 0), L.get("end", 0), L)
     from . import framing as FR
     for a, b, z, cx, cy in FR._SHOTS.get(id(plan), ()):          # cỡ cảnh đổi → vẽ lại đúng cảnh đó
         put(f"fr:{a}", a, b, [z, round(cx, 3), round(cy, 3)])
@@ -565,7 +567,9 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             M = np.float32([[z, 0, (1 - z) * zcx * W], [0, z, (1 - z) * zcy * H]])
             base = cv2.warpAffine(base, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
             alpha = cv2.warpAffine(alpha, M, (W, H), flags=cv2.INTER_LINEAR)
-        full2 = any(x <= f < y for x, y in mg2cov)      # cảnh MG2 che toàn khung → không vẽ chữ / callout / sân khấu bên dưới
+        from . import layouts as LY
+        base, alpha, lay, lk = LY.apply(plan, f, base, alpha)   # khung thẻ / chia đôi / lùi khung (layouts.py)
+        full2 = any(x <= f < y for x, y in mg2cov) or lk > 0.3   # cảnh MG2 che toàn khung / khung đổi → không vẽ chữ / callout / sân khấu đặt theo khung thường
         active = [] if full2 else [g for g in groups if g.start <= f < g.end]
         behind = np.zeros((H, W, 4), np.float32)
         front = np.zeros((H, W, 4), np.float32)
@@ -579,12 +583,16 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             if v.start <= f < v.end:
                 draw_card(behind if v.zone == "above_head" else front, v, f, *cpos[v.id])
         capcur, gshift = None, {}
+        from .textfx import KINDS as _TXK
+        txon = any(m.get("enabled", True) and m.get("kind") in _TXK and int(m["start"]) <= f < int(m["end"]) for m in plan.mg2)
         if caps and not full2:
             from . import captions_th as CAP
             busy = any(c["start"] <= f < c["end"] for c in cos) or any(
                 m.get("enabled", True) and not MG2.full(m) and int(m["start"]) <= f < int(m["end"]) for m in plan.mg2)
             inmg = any(x <= f < y for x, y in mgspans)
-            if not busy or inmg:
+            if txon:                                   # chữ động đang nói đúng câu đó → không lặp phụ đề bên dưới
+                pass
+            elif not busy or inmg:
                 capcur, gshift = caption_with(caps, active, pos, f, anchors_tl, H, W, (z, zcx, zcy), inmg, plan.text_groups)
             if capcur and CAP.started_in(caps, f, list(mgspans) + list(MG2.covers(plan))):
                 capcur = None
@@ -615,7 +623,8 @@ def composite(plan: Plan, rc: dict, anchors_src: list[dict], out_video: str, fra
             from . import captions_th as CAP
             cl = np.zeros((H, W, 4), np.float32)
             low = full2 or any(x <= f < y for x, y in mgspans)    # cảnh MG che kín: phụ đề chạy ở dải dưới
-            CAP.draw_at(cl, CAP.current(caps, f, anchors_tl, H, W) if full2 else capcur, low)
+            if not txon:                               # chữ động đang nói đúng câu đó → không vẽ phụ đề (cả dải dưới)
+                CAP.draw_at(cl, CAP.current(caps, f, anchors_tl, H, W) if full2 else capcur, low)
             if cl[..., 3].any():
                 out = out * (1 - cl[..., 3:4]) + cl[..., :3]
         fl = flash_at(plan, f)

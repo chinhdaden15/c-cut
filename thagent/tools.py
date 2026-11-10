@@ -170,7 +170,35 @@ def taste(cmd="list", *a):
             print(f"{it['id']}  [{it['style']}]  {it['text']}")
 
 
-CMDS = {"taste": taste, "icon3d": icon3d, "where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords}
+def brand(pid, url, slug=None):
+    """brand <dự-án> <url> [slug] — logo, icon, og:image, màu thương hiệu → assets_web/brand_<slug>/ (thagent/brandkit.py)."""
+    from . import brandkit as BK
+    BK.brand(_pdir(pid), url, slug)
+
+
+def webshot(pid, url, name=None, w=1280, h=800):
+    """webshot <dự-án> <url> [tên.jpg] [rộng] [cao] — ảnh chụp trang web thật → assets_web/."""
+    from . import brandkit as BK
+    BK.webshot(_pdir(pid), url, name, int(w), int(h))
+
+
+def paper(pid, src, name=None, mode=""):
+    """paper <dự-án> <ảnh> [tên.png] [full] — xoá nền → sticker giấy cắt viền trắng → assets_web/p_<tên>.png.
+    Người: tự cắt ngang thắt lưng (bán thân); thêm "full" để giữ cả người (chỉ khi dáng đẹp)."""
+    from . import brandkit as BK
+    BK.paper(_pdir(pid), src, name if name and name != "full" else None, full=(mode == "full" or name == "full"))
+
+
+def _pdir(pid):
+    from pathlib import Path as _P
+    p = _P(pid)
+    if p.is_dir():
+        return p
+    from . import pipeline as P
+    return P.PROJECTS / pid
+
+
+CMDS = {"brand": brand, "webshot": webshot, "paper": paper, "taste": taste, "icon3d": icon3d, "where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords}
 
 if __name__ == "__main__":
     main()
