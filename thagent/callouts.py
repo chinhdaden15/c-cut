@@ -896,8 +896,9 @@ def density(plan, fps: int, gap_s: float = 5.0) -> list[tuple[str, str]]:
                                  f"(khoảng mỗi 4s một lần)"))
         prev = h
     nz = len(zoom_events(plan)) + sum(1 for e in plan.fx if e.type == "zoom" and e.enabled and e.params.get("mode") != "cut")
-    want = int(end / fps / 12)
-    if want >= 2 and nz < want:
-        out.append(("warn", f"chỉ {nz} lần zoom nhấn nhá cho {end / fps:.0f}s — thêm \"zoom\": \"punch\" / \"out\" vào callout ý chính "
-                            f"(khoảng mỗi 10–12s một lần, xen kẽ vào/ra)"))
+    # 2.5.8: cỡ cảnh tự đổi (framing.py) đã tạo nhịp — zoom nhấn chỉ cho vài ý chốt; zoom ở mọi chỗ gây khó chịu (đo trên reel thật)
+    cap = max(3, int(round(end / fps / 60 * 3)))
+    if nz > cap:
+        out.append(("warn", f"{nz} lần zoom nhấn nhá cho {end / fps:.0f}s — quá dày (≤ ~3 / phút); cỡ cảnh đã tự đổi ở chỗ ngắt câu, "
+                            "chỉ giữ zoom cho ý chốt"))
     return out

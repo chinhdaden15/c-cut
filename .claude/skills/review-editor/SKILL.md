@@ -55,6 +55,8 @@ Thứ gì đã tốt ở Talking Head / Voice to Motion mà áp dụng chung đ�
   Tiếng clip tắt; cảnh món ăn / rót / xèo xèo giữ `"audio": "nat", "nat_db": -20`. Phụ đề + số liệu then chốt lấy từ giọng lồng.
   Không chạy `joins` / `fixjoins` / `clean` (giọng không bị cắt). Định dạng: `.claude/shared/schemas/review-edit.md`.
 
+**Luật đo trên reel thật + gu người dùng:** `.claude/shared/editatlas/bai-hoc-ghost-editor.md` (b-roll đúng câu, ưu tiên tư liệu của người dùng và ảnh trong khung, một ý một cảnh, liệt kê → chữ; SFX theo đỉnh giọng, 6–12 âm nhẹ / phút, âm phản ứng vào khoảng ngừng sau câu chốt; phụ đề ≥ 48px, tương phản ≥ 3:1). Người dùng góp ý cách dựng → sửa + `python -m thagent.tools taste add "<lời họ>" [skill|all]`.
+
 ## Font chữ do người dùng chọn trong app
 
 `review/options.json` → `"font"`: id font người dùng chọn ở khung Review (trống = Montserrat mặc định). App tự vẽ MỌI chữ nhấn + chữ phụ bằng đúng font đó (1 font cho cả clip) — không tự đổi font, không trộn font khác.

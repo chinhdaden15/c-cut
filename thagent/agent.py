@@ -322,8 +322,10 @@ def system_prompt(style: str, pid: str, pdir: str) -> str:
     """prompt riêng của style (nếu có) — skill mới chưa có prompt riêng dùng SYSTEM_GENERIC (đọc SKILL.md của chính nó);
     + khối CÔNG CỤ DỰNG DÙNG CHUNG (thagent.capabilities) cho MỌI skill video → skill thêm sau tự kế thừa, không sửa từng skill."""
     from .capabilities import prompt_block
+    from .taste import prompt_block as taste_block    # góp ý cũ của người dùng → luật cho video này
     if style == "text-to-video":            # dựng bằng kit Voice to Motion + quy tắc riêng
-        return SYSTEM_V2M.format(pid=pid, pdir=pdir, style="voice-to-motion") + T2V_RULES.format(pdir=pdir) + FACT_RULES + prompt_block("voice-to-motion")
+        return (SYSTEM_V2M.format(pid=pid, pdir=pdir, style="voice-to-motion") + T2V_RULES.format(pdir=pdir) + FACT_RULES
+                + prompt_block("voice-to-motion") + taste_block(style))
     base = STYLE_PROMPTS.get(style)
     if base is None:
         base = SYSTEM_GENERIC if (ROOT / ".claude" / "skills" / style / "SKILL.md").exists() else SYSTEM
@@ -331,7 +333,7 @@ def system_prompt(style: str, pid: str, pdir: str) -> str:
     if style == "talking-head-style":
         from .variety import prompt_block as vb
         extra = vb()                                   # công thức nhịp + video gần đây (tránh lặp)
-    return base.format(pid=pid, pdir=pdir, style=style) + FACT_RULES + extra + prompt_block(style)
+    return base.format(pid=pid, pdir=pdir, style=style) + FACT_RULES + extra + prompt_block(style) + taste_block(style)
 
 class Session:
     def __init__(self, pid: str, style: str):

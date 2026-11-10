@@ -157,7 +157,20 @@ def icon3d(*kw):
         print(f"3d:{e['id']:<30} {e['title']}  [{e['group']}]")
 
 
-CMDS = {"icon3d": icon3d, "where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords}
+def taste(cmd="list", *a):
+    """taste add "<lời người dùng>" [skill|all] · taste list [skill] · taste forget <id> — gu người dùng (thagent/taste.py)."""
+    from . import taste as TS
+    if cmd == "add":
+        it = TS.add(a[0], a[1] if len(a) > 1 else "all")
+        print(f"đã ghi {it['id']}: “{it['text']}” ({it['style']})")
+    elif cmd == "forget":
+        print("đã bỏ" if TS.forget(a[0]) else "không có góp ý này")
+    else:
+        for it in TS.active(a[0] if a else ""):
+            print(f"{it['id']}  [{it['style']}]  {it['text']}")
+
+
+CMDS = {"taste": taste, "icon3d": icon3d, "where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords}
 
 if __name__ == "__main__":
     main()
