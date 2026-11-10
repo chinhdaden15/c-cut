@@ -13,7 +13,7 @@ Kind (sc["kind"]) — "at" = GIÂY tính từ đầu cảnh, mỗi từ / mục 
   drum       items ["…", "…"], lead, tail — trống chữ 3D xoay tới từng từ đúng lúc nói (liệt kê, "vòng lặp")
   flipstack  items ["…"] — mỗi từ một thẻ lật từ trên xuống, chồng lên thẻ trước (thẻ cũ lùi, mờ, lệch nhẹ); last_accent: thẻ cuối màu nhấn
   spring     text "PHẦN 2", sub — từng chữ cái rơi xuống kiểu lò xo (vị trí + xoay + co giãn) — tiêu đề phần
-Chung: y (tâm khối, 0..1 chiều cao khung; mặc định 0.62 dọc / 0.58 ngang), size (px ở khung 1080), color, accent, pocket (nền tối mờ sau chữ, mặc định True).
+Chung: y (tâm khối, 0..1 chiều cao khung; mặc định 0.62 dọc / 0.58 ngang), size (px ở khung 1080), color, accent, glass (khung kính mờ sau chữ, mặc định bật — trừ flipstack), mark mặc định "pill" (viên bo góc chuyển sắc bao trọn từ nhấn).
 """
 from __future__ import annotations
 
@@ -22,9 +22,10 @@ import re
 
 KINDS = {"headline", "scramble", "drum", "flipstack", "spring"}
 # bảng màu dịu (góp ý người dùng 2026-11-10: "phối màu chưa ổn"): chữ trắng ngà + MỘT màu nhấn nhạt, thẻ giấy ngà chữ đậm — không đỏ / vàng gắt
-PAL = {"gold": {"acc": "#FFD978", "ink": "#FBF7EE", "card": "#F4EFE4", "card_ink": "#1A1712", "hl": "#FFE38A"},
-       "blue": {"acc": "#8FDDF2", "ink": "#F5FAFC", "card": "#EEF3F5", "card_ink": "#11181C", "hl": "#A9E8F7"},
-       "red": {"acc": "#FF9C8A", "ink": "#FFF6F2", "card": "#F7EFEA", "card_ink": "#1C1412", "hl": "#FFB9AA"}}
+# + lần 2 ("chữ bị chìm, shape không bao hết chữ, cổ điển"): chữ TRẮNG đậm trên KÍNH MỜ tối, từ nhấn trong VIÊN bo góc chuyển sắc bao trọn chữ
+PAL = {"gold": {"acc": "#FFD66B", "acc2": "#FFB547", "ink": "#FFFFFF", "card": "rgba(16,18,26,.72)", "card_ink": "#FFFFFF", "hl": "#FFD66B", "on": "#17130A"},
+       "blue": {"acc": "#8FE3FF", "acc2": "#5AB8FF", "ink": "#FFFFFF", "card": "rgba(14,20,30,.72)", "card_ink": "#FFFFFF", "hl": "#8FE3FF", "on": "#0B1620"},
+       "red": {"acc": "#FFB4A6", "acc2": "#FF8A75", "ink": "#FFFFFF", "card": "rgba(26,16,16,.72)", "card_ink": "#FFFFFF", "hl": "#FFB4A6", "on": "#1E0E0B"}}
 ACC = {k: v["acc"] for k, v in PAL.items()}
 
 RUNTIME = r"""
@@ -38,15 +39,23 @@ const OUT='expo.out',IN='power3.in';
 
 CSS = """
 .kt{position:absolute;left:0;right:0;display:flex;flex-direction:column;align-items:center;text-align:center;font-family:Montserrat,sans-serif;color:var(--ink)}
+.kt-glass{position:relative;display:flex;flex-direction:column;align-items:center;padding:calc(30px*var(--s)) calc(46px*var(--s)) calc(34px*var(--s));
+ border-radius:calc(34px*var(--s));background:rgba(12,14,22,.56);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+ border:1.5px solid rgba(255,255,255,.16);box-shadow:0 calc(24px*var(--s)) calc(60px*var(--s)) rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.18)}
 .kt-pk{position:absolute;left:-10%;right:-10%;background:radial-gradient(50% 50% at 50% 50%,rgba(8,8,10,.5) 0%,rgba(8,8,10,.26) 48%,rgba(8,8,10,0) 100%)}
-.kt-line{display:block;white-space:nowrap;line-height:1.08;text-shadow:0 3px 14px rgba(0,0,0,.45)}
+.kt-line{display:block;white-space:nowrap;line-height:1.12;font-weight:900;letter-spacing:-.015em;text-shadow:0 2px 10px rgba(0,0,0,.35)}
 .kt-m{display:inline-block;overflow:hidden;vertical-align:bottom;padding:.28em .16em .22em;margin:-.28em -.16em -.22em}
 .kt-mi{display:inline-block;transform-origin:0% 100%}
 .kt-mk{position:relative;display:inline-block;isolation:isolate}
 .kt-mkw{position:absolute;pointer-events:none;z-index:-1}.kt-mkw svg{display:block;width:100%;height:100%;overflow:visible}
-.kt-mk.under .kt-mkw{left:-4%;right:-4%;top:90%;height:.3em}.kt-mk.marker .kt-mkw{left:-5%;right:-5%;top:14%;height:.8em;opacity:.95}
-.kt-mk.marker .kt-mi{color:#16130E;text-shadow:none}.kt-mk.marker{--acc:var(--hl)}
-.kt-mk.box .kt-mkw{left:-7%;right:-7%;top:-10%;bottom:-16%}.kt-mk.strike .kt-mkw{left:-6%;right:-6%;top:42%;height:.28em;z-index:2}
+.kt-mk.pill{margin:0 .1em}.kt-mk.pill .kt-mkw{left:-.18em;right:-.18em;top:-.16em;bottom:-.12em;border-radius:.24em;
+ background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 .08em .3em rgba(0,0,0,.35)}
+.kt-mk.pill .kt-mi{color:var(--on);text-shadow:none}
+.kt-mk.under .kt-mkw{left:0;right:0;top:100%;height:.12em;border-radius:99px;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+.kt-mk.strike .kt-mkw{left:-.08em;right:-.08em;top:48%;height:.1em;border-radius:99px;background:var(--acc);z-index:2}
+.kt-mk.box .kt-mkw{left:-.2em;right:-.2em;top:-.14em;bottom:-.1em;border:.06em solid var(--acc);border-radius:.26em}
+.kt-mk.brush-under .kt-mkw{left:-4%;right:-4%;top:90%;height:.3em}.kt-mk.brush-marker .kt-mkw{left:-5%;right:-5%;top:14%;height:.8em}
+.kt-mk.brush-marker .kt-mi{color:var(--on);text-shadow:none}
 .kt-sc{position:relative;display:inline-block}.kt-sc>i{font-style:normal;visibility:hidden}
 .kt-sc>b{position:absolute;left:50%;top:0;transform:translateX(-50%);font-weight:inherit;white-space:pre}
 .kt-drum{position:relative;display:inline-grid;align-items:center;justify-items:center;
@@ -56,7 +65,8 @@ CSS = """
 .kt-dax,.kt-cyl{position:absolute;inset:0;transform-style:preserve-3d}
 .kt-dw{position:absolute;left:0;top:50%;width:100%;text-align:center;white-space:nowrap;line-height:1;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .kt-cards{position:relative;width:100%}.kt-crow{position:absolute;left:0;right:0;top:0;display:flex;justify-content:center}
-.kt-card{position:relative;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;transform-origin:50% 0%;opacity:0;font-weight:800;box-shadow:0 18px 44px rgba(0,0,0,.38)}
+.kt-card{position:relative;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;transform-origin:50% 0%;opacity:0;font-weight:800;
+ box-shadow:0 18px 44px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.16);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
 .kt-card .kt-dim{position:absolute;inset:0;border-radius:inherit;background:#000;opacity:0}
 .kt-ch{display:inline-block;transform-origin:50% 100%;opacity:0}
 """
@@ -120,7 +130,9 @@ class _B:
                 html += " "
             if op:
                 in_mark, mk_id = True, self.uid("mk")
-                html += f'<span class="kt-mk {mark}">' + (f'<span class="kt-mkw {mk_id}">{_BRUSH["marker"].format(b=_BOIL.format(i=mk_id), i=mk_id)}</span>' if mark == "marker" else "")
+                behind = mark in ("pill", "brush-marker")
+                fill = (_BRUSH["marker"].format(b=_BOIL.format(i=mk_id), i=mk_id) if mark == "brush-marker" else "")
+                html += f'<span class="kt-mk {mark}">' + (f'<span class="kt-mkw {mk_id}">{fill}</span>' if behind else "")
             wid = self.uid("w")
             ids.append(wid)
             html += f'<span class="kt-m"><span class="kt-mi {wid}">{_e(clean)}</span></span>'
@@ -129,8 +141,9 @@ class _B:
             if in_mark:
                 mark_t = t
             if cl and in_mark:
-                if mark != "marker":
-                    html += f'<span class="kt-mkw {mk_id}">{_BRUSH[mark].format(b=_BOIL.format(i=mk_id), i=mk_id)}</span>'
+                if mark not in ("pill", "brush-marker"):
+                    fill = _BRUSH[mark[6:]].format(b=_BOIL.format(i=mk_id), i=mk_id) if mark.startswith("brush-") else ""
+                    html += f'<span class="kt-mkw {mk_id}">{fill}</span>'
                 html += "</span>"
                 in_mark = False
         style = f"font-size:{_px(size)};font-weight:{weight};" + (f"color:{color};" if color else "")
@@ -165,7 +178,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
     if k == "headline":
         lines = [l if isinstance(l, str) else l.get("text", "") for l in (sc.get("lines") or [sc.get("text", "")])]
         size = min(fit(l.replace("*", ""), float(sc.get("size", 86 if V else 78)), V, l.replace("*", "").isupper()) for l in lines)
-        mark = sc.get("mark") or ("under" if any("*" in l for l in lines) else None)
+        mark = {"marker": "pill"}.get(sc.get("mark"), sc.get("mark")) or ("pill" if any("*" in l for l in lines) else None)
         n_tok = sum(len(l.split()) for l in lines)
         times = _times(n_tok, sc.get("at"))
         main_start = times[0] if times else 0.25
@@ -200,7 +213,8 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
             B.js.append(f"ft('.{mk_main}',{{opacity:1}},{{opacity:0,duration:.2,ease:IN}},{t_out});")
             sfx.append((ma, "whoosh_short", -14.0))
             beats.append(ma)
-        B.painter("const s=String(1+(Math.floor(t*12)%53));qa('.kt-turb').forEach(e=>e.setAttribute('seed',s));")   # nét bút "sôi" 12 hình/giây
+        if mark and mark.startswith("brush-"):
+            B.painter("const s=String(1+(Math.floor(t*12)%53));qa('.kt-turb').forEach(e=>e.setAttribute('seed',s));")   # nét bút "sôi" 12 hình/giây
         B.mask_out(ids_all, t_out)
         beats += times
         body = f'<div style="display:grid;justify-items:center;align-items:center">{swap_html}<div style="grid-area:1/1">{html}</div></div>'
@@ -229,7 +243,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
             sh, _, sids, _, _ = B.mask_line(str(sc["sub"]), st, 54, weight=600)
             B.mask_out(sids, t_out)
             sub = sh
-        body = f'<span class="kt-line" style="font-size:{_px(size)};font-weight:900;letter-spacing:-.02em;color:{sc.get("key_color", acc)}">{letters}</span>{sub}'
+        body = f'<span class="kt-line" style="font-size:{_px(size)};font-weight:900;letter-spacing:-.02em;color:{sc.get("key_color", ink)}">{letters}</span>{sub}'
         h = size + (70 if sub else 0)
         beats += [start, start + len(chars) * stg]
         sfx.append((start, "whoosh_short", -12.0))
@@ -314,7 +328,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
         off = round(ch * 0.7)
         rows = "".join(
             f'<div class="kt-crow" style="z-index:{i + 1}"><div class="kt-card c{i}" style="min-width:{_px(440 if V else 420)};height:{_px(ch)};padding:0 {_px(46)};'
-            f'border-radius:{_px(30)};background:{acc if (i == len(items) - 1 and sc.get("last_accent", True)) else pal["card"]};color:{pal["card_ink"]};font-size:{_px(size)};'
+            f'border-radius:{_px(30)};background:{("linear-gradient(135deg," + acc + "," + pal["acc2"] + ")") if (i == len(items) - 1 and sc.get("last_accent", True)) else pal["card"]};color:{pal["on"] if (i == len(items) - 1 and sc.get("last_accent", True)) else pal["card_ink"]};font-size:{_px(size)};'
             f'letter-spacing:-.02em">{_e(x)}<i class="kt-dim d{i}"></i></div></div>' for i, x in enumerate(items))
         B.painter(f"const T={json.dumps(times)};const n=T.length;const s=parseFloat(getComputedStyle(q('.kt')).getPropertyValue('--s'))||1;"
                   "for(let i=0;i<n;i++){const el=q('.c'+i),dm=q('.d'+i);if(!el)continue;const u=t-T[i];if(u<0){el.style.opacity='0';continue}"
@@ -333,12 +347,19 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
     H = 1920 if V else 1080
     top = y * H - h / 2
     pk = ""
-    if sc.get("pocket", True):
+    glass = sc.get("glass", k != "flipstack")         # khung kính mờ sau khối chữ (chữ trắng luôn nổi trên mọi nền)
+    if glass:
+        body = f'<div class="kt-glass gl">{body}</div>'
+        h += 64
+        B.js.append(f"gsap.set(q('.gl'),{{opacity:0,scale:.92}});ft('.gl',{{opacity:0,scale:.92}},{{opacity:1,scale:1,duration:.45,ease:OUT}},0.02);"
+                    f"ft('.gl',{{opacity:1,scale:1}},{{opacity:0,scale:.96,duration:.3,ease:IN}},{t_out});")
+        top = y * H - h / 2
+    if sc.get("pocket", False) and not glass:
         B.js.append(f"gsap.set(q('.kt-pk'),{{opacity:0}});ft('.kt-pk',{{opacity:0}},{{opacity:1,duration:.25,ease:'power2.out'}},0.02);"
                     f"ft('.kt-pk',{{opacity:1}},{{opacity:0,duration:.3,ease:IN}},{t_out});")
         pk = f'<div class="kt-pk" style="top:{_px(round(top - h * 0.6))};height:{_px(round(h * 2.2))}"></div>'
     # chữ chờ dưới mặt nạ / mặt sau trống / thẻ chưa lật là CHE CÓ CHỦ ĐÍCH → báo cho bộ kiểm bố cục HyperFrames (đã kiểm bằng ảnh tĩnh)
-    html = (f'<div class="ktwrap" data-layout-allow-overflow data-layout-allow-occlusion style="--acc:{acc};--ink:{ink};--hl:{pal["hl"]};position:absolute;inset:0">{pk}'
+    html = (f'<div class="ktwrap" data-layout-allow-overflow data-layout-allow-occlusion style="--acc:{acc};--acc2:{pal["acc2"]};--on:{pal["on"]};--ink:{ink};--hl:{pal["hl"]};position:absolute;inset:0">{pk}'
             f'<div class="kt" style="top:{_px(round(top))}">{body}</div></div>')
     # cờ phải nằm trên CHÍNH phần tử chữ (bộ kiểm không xét tổ tiên): chữ dưới mặt nạ / chữ xáo / mặt trống / thẻ chưa lật
     html = re.sub(r'class="(kt-mi|kt-ch|kt-dw|kt-card|kt-line)\b', r'data-layout-allow-occlusion data-layout-allow-overflow class="\1', html)
