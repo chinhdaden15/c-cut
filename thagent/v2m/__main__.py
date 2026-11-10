@@ -113,6 +113,8 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
     except Exception as e:
         return [("error", f"timeline.json không hợp lệ: {e}")]
     d = tl.d
+    from .. import contentstyle as CS
+    out += CS.check(pdir)
     vf = pdir / d.get("audio", {}).get("path", "")
     if not vf.is_file():
         out.append(("error", f"không có file voice {vf.name}"))

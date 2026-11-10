@@ -73,7 +73,7 @@ không 3 cảnh liền cùng kiểu, không một nền suốt video, thẻ kế
 Cảnh `s.mg("custom")` để `region="main"` (mặc định) — một html dùng cho cả 9:16 lẫn 16:9; mốc trong js tính từ t0 của chính lớp đó.
 Câu khẳng định trừu tượng, con số, thời gian, so sánh, danh sách → ưu tiên MỘT VẬT ẨN DỤ có 3–5 nhịp đổi neo theo từ (`s.mg("custom")`),
 
-**Chọn phong cách theo nội dung (BẮT BUỘC trước khi lập kế hoạch):** xác định nhóm nội dung (kiến thức, mẹo, tài chính/số liệu, BĐS, review công nghệ, ẩm thực/mỹ phẩm, tin tức, kể chuyện, nhân vật, du lịch, động lực, năng suất, so sánh, CTA) rồi chọn 1 phong cách chủ đạo + 3–6 điểm nhấn theo `.claude/shared/editatlas/chon-phong-cach-theo-noi-dung.md`; ghi `style: <nhóm> / <chủ đạo>` vào ghi chú.
+**Chọn phong cách theo nội dung — Claude TỰ làm, không hỏi người dùng:** ngay khi có lời (transcript / kịch bản) chạy `python -m thagent.tools style <dự-án>` → app nhận diện nhóm (kiến thức, mẹo, tài chính, BĐS, công nghệ, ẩm thực/mỹ phẩm, tin tức, kể chuyện, nhân vật, du lịch, động lực, năng suất, so sánh) + phong cách chủ đạo + điểm nhấn + giọng điệu, ghi `content_style.json`. Đọc lời thật: đúng thì dựng theo; sai / hai nhóm sát điểm thì chốt `tools style <dự-án> <nhóm> <lý do>`. Người dùng đã nói rõ phong cách → làm theo họ. Chi tiết từng nhóm: `.claude/shared/editatlas/chon-phong-cach-theo-noi-dung.md`. Quên bước này thì lúc kiểm tra app tự chọn và báo cảnh báo.
 
 thay cho kinetic chữ trơn hoặc thẻ icon: `.claude/shared/editatlas/y-tuong-theo-loi.md`. Thông số chuyển động: `.claude/shared/editatlas/thong-so-chuyen-dong.md`.
 Không lặp cùng một ý tưởng trong một video; b-roll thật vẫn là hình chính (≥ 40%).

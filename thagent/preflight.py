@@ -107,6 +107,8 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     if trimmed:
         add("info", trimmed)
     out += TR.check(pl, c.project.words, c.dir)
+    from . import contentstyle as CS
+    out += CS.check(c.dir)
 
     # 1) độ dài nguồn: proxy/alpha phải đủ frame cho mọi đoạn giữ
     need = max(T.sec_to_frame(s.source_out, fps) for s in T.kept(pl))

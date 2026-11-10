@@ -198,7 +198,19 @@ def _pdir(pid):
     return P.PROJECTS / pid
 
 
-CMDS = {"brand": brand, "webshot": webshot, "paper": paper, "taste": taste, "icon3d": icon3d, "where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords}
+def style(pid, group=None, *why):
+    """style <dự-án> [nhóm] [lý do] — tự nhận diện nhóm nội dung → phong cách chủ đạo + điểm nhấn (thagent/contentstyle.py)."""
+    from . import contentstyle as CS
+    d = CS.choose(_pdir(pid), group, " ".join(why))
+    print(f"nhóm: {d['group']} — {d['name']}" + (" (tự nhận diện)" if d.get("auto") else "") + (" · người dùng đã chọn, giữ nguyên" if d["source"] == "user" else ""))
+    print(f"chủ đạo: {d['main']}\nđiểm nhấn: {d['accents']}\ngiọng: {d['tone']} → {d['tone_hint']}")
+    if d.get("avoid"):
+        print("tránh: " + d["avoid"])
+    if d.get("scores"):
+        print("điểm: " + ", ".join(f"{k} {v}" for k, v in d["scores"].items()) + "  — đọc lời thật; sai thì: tools style <dự-án> <nhóm> <lý do>")
+
+
+CMDS = {"brand": brand, "webshot": webshot, "paper": paper, "taste": taste, "icon3d": icon3d, "where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords, "style": style}
 
 if __name__ == "__main__":
     main()

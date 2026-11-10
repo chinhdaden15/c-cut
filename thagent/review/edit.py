@@ -269,7 +269,8 @@ def _fix(edit: dict, src: str, w: dict) -> dict:
 def words_out(edit: dict, pdir) -> list[dict]:
     """lời của các đoạn talk, đổi sang giây trên timeline xuất (theo J-cut). Chế độ lồng tiếng: lời của giọng lồng."""
     M = media(pdir)
-    out = []
+    from .. import contentstyle as CS
+    out = list(CS.check(pdir))
     v = vo(edit)
     if v:
         vin, vout = float(v.get("in", 0)), float(v.get("out") or 1e9)

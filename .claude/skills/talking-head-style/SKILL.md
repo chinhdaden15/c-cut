@@ -49,7 +49,7 @@ Giọng nói và ý nghĩa nguyên bản là nền tảng. Không đổi số, �
 
 ## Ý TƯỞNG THEO LỜI (1.7.0): mỗi ý chính là một vật có diễn biến
 
-**Chọn phong cách theo nội dung (BẮT BUỘC trước khi lập kế hoạch):** xác định nhóm nội dung (kiến thức, mẹo, tài chính/số liệu, BĐS, review công nghệ, ẩm thực/mỹ phẩm, tin tức, kể chuyện, nhân vật, du lịch, động lực, năng suất, so sánh, CTA) rồi chọn 1 phong cách chủ đạo + 3–6 điểm nhấn theo `.claude/shared/editatlas/chon-phong-cach-theo-noi-dung.md`; ghi `style: <nhóm> / <chủ đạo>` vào ghi chú.
+**Chọn phong cách theo nội dung — Claude TỰ làm, không hỏi người dùng:** ngay khi có lời (transcript / kịch bản) chạy `python -m thagent.tools style <dự-án>` → app nhận diện nhóm (kiến thức, mẹo, tài chính, BĐS, công nghệ, ẩm thực/mỹ phẩm, tin tức, kể chuyện, nhân vật, du lịch, động lực, năng suất, so sánh) + phong cách chủ đạo + điểm nhấn + giọng điệu, ghi `content_style.json`. Đọc lời thật: đúng thì dựng theo; sai / hai nhóm sát điểm thì chốt `tools style <dự-án> <nhóm> <lý do>`. Người dùng đã nói rõ phong cách → làm theo họ. Chi tiết từng nhóm: `.claude/shared/editatlas/chon-phong-cach-theo-noi-dung.md`. Quên bước này thì lúc kiểm tra app tự chọn và báo cảnh báo.
 
 Đọc `.claude/shared/editatlas/y-tuong-theo-loi.md` khi lập kế hoạch. Callout thẻ + icon vẫn dùng cho ý phụ, còn **2–4 ý chính / phút**
 phải là MỘT VẬT ẨN DỤ biến đổi theo đúng từ được nói (pin tụt theo ngày → nứt ở "kiệt sức"; bảng lật sân bay cho từng con số;
