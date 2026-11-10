@@ -404,6 +404,89 @@ class Kit:
             return None
         return out
 
+    MAX_CAP_LINES = 2
+
+    def _fit_caps(self, ch, role: str, size: int, max_w: float):
+        """cụm phụ đề → dòng đo bằng font thật (không đoán theo số ký tự). Dòng nào rộng hơn khung → ngắt lại; cụm > 2 dòng
+        → tách thành nhiều cụm theo mốc từng từ (người xem không phải đọc 3–5 dòng một lúc)."""
+        from . import draw as D
+        f = D.font(role, int(size))
+        W = lambda ws: f.getlength(" ".join(w["text"] for w in ws))
+        out, k = [], 0
+        for a, b, text in ch:
+            n = len(text.split())
+            ws = self.words[k:k + n]
+            k += n
+            if len(ws) != n or not ws:
+                out.append((a, b, text)); continue
+            lines = text.split("\n")
+            if len(lines) <= self.MAX_CAP_LINES and all(f.getlength(l) <= max_w for l in lines):
+                out.append((a, b, text)); continue
+            from . import vtext as VT
+            no = VT._protected_pairs([w["text"] for w in ws], ())
+            self._pen = {}
+            for i in range(1, len(ws)):                       # giá phải trả khi ngắt TRƯỚC ws[i]
+                p = 0.0
+                if (i - 1) in no:
+                    p += 2.0
+                if VT._norm(ws[i - 1]["text"]) in VT.BIND_NEXT and not ws[i - 1]["text"].endswith(self.PUNCT):
+                    p += 0.6
+                if VT._norm(ws[i]["text"]) in ("nhất", "hơn", "lắm", "nữa", "thôi", "đấy", "nhé"):
+                    p += 1.0                                  # từ bám vào từ trước: đẹp nhất · nhanh hơn
+                if ws[i - 1]["text"].endswith(self.PUNCT):
+                    p -= 0.35
+                elif VT._norm(ws[i]["text"]) in VT.BREAK_BEFORE:
+                    p -= 0.15
+                self._pen[id(ws[i])] = p
+            for grp in self._split_cap(ws, W, max_w):
+                out.append((float(grp[0][0]["start"]), float(grp[-1][-1]["end"]), "\n".join(" ".join(w["text"] for w in r) for r in grp)))
+        return out
+
+    PUNCT = (",", ";", ":", ".", "?", "!", "…")
+    _pen: dict = {}
+
+    def _two_lines(self, ws, W, max_w):
+        """cụm → 1 dòng nếu vừa, không thì 2 dòng gần bằng nhau (ưu tiên ngắt sau dấu câu / trước từ nối); None nếu không vừa 2 dòng."""
+        if W(ws) <= max_w:
+            return [ws]
+        best, bi = 1e18, None
+        for i in range(1, len(ws)):
+            l, r = W(ws[:i]), W(ws[i:])
+            if l > max_w or r > max_w:
+                continue
+            sc = abs(l - r) + max_w * self._pen.get(id(ws[i]), 0.0)
+            if len(ws) >= 4 and (i == 1 or i == len(ws) - 1):
+                sc += max_w                                   # tránh dòng chỉ 1 từ
+            if sc < best:
+                best, bi = sc, i
+        if bi is None or self._pen.get(id(ws[bi]), 0.0) >= 1.0:
+            return None                                       # chỉ vừa khi ngắt giữa từ ghép / cụm số → chia thêm cụm
+        return [ws[:bi], ws[bi:]]
+
+    def _split_cap(self, ws, W, max_w):
+        """chia ws thành ít cụm nhất, mỗi cụm ≤ 2 dòng; các cụm dài gần bằng nhau, ranh giới ưu tiên dấu câu, không cụm 1 từ."""
+        n = len(ws)
+        for m in range(1, n + 1):
+            tot = W(ws)
+            cuts, i0 = [], 0
+            for g in range(1, m):
+                tgt = tot * g / m
+                best, bi = 1e18, None
+                for i in range(i0 + 2, n - 1):                 # mỗi cụm ≥ 2 từ
+                    sc = abs(W(ws[:i]) - tgt) + max_w * 1.3 * self._pen.get(id(ws[i]), 0.0)
+                    if sc < best:
+                        best, bi = sc, i
+                if bi is None:
+                    break
+                cuts.append(bi); i0 = bi
+            parts = [ws[x:y] for x, y in zip([0] + cuts, cuts + [n])]
+            if len(parts) != m:
+                continue
+            rows = [self._two_lines(p, W, max_w) for p in parts]
+            if all(rows):
+                return rows
+        return [[[w]] for w in ws]
+
     def _captions_block(self, scenes):
         """phụ đề kiểu mạng xã hội: cụm ngắn hiện cả cụm, chữ đậm to có viền, TỪ ĐANG ĐỌC đổi màu nhấn (karaoke)."""
         x0, y0, x1, y1 = self.F.zone("caption")
@@ -411,6 +494,7 @@ class Kit:
         size = int(self.th.get("caption_size", 62 if self.V else 50))
         line_c = max(14, int((x1 - x0) / (size * 0.62)))
         ch = self.claude_captions() or self._cap_chunks(line_c, lines=1)   # cụm ngắn ~4–6 từ, quá 1 dòng thì gập 2 dòng
+        ch = self._fit_caps(ch, "black", size, x1 - x0)                   # đo chữ thật: mỗi cụm ≤ 2 dòng vừa khung, dài quá → tách cụm
         toks = [(_norm(w["text"]), float(w["start"])) for w in self.words]
         k = 0
         for j, (a, b, text) in enumerate(ch):
@@ -673,10 +757,15 @@ class Scene:
         """số liệu lớn chạy số + nhãn dưới. Chỉ dùng số có trong lời/nguồn."""
         K = self.K
         x, y = K.at_zone(region, 0.5, ry)
-        cid = self.add({"type": "counter", "value": 0, "prefix": prefix, "suffix": suffix, "decimals": decimals, "font": "black",
+        year = not decimals and float(value).is_integer() and 1900 <= value <= 2100      # năm: 2014, không “2.014”
+        cid = self.add({"type": "counter", "value": value if year else 0, "prefix": prefix, "suffix": suffix, "decimals": decimals,
+                        "font": "black", "group": not year,
                         "size": 300 if K.V else 220, "color": color or K.th["accent"], "space": "screen", "x": x, "y": y}, t, "pop", 0.35)
-        self.evs.append({"object_id": cid, "action": "count", "start_s": round(t, 3), "end_s": round(t + count_d, 3),
-                         "to": {"value": value}, "ease": "out"})
+        if year:                                   # năm không chạy số từ 0 (vô nghĩa) — hiện thẳng
+            count_d = 0
+        if count_d:
+            self.evs.append({"object_id": cid, "action": "count", "start_s": round(t, 3), "end_s": round(t + count_d, 3),
+                             "to": {"value": value}, "ease": "out"})
         if label:
             self.add({"type": "text", "text": label, "font": "black", "size": 60 if K.V else 48, "color": K.th["text"], "space": "screen", "x": x,
                       "y": y + (210 if K.V else 160), "max_w": K.F.width(region) * 0.9, "shadow": 0}, t + 0.25, "up", 0.35)

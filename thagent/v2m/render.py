@@ -453,8 +453,8 @@ def _q(v, step=0.05):
     return max(step, round(v / step) * step)
 
 
-def _fmt_num(v: float, dec: int) -> str:
-    s = f"{v:,.{dec}f}"   # 1,234.5 → 1.234,5 (kiểu Việt)
+def _fmt_num(v: float, dec: int, group: bool = True) -> str:
+    s = f"{v:,.{dec}f}" if group else f"{v:.{dec}f}"   # 1,234.5 → 1.234,5 (kiểu Việt); năm / mã số: không ngăn nghìn
     return s.replace(",", "§").replace(".", ",").replace("§", ".")
 
 
@@ -1163,7 +1163,7 @@ class Renderer:
 
     def d_counter(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):
         v = float(p.get("value", 0))
-        txt = p.get("prefix", "") + _fmt_num(v, int(p.get("decimals", 0))) + p.get("suffix", "")
+        txt = p.get("prefix", "") + _fmt_num(v, int(p.get("decimals", 0)), p.get("group", True)) + p.get("suffix", "")
         q = {**p, "text": txt, "type": "text"}
         self.d_text(dst, q, sx, sy, scale, rot, op, bv, clip, t, cam)
 

@@ -20,7 +20,7 @@ Bộ dựng dùng chung với Voice to Motion: ĐỌC `.claude/skills/voice-to-m
 ## 2. Mỗi câu = một nhịp hình (kiểu KẾT HỢP)
 | Câu nói về… | Hình |
 |---|---|
-| chủ thể có tên (dự án, thương hiệu, sản phẩm, địa danh) | ảnh/video THẬT của đúng chủ thể (entities.json — quy tắc chung) |
+| chủ thể có tên (dự án, thương hiệu, sản phẩm, địa danh) | ảnh/video THẬT của đúng chủ thể (entities.json — quy tắc chung). Sản phẩm / hãng / người: khai `"kind": "product" \| "brand" \| "person"` → chỉ lần nhắc ĐẦU (và khi cách > 10s) cần ảnh thật; các câu sau về tính năng dùng VIDEO minh hoạ đúng ý (động cơ, bánh xe, sạc, người dùng…). Dự án / địa danh (mặc định "place"): mọi lần nhắc cần ảnh thật |
 | vật / cảnh cụ thể (đầu cọ son, hồ bơi, bác sĩ…) | VIDEO minh hoạ đúng vật (ảnh nếu không có video) |
 | số liệu | thẻ số đếm, cột/tròn, so sánh (stat, bars, compare, meter) |
 | quy trình, liệt kê, nguyên nhân–kết quả | sơ đồ / steps / checklist hiện dần |
@@ -30,6 +30,12 @@ Bộ dựng dùng chung với Voice to Motion: ĐỌC `.claude/skills/voice-to-m
 VIDEO MINH HOẠ LÀ HÌNH CHÍNH: `s.photo_bg("assets_web/v_x.mp4", dim=0.35, in=<giây>)` phủ kín khung, chữ nhấn / thẻ số / nhãn đè lên.
 Không đặt clip nhỏ giữa nền trống. Chủ đề cụ thể (sản phẩm, BĐS, du lịch, ẩm thực, sức khoẻ) → motion-only ≤ 40% thời lượng.
 MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son mịn”, “giữ màu”, “bảng màu” = 4 clip khác nhau).
+**VIDEO ≥ 50% thời lượng** khi chủ đề là sản phẩm / xe / máy / món / nơi chốn: ảnh tĩnh chỉ để nhận diện đúng chủ thể (ảnh thật) và ≤ 2 cảnh ảnh liền nhau.
+Không có clip của ĐÚNG mẫu (thường gặp: xe, điện thoại đời cụ thể) → tìm clip CHUNG khớp ý câu (xe chạy nhanh, đồng hồ tốc độ, khoang máy, mâm xe,
+trạm sạc, người ngoái nhìn), mỗi câu một clip; KHÔNG đặt clip mẫu / hãng khác đúng lúc đang gọi tên chủ thể (dễ hiểu nhầm là chính nó).
+Đổi nền giữa câu trong cùng cảnh: `s.photo_bg(src, t, dim=…)` (ảnh thật nhận diện → clip ý tiếp theo).
+**Phụ đề:** mỗi cụm trong captions.json ≤ 2 dòng, dòng dọc ≤ ~22 ký tự (chữ đậm 62px, khung 920px) — app đo chữ thật và tự tách cụm dài,
+nhưng tự chia ngắn từ đầu thì nhịp đẹp hơn; không ngắt giữa từ ghép / cụm số (“ánh / mắt”, “ba trăm sáu / mươi”).
 
 ## 3. Tìm hình KỸ, đúng ngữ cảnh
 - Từ khoá tạo từ CẢ câu + chủ đề video, tiếng Anh cụ thể (vd video son, câu “đầu cọ mềm” → "lipstick applicator close up", không phải "brush").

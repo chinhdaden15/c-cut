@@ -34,9 +34,14 @@ cửa ngõ|trung tâm|miền tây|miền đông|đồng bằng|sông cửu long|
 không gian|ánh sáng|thông thoáng|sinh hoạt|chi phí|giá mua|phí quản lý|nội thất|trả góp|nhu cầu|lựa chọn|quyết định|vị trí|
 sức khỏe|sức khoẻ|cơ thể|bản thân|chính mình|gia đình|công việc|yêu thương|vận động|nhẹ nhàng|thả lỏng|lắng nghe|nhịp thở|động tác|
 thói quen|chăm sóc|dưỡng sinh|đông phương|giáo viên|hướng dẫn|đồng hành|tập luyện|chứng nhận|hoàn thành|tích lũy|quà tặng|
-thân khỏe|tâm an|an vui|khỏe mạnh|cá độ|nhà cái|người chơi|pháp luật|vi phạm|vòng lặp|nợ nần|vay nóng|vận may|người trẻ|điện thoại""".replace("\n", "").split("|")}
+thân khỏe|tâm an|an vui|khỏe mạnh|cá độ|nhà cái|người chơi|pháp luật|vi phạm|vòng lặp|nợ nần|vay nóng|vận may|người trẻ|điện thoại|đường nét|khoa học|viễn tưởng|công suất|ánh mắt|ánh nhìn|sản xuất|năng lượng|siêu xe|xe đua|tiết kiệm|
+động cơ|mô tơ|xi lanh|sợi carbon|khí thải|bình luận|theo dõi|đỉnh cao|biểu tượng|tương lai|thương mại|cánh bướm|tăng tốc|cây số|mã lực|
+hoàn toàn|mẫu xe|cắm sạc|công nghệ|ứng dụng|sản phẩm|khách hàng|doanh nghiệp|thương hiệu|chất lượng|trải nghiệm|tính năng|màn hình""".replace("\n", "").split("|")}
 UNIT = re.compile(r"^(%|‰|tỷ|tỉ|triệu|nghìn|ngàn|km|m|m2|m²|ha|kg|g|usd|đ|đồng|năm|tháng|ngày|giờ|phút|giây|lần|người|căn|tầng|"
                   r"phòng|điểm|bậc|độ|°c?)[.,;:!?]?$", re.I)
+NUMW = {"không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín", "mười", "mươi", "trăm", "nghìn", "ngàn", "triệu",
+        "tỷ", "tỉ", "phẩy", "lẻ", "linh", "mốt", "lăm", "tư", "rưỡi"}
+NUMW_AFTER = {"mươi", "trăm", "nghìn", "ngàn", "triệu", "phẩy", "lẻ", "linh", "mốt", "lăm", "rưỡi"}
 NUM = re.compile(r"^[+\-−~≈]?\d[\d.,]*%?$")
 
 
@@ -66,6 +71,8 @@ def _protected_pairs(words: list[str], keep: tuple[str, ...]) -> set[int]:
         if not all_caps and a[:1].isupper() and b[:1].isupper() and not a.endswith((".", ",", ":", ";", "?", "!")) and i > 0 \
                 and b not in ("–", "-", "—") and a not in ("–", "-", "—"):
             no.add(i)                                   # tên riêng: Hồ Chí Minh, Long Thành (bỏ chữ hoa đầu câu)
+        if _norm(b) in NUMW_AFTER or (_norm(a) in NUMW and _norm(b) in NUMW):
+            no.add(i)                                   # số đọc chữ: ba trăm sáu mươi hai · bốn phẩy bốn
         if b in ("–", "-", "—"):
             no.add(i)                                   # không mở dòng mới bằng gạch nối; ngắt SAU gạch nối thì được
     return no

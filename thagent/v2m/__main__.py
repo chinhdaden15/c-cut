@@ -236,7 +236,7 @@ def safe_area(tl: R.Timeline) -> list[str]:
         cam = R.camera_at(tl, t)
         sx, sy = (p.get("x", tl.W / 2), p.get("y", tl.H / 2)) if p.get("space") == "screen" else R.world_to_screen(tl, cam, p.get("x", tl.W / 2), p.get("y", tl.H / 2))
         sc = p["scale"] * (1 if (p.get("space") == "screen" or p.get("fixed")) else cam[2])
-        txt = p.get("text") or (p.get("prefix", "") + R._fmt_num(float(p.get("value", 0)), int(p.get("decimals", 0))) + p.get("suffix", ""))
+        txt = p.get("text") or (p.get("prefix", "") + R._fmt_num(float(p.get("value", 0)), int(p.get("decimals", 0)), p.get("group", True)) + p.get("suffix", ""))
         _, bw, bh = D.text_layout(txt.upper() if p.get("upper") else txt, p.get("font", "display"),
                                   int(p.get("size", 64)), float(p.get("max_w", 0)), "center", float(p.get("line_h", 1.15)), 0.0)
         anc = p.get("anchor", "center")
