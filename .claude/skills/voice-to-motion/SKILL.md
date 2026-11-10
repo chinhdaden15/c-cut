@@ -18,6 +18,8 @@ Biến voice có sẵn thành video motion graphic diễn giải đúng nội du
 
 **Ý tưởng theo lời + thông số chuyển động (v1.7.0)**: ý trừu tượng / số liệu / thời gian / thất bại / so sánh → thay vì thẻ chữ + icon, dựng MỘT VẬT ẨN DỤ
 biến đổi đúng từng từ (pin tụt rồi nứt, bảng lật sân bay, hoá đơn in dần, lịch 7 ngày, dấu đóng mực, checklist tick, mạng nút nối…) bằng `s.mg("custom")` —
+**Chọn phong cách theo nội dung (BẮT BUỘC trước khi lập kế hoạch):** xác định nhóm nội dung (kiến thức, mẹo, tài chính/số liệu, BĐS, review công nghệ, ẩm thực/mỹ phẩm, tin tức, kể chuyện, nhân vật, du lịch, động lực, năng suất, so sánh, CTA) rồi chọn 1 phong cách chủ đạo + 3–6 điểm nhấn theo `.claude/shared/editatlas/chon-phong-cach-theo-noi-dung.md`; ghi `style: <nhóm> / <chủ đạo>` vào ghi chú.
+
 thư viện ý tưởng `.claude/shared/editatlas/y-tuong-theo-loi.md`; thông số frame / scale / ease cho chữ, số, chuyển cảnh, phụ đề
 `.claude/shared/editatlas/thong-so-chuyen-dong.md`. Dạng giải thích: câu hỏi / vấn đề → từng bước (mỗi ý một khung) → ví dụ → điều cần nhớ;
 số liệu giữ đủ lâu để đọc 2 lần. Luật cắt / âm / phụ đề chung: `.claude/shared/editatlas/quy-tac-dung.md` (luật trong skill này ưu tiên hơn nếu khác).

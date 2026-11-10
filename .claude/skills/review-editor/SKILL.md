@@ -44,6 +44,8 @@ Thứ gì đã tốt ở Talking Head / Voice to Motion mà áp dụng chung đ�
 - Câu nói lại nhiều lần: mặc định giữ lần sạch CUỐI. Không thêm giá, thông số, công dụng người review không nói; không dùng stock thay cho chính sản phẩm.
 - Cảnh không có người nói vào máy (cận sản phẩm, món ăn): một động từ / một từ mỗi cảnh trồi lên từ mặt nạ đúng lúc cắt; chú thích đường dẫn mảnh
   (vòng trắng đáp lên chi tiết → nhãn chữ hoa giãn cách); vệt sáng quét mặt kính sản phẩm đúng phách.
+**Chọn phong cách theo nội dung (BẮT BUỘC trước khi lập kế hoạch):** xác định nhóm nội dung (kiến thức, mẹo, tài chính/số liệu, BĐS, review công nghệ, ẩm thực/mỹ phẩm, tin tức, kể chuyện, nhân vật, du lịch, động lực, năng suất, so sánh, CTA) rồi chọn 1 phong cách chủ đạo + 3–6 điểm nhấn theo `.claude/shared/editatlas/chon-phong-cach-theo-noi-dung.md`; ghi `style: <nhóm> / <chủ đạo>` vào ghi chú.
+
 - Thông số chuyển động, phụ đề, chuyển cảnh: `.claude/shared/editatlas/thong-so-chuyen-dong.md`; luật cắt / âm / phụ đề chung: `.claude/shared/editatlas/quy-tac-dung.md`.
 
 **Bảng motion + SFX theo hình:** chọn 8–12 kỹ thuật mỗi video từ `.claude/shared/editatlas/danh-muc-ky-thuat.md` (hợp phong cách, khác video trước, ghi `motion: …` vào ghi chú); nhạc nền + tắt ngắn trước cảnh lớn, mỗi SFX gắn đúng một thứ trên hình, loé trắng khi trở về người nói — `.claude/shared/editatlas/sfx-va-nhip.md`.
