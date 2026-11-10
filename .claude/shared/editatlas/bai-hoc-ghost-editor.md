@@ -62,6 +62,15 @@ Reel yếu KHÔNG phải vì hoạt hình kém, mà vì đưa QUÁ NHIỀU hình
 - Cỡ chữ = tầm quan trọng: từ nối nhỏ, từ nội dung to, từ "chốt" của câu dùng kiểu nhấn riêng (~1/6 số câu, không hai câu liền).
 - Không gạch ngang dài (—) trong chữ trên hình.
 
+## 6b. Chữ động (kinetic type) — đã có trong app: mg2 kind headline / scramble / drum / flipstack / spring (thagent/textfx.py)
+- MỘT họ đường cong cho cả video: vào expo-out (nhanh rồi êm), ra là đường ngược và NHANH GẤP ĐÔI lúc vào.
+- Từ TRỒI LÊN từ mặt nạ của chính nó (đi lên từ dưới chân chữ, nghiêng 5°) chạm đúng lúc nói; ra thì rút lên qua cùng mặt nạ.
+- Nét bút vẽ tay "sôi" (gạch chân / tô dạ / khoanh / gạch bỏ) vẽ ~0,3s SAU khi từ nhấn hiện; chữ trên vệt dạ sáng → màu TỐI.
+- "Không phải X → mà là Y": X hiện mờ, bị gạch, rút đi, rồi Y trồi lên đúng chỗ đó.
+- Chuyển động theo từng chữ cái / lò xo / xáo chữ tính từ thời gian timeline (painter) — tua tới frame nào cũng đúng.
+- Mỗi hiệu ứng tự có âm đúng nhịp: gõ khi xáo, nhấn khi khoá, tick mỗi nấc trống, pop mỗi thẻ, whoosh khi vẽ nét.
+- Dùng 1–2 lần / phút cho câu mang ý; còn lại để phụ đề thường.
+
 ## 7. Duyệt trước khi dựng lâu
 - Trước render thật: một trang duyệt có ảnh tại MỖI điểm cắt + mỗi nhịp đồ hoạ (lúc vào và lúc hiện đủ) + phụ đề + bảng SFX
   → tự xem, sửa (thẻ chạm cằm, chữ xuống dòng xấu, phụ đề đụng thẻ), rồi mới dựng. Bản xem trước độ phân giải thấp trước bản cuối.

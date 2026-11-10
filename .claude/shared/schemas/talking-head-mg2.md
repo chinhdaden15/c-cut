@@ -32,6 +32,13 @@ Kind (tham số):
              Vật ẩn dụ theo lời (.claude/shared/editatlas/y-tuong-theo-loi.md): ghi "at" = giây các nhịp đổi theo từ → preflight tính
              là thứ mới xuất hiện; ≥ 3 nhịp thì cảnh được dài tới 10s. Chữ / số trong html được tính là đã làm nổi bật.
   mapdraw / tech / prompt / devices / pipeline / kinetic — cảnh hoạt hình TOÀN KHUNG minh hoạ đúng lời (tự có nền; tham số: thagent/fx.py)
+  CHỮ ĐỘNG (chồng lên hình, bg "none"; "at" = giây từ đầu cảnh cho TỪNG từ / mục — lấy từ words, chữ chạm ĐÚNG lúc nói; 1–2 lần / phút, cho câu mang ý):
+  headline   lines ["dòng", "dòng có *từ nhấn*"], mark under|marker|box|strike (nét bút vẽ tay), swap {"text": "X", "at"} = "không phải X → mà là Y"
+  scramble   text, lead — ký tự xáo rồi khoá trái → phải đúng lúc nói (số liệu, khái niệm "giải mã") + tiếng gõ / nhấn khi khoá
+  drum       items [..], lead, tail — trống chữ 3D xoay tới từng từ (liệt kê ngắn, "ngày → tháng → năm", vòng lặp)
+  flipstack  items [..], last_accent — thẻ chữ lật chồng lên nhau (các điều cần nhớ / kiểm tra)
+  spring     text, sub — từng chữ cái rơi nảy lò xo (tiêu đề phần: "PHẦN 2", "ĐIỀU 3")
+  Chung: y (0..1 chiều cao), size (tự co theo bề ngang), tone / accent / color, pocket (nền tối mờ sau chữ). Chữ giữ đủ đọc max(1s, 0,3s/từ).
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);

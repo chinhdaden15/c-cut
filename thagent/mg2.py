@@ -27,6 +27,13 @@ Kind (tham số):
              Vật ẩn dụ theo lời (.claude/shared/editatlas/y-tuong-theo-loi.md): ghi "at" = giây các nhịp đổi theo từ → preflight tính
              là thứ mới xuất hiện; ≥ 3 nhịp thì cảnh được dài tới 10s. Chữ / số trong html được tính là đã làm nổi bật.
   mapdraw / tech / prompt / devices / pipeline / kinetic — cảnh hoạt hình TOÀN KHUNG minh hoạ đúng lời (tự có nền; tham số: thagent/fx.py)
+  CHỮ ĐỘNG (chồng lên hình, bg "none"; "at" = giây từ đầu cảnh cho TỪNG từ / mục — lấy từ words, chữ chạm ĐÚNG lúc nói; 1–2 lần / phút, cho câu mang ý):
+  headline   lines ["dòng", "dòng có *từ nhấn*"], mark under|marker|box|strike (nét bút vẽ tay), swap {"text": "X", "at"} = "không phải X → mà là Y"
+  scramble   text, lead — ký tự xáo rồi khoá trái → phải đúng lúc nói (số liệu, khái niệm "giải mã") + tiếng gõ / nhấn khi khoá
+  drum       items [..], lead, tail — trống chữ 3D xoay tới từng từ (liệt kê ngắn, "ngày → tháng → năm", vòng lặp)
+  flipstack  items [..], last_accent — thẻ chữ lật chồng lên nhau (các điều cần nhớ / kiểm tra)
+  spring     text, sub — từng chữ cái rơi nảy lò xo (tiêu đề phần: "PHẦN 2", "ĐIỀU 3")
+  Chung: y (0..1 chiều cao), size (tự co theo bề ngang), tone / accent / color, pocket (nền tối mờ sau chữ). Chữ giữ đủ đọc max(1s, 0,3s/từ).
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);
@@ -43,9 +50,10 @@ from pathlib import Path
 import numpy as np
 
 KINDS = {"chart", "money", "notif", "question", "photos", "doc", "iconrow", "chips", "compare", "checklist", "custom",
-         "mapdraw", "tech", "prompt", "devices", "pipeline", "kinetic"}          # 6 kind cuối: cảnh hoạt hình toàn khung (thagent/fx.py)
+         "mapdraw", "tech", "prompt", "devices", "pipeline", "kinetic",
+         "headline", "scramble", "drum", "flipstack", "spring"}   # 5 kind cuối: chữ động (thagent/textfx.py, học từ ghost-editor)          # 6 kind cuối: cảnh hoạt hình toàn khung (thagent/fx.py)
 BGS = {"blur", "gradient", "cream", "charcoal", "dots", "spot", "none"}
-OVERLAY_KINDS = {"iconrow", "chips"}
+OVERLAY_KINDS = {"iconrow", "chips", "headline", "scramble", "drum", "flipstack", "spring"}   # chồng lên hình (textfx: chữ động)
 TONES = {"gold": ("#FFE47A", "#FF9A1F", "#FFB000"), "blue": ("#A6EEFF", "#1E86FF", "#1E86FF"), "red": ("#FF9A86", "#FF2B3A", "#FF2B3A")}
 GAP_S = 12.0
 
@@ -467,6 +475,9 @@ def beats(sc: dict, D: float) -> list[float]:
     from . import fx as FX
     if sc.get("kind") in FX.FULL:
         return FX.beats(sc, D)
+    from . import textfx as TX
+    if sc.get("kind") in TX.KINDS:
+        return TX.layer(sc, True, sc.get("tone") if sc.get("tone") in TONES else "gold", D)[2]
     n = len(sc.get("items") or sc.get("icons") or sc.get("images") or [])
     out = [0.0, 0.5, 1.6] + (delays(sc, n, .3, .35) if n else [])
     if sc.get("kind") == "custom":                       # vật ẩn dụ tự thiết kế: nhịp đổi trạng thái theo lời = "at" (+ tween ~0.4s sau)
@@ -488,6 +499,9 @@ def sfx(sc: dict, D: float) -> list[tuple[float, str, float]]:
     from . import fx as FX
     if k in FX.FULL:
         return FX.sfx(sc, D)
+    from . import textfx as TX
+    if k in TX.KINDS:
+        return TX.layer(sc, True, sc.get("tone") if sc.get("tone") in TONES else "gold", D)[3]
     out = [(0.0, "mgtrans_01" if full(sc) else "card_01", -14.0)]
     n = len(sc.get("items") or sc.get("icons") or sc.get("images") or [])
     if k in ("checklist",):
@@ -562,8 +576,12 @@ def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dic
             sc[key] = [dict(x, at=cl(x["at"])) if isinstance(x, dict) and "at" in x else x for x in sc.get(key) or []]
         if sc.get("routes"):
             sc["routes"] = [list(r[:2]) + ([cl(r[2])] if len(r) > 2 else []) for r in sc["routes"]]
-    fn = T.get(sc["kind"]) or FX.T[sc["kind"]]
-    html, js = fn(sc, V, tone, face) if sc["kind"] in ("iconrow", "chips") else fn(sc, V, tone)
+    from . import textfx as TX
+    if sc["kind"] in TX.KINDS:
+        html, js = TX.layer(sc, V, tone, D)[:2]
+    else:
+        fn = T.get(sc["kind"]) or FX.T[sc["kind"]]
+        html, js = fn(sc, V, tone, face) if sc["kind"] in ("iconrow", "chips") else fn(sc, V, tone)
     bg = bg_of(sc)
     bgcss = _bgcss(bg, sc.get("colors"))
     light = " light" if bg == "cream" or sc.get("light") else ""
@@ -583,7 +601,7 @@ def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dic
     fade = (f"tl.from(q('.root'),{{opacity:0,duration:.25}},0);" if bgcss else "") + \
            (f"tl.to(q('{'.root' if bgcss else '.content'}'),{{opacity:0,duration:.3}},{max(0.5, D - 0.3)});" if sc.get("fade_out", True) else "")
     return {"id": "mg", "type": "html", "start": 0, "duration": D, "x": 0, "y": 0, "anchor": "top-left", "w": W, "h": H,
-            "html": root, "css": BASE_CSS + ((sc.get("css") or "") if sc["kind"] == "custom" else ""), "js": pre + drift + js + ";\n" + fade}
+            "html": root, "css": BASE_CSS + ((sc.get("css") or "") if sc["kind"] == "custom" else "") + (TX.CSS if sc["kind"] in TX.KINDS else ""), "js": pre + drift + js + ";\n" + fade}
 
 
 def spec(plan, sc: dict, out: Path, face=None) -> dict:
