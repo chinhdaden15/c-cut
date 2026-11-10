@@ -67,7 +67,7 @@ cảnh MG phủ khung tự loé + swish khi vào / ra; số chạy có tick dồ
 Thông số chuyển động (frame, scale, ease) cho phần `custom`: `.claude/shared/editatlas/thong-so-chuyen-dong.md`.
 Luật cắt, âm, phụ đề chung: `.claude/shared/editatlas/quy-tac-dung.md` (luật trong file này ưu tiên hơn nếu khác).
 **Luật đo trên reel thật (ghost-editor):** `.claude/shared/editatlas/bai-hoc-ghost-editor.md` — chọn take (take muộn, cụm một hơi, cắt đầu −0,1…0,15s / cuối +0,2…0,3s, giữ ngừng < 0,5s), lần nói lại bị giấu, mặt người nói ≥ 65% thời lượng, MG phủ khung ≤ 25%, cảnh đồ hoạ ≤ 2,5s và luôn chuyển động, SFX theo đỉnh giọng (UI −14 / whoosh −12 / impact −8 dB), cắt thẳng để khô, phụ đề ≥ 48px.
-**Chữ động (mg2, chồng lên người, `at` theo từng từ):** `headline` (chữ trồi từ mặt nạ + nét bút vẽ tay; `swap` = "không phải X → mà là Y"), `scramble` (số liệu xáo rồi khoá), `drum` (liệt kê xoay trống), `flipstack` (thẻ lật chồng), `spring` (tiêu đề phần) — 1–2 lần / phút, đặt dưới cằm, không che mặt.
+**Chữ động (mg2, chồng lên người, `at` theo từng từ):** `headline` (chữ trồi từ mặt nạ + nét bút vẽ tay; `swap` = "không phải X → mà là Y"), `scramble` (chữ xáo rồi khoá — CHỈ video công nghệ), `drum` (liệt kê xoay trống), `flipstack` (thẻ lật chồng), `spring` (tiêu đề phần) — 1–2 lần / phút, đặt dưới cằm, không che mặt.
 **Gu người dùng:** đọc khối GU NGƯỜI DÙNG trong lời dặn; người dùng góp ý cách dựng → sửa + `python -m thagent.tools taste add "<lời họ>" [skill|all]`.
 
 ## Quy trình (theo đúng thứ tự — render là bước CUỐI)

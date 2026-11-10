@@ -70,6 +70,8 @@ Reel yếu KHÔNG phải vì hoạt hình kém, mà vì đưa QUÁ NHIỀU hình
 - Chuyển động theo từng chữ cái / lò xo / xáo chữ tính từ thời gian timeline (painter) — tua tới frame nào cũng đúng.
 - Mỗi hiệu ứng tự có âm đúng nhịp: gõ khi xáo, nhấn khi khoá, tick mỗi nấc trống, pop mỗi thẻ, whoosh khi vẽ nét.
 - Dùng 1–2 lần / phút cho câu mang ý; còn lại để phụ đề thường.
+- Chọn theo CHỦ ĐỀ: `scramble` (chữ xáo kiểu giải mã) CHỈ cho video công nghệ (AI, phần mềm, dữ liệu, code); ẩm thực / BĐS / đời sống → headline viên nhấn, drum, flipstack, spring.
+- Chữ luôn RÕ: trắng đậm trên khung kính, vế bị gạch cũng 100% rõ (thanh gạch thể hiện "bị bác bỏ", không làm mờ chữ).
 
 ## 7. Duyệt trước khi dựng lâu
 - Trước render thật: một trang duyệt có ảnh tại MỖI điểm cắt + mỗi nhịp đồ hoạ (lúc vào và lúc hiện đủ) + phụ đề + bảng SFX

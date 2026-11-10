@@ -10,6 +10,7 @@ Kind (sc["kind"]) — "at" = GIÂY tính từ đầu cảnh, mỗi từ / mục 
   headline   lines ["dòng 1", "dòng có *từ nhấn*"], mark "under"|"marker"|"box"|"strike" (nét bút vẽ tay "sôi" dưới / sau / quanh / gạch từ nhấn),
              swap {"text": "X", "at": giây} → "không phải X → mà là Y": X hiện, bị gạch, rút lên, rồi dòng chính trồi lên đúng chỗ đó
   scramble   text "…", lead "dòng nhỏ dẫn" — ký tự xáo trộn rồi khoá dần trái → phải, khoá xong từ đúng lúc nói (+ rung khi khoá)
+             CHỈ hợp video CÔNG NGHỆ (góp ý người dùng); chủ đề khác dùng headline / money / chart
   drum       items ["…", "…"], lead, tail — trống chữ 3D xoay tới từng từ đúng lúc nói (liệt kê, "vòng lặp")
   flipstack  items ["…"] — mỗi từ một thẻ lật từ trên xuống, chồng lên thẻ trước (thẻ cũ lùi, mờ, lệch nhẹ); last_accent: thẻ cuối màu nhấn
   spring     text "PHẦN 2", sub — từng chữ cái rơi xuống kiểu lò xo (vị trí + xoay + co giãn) — tiêu đề phần
@@ -52,7 +53,7 @@ CSS = """
  background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 .08em .3em rgba(0,0,0,.35)}
 .kt-mk.pill .kt-mi{color:var(--on);text-shadow:none}
 .kt-mk.under .kt-mkw{left:0;right:0;top:100%;height:.12em;border-radius:99px;background:linear-gradient(90deg,var(--acc),var(--acc2))}
-.kt-mk.strike .kt-mkw{left:-.08em;right:-.08em;top:48%;height:.1em;border-radius:99px;background:var(--acc);z-index:2}
+.kt-mk.strike .kt-mkw{left:-.1em;right:-.1em;top:44%;height:.14em;border-radius:99px;background:#FF6F5E;box-shadow:0 0 .25em rgba(255,111,94,.55);z-index:2}
 .kt-mk.box .kt-mkw{left:-.2em;right:-.2em;top:-.14em;bottom:-.1em;border:.06em solid var(--acc);border-radius:.26em}
 .kt-mk.brush-under .kt-mkw{left:-4%;right:-4%;top:90%;height:.3em}.kt-mk.brush-marker .kt-mkw{left:-5%;right:-5%;top:14%;height:.8em}
 .kt-mk.brush-marker .kt-mi{color:var(--on);text-shadow:none}
@@ -187,7 +188,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
             sw = sc["swap"]
             st = float(sw.get("at", 0.2))
             stimes = [st + 0.07 * i for i in range(len(sw["text"].split()))]
-            h_, n_, ids_, _, mk = B.mask_line(f'*{sw["text"]}*', stimes, size * 0.86, mark="strike", color="rgba(255,255,255,.62)")
+            h_, n_, ids_, _, mk = B.mask_line(f'*{sw["text"]}*', stimes, size * 0.86, mark="strike", color="#FFFFFF")   # vế bị bác bỏ vẫn RÕ (góp ý người dùng); "bị gạch" thể hiện bằng thanh gạch
             strike = _r(sw.get("strike_at", stimes[-1] + 0.45))
             B.wipe(mk, strike, 0.32)
             sfx.append((strike, "whoosh_short", -12.0))

@@ -29,7 +29,8 @@ Kind (tham số):
   mapdraw / tech / prompt / devices / pipeline / kinetic — cảnh hoạt hình TOÀN KHUNG minh hoạ đúng lời (tự có nền; tham số: thagent/fx.py)
   CHỮ ĐỘNG (chồng lên hình, bg "none"; "at" = giây từ đầu cảnh cho TỪNG từ / mục — lấy từ words, chữ chạm ĐÚNG lúc nói; 1–2 lần / phút, cho câu mang ý):
   headline   lines ["dòng", "dòng có *từ nhấn*"], mark under|marker|box|strike (nét bút vẽ tay), swap {"text": "X", "at"} = "không phải X → mà là Y"
-  scramble   text, lead — ký tự xáo rồi khoá trái → phải đúng lúc nói (số liệu, khái niệm "giải mã") + tiếng gõ / nhấn khi khoá
+  scramble   text, lead — ký tự xáo rồi khoá trái → phải đúng lúc nói + tiếng gõ / nhấn khi khoá — CHỈ video CÔNG NGHỆ (AI, phần mềm, dữ liệu,
+             code, bảo mật); chủ đề khác (ẩm thực, BĐS, đời sống, sức khoẻ…) dùng headline viên nhấn hoặc số đếm (money / chart)
   drum       items [..], lead, tail — trống chữ 3D xoay tới từng từ (liệt kê ngắn, "ngày → tháng → năm", vòng lặp)
   flipstack  items [..], last_accent — thẻ chữ lật chồng lên nhau (các điều cần nhớ / kiểm tra)
   spring     text, sub — từng chữ cái rơi nảy lò xo (tiêu đề phần: "PHẦN 2", "ĐIỀU 3")
