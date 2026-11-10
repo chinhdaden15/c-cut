@@ -130,6 +130,14 @@ def _audio(edit, pdir, work: Path) -> Path:
     inputs, flt, labs = [], [], []
     k = 0
     segs = layout(edit)
+    from .edit import vo as _vo
+    v = _vo(edit)
+    if v:                                                 # lồng tiếng: một rãnh giọng liền từ đầu tới cuối
+        a, b = float(v.get("in", 0)), float(v["out"])
+        inputs += ["-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", M[v["src"]]["path"]]
+        flt.append(f"[{k}:a]aresample=48000,aformat=channel_layouts=stereo,afade=t=in:d=0.02,afade=t=out:st={max(b - a - 0.05, 0):.3f}:d=0.05,"
+                   f"volume={float(v.get('gain_db', 0))}dB[a{k}]")
+        labs.append(f"[a{k}]"); k += 1
     for i, s in enumerate(segs):
         m = M[s["src"]]
         if not m.get("has_audio") or s.get("audio") == "mute":
@@ -138,7 +146,7 @@ def _audio(edit, pdir, work: Path) -> Path:
         l_next = float(segs[i + 1].get("l", 0)) if i + 1 < len(segs) else 0.0
         a, b = max(float(s["in"]) - j, 0), float(s["out"]) + l_next
         start = s["t0"] - (float(s["in"]) - a)
-        gain = 0.0 if s.get("audio", "voice") == "voice" and s.get("role", "talk") == "talk" else float(s.get("nat_db", -14))
+        gain = 0.0 if s.get("audio", "voice") == "voice" and s.get("role", "talk") == "talk" else float(s.get("nat_db", -20 if v else -14))
         inputs += ["-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", m["path"]]
         flt.append(f"[{k}:a]aresample=48000,aformat=channel_layouts=stereo,afade=t=in:d=0.015,afade=t=out:st={max(b - a - 0.02, 0):.3f}:d=0.02,"
                    f"volume={gain}dB,adelay={int(max(start, 0) * 1000)}|{int(max(start, 0) * 1000)}[a{k}]")

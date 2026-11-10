@@ -48,6 +48,13 @@ Thứ gì đã tốt ở Talking Head / Voice to Motion mà áp dụng chung đ�
 
 **Bảng motion + SFX theo hình:** chọn 8–12 kỹ thuật mỗi video từ `.claude/shared/editatlas/danh-muc-ky-thuat.md` (hợp phong cách, khác video trước, ghi `motion: …` vào ghi chú); nhạc nền + tắt ngắn trước cảnh lớn, mỗi SFX gắn đúng một thứ trên hình, loé trắng khi trở về người nói — `.claude/shared/editatlas/sfx-va-nhip.md`.
 
+## Hai kiểu quay (v1.3.0)
+- **Vừa quay vừa nói** (nói tại chỗ, tắt máy, quay đoạn khác, nói tiếp): app chép lời từng clip, nhóm các lần nói lại, chọn take, ghép thành một mạch — quy trình chính bên dưới.
+- **Quay trước, lồng tiếng sau** (thư mục có 1 file âm thanh giọng lồng + các clip / ảnh): dùng CHẾ ĐỘ LỒNG TIẾNG — `"voiceover": {"src": "<ID giọng>"}`,
+  `segments` là các CẢNH HÌNH xếp theo lời giọng (mỗi ý → cảnh đúng vật, ≥ 1,2s, có `say` + `why`), tổng = độ dài giọng (cảnh cuối tự khớp).
+  Tiếng clip tắt; cảnh món ăn / rót / xèo xèo giữ `"audio": "nat", "nat_db": -20`. Phụ đề + số liệu then chốt lấy từ giọng lồng.
+  Không chạy `joins` / `fixjoins` / `clean` (giọng không bị cắt). Định dạng: `.claude/shared/schemas/review-edit.md`.
+
 ## Font chữ do người dùng chọn trong app
 
 `review/options.json` → `"font"`: id font người dùng chọn ở khung Review (trống = Montserrat mặc định). App tự vẽ MỌI chữ nhấn + chữ phụ bằng đúng font đó (1 font cho cả clip) — không tự đổi font, không trộn font khác.

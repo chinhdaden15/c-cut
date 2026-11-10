@@ -18,6 +18,13 @@
  "missing": ["thiếu cảnh mặt tiền", …],  "notes": "…"
 }
 - in/out: giây trong file nguồn.  at: giây tính từ đầu đoạn (segment).  Phụ đề tự sinh từ lời của đoạn talk (subtitles=true).
+
+CHẾ ĐỘ LỒNG TIẾNG (quay hình trước, về nhà thu giọng sau — file âm thanh riêng):
+ "voiceover": {"src": "F01", "in": 0.0, "out": 42.5, "gain_db": 0}     giọng lồng chạy LIỀN cả video (không cắt), phụ đề lấy từ giọng này
+ "segments": các CẢNH HÌNH xếp nối tiếp theo lời: {"id", "src": <video/ảnh>, "in", "out", "say": "câu lồng tiếng lúc này",
+             "why": "vì sao cảnh này khớp lời", "audio": "mute" (mặc định) | "nat", "nat_db": -20 (tiếng hiện trường nhỏ: xèo xèo, rót…),
+             "crop"/"reframe"/"texts" như thường (nhãn bám vật, vòng nhấn, chữ thông tin áp lên CHÍNH cảnh đó)}
+ Tổng thời lượng cảnh = độ dài giọng (cảnh cuối tự co / giãn cho khớp nếu nguồn đủ dài). Tiếng của video gốc TẮT trừ khi "audio": "nat".
 """
 from __future__ import annotations
 
@@ -36,7 +43,38 @@ def load(pdir) -> dict:
     from .niche import apply
     from .. import fonts as FT
     FT.use_project(pdir)
-    return apply(auto_zoom(json.loads((Path(pdir) / "review" / "edit.json").read_text(encoding="utf-8"))))
+    return apply(auto_zoom(fit_vo(json.loads((Path(pdir) / "review" / "edit.json").read_text(encoding="utf-8")), pdir)))
+
+
+def vo(edit: dict) -> dict | None:
+    """giọng lồng tiếng (chế độ lồng tiếng) hoặc None."""
+    v = edit.get("voiceover")
+    return v if isinstance(v, dict) and v.get("src") else None
+
+
+def fit_vo(edit: dict, pdir=None) -> dict:
+    """chế độ lồng tiếng: cảnh mặc định tắt tiếng + vai trò b-roll; cảnh cuối co / giãn để tổng hình = độ dài giọng."""
+    v = vo(edit)
+    if not v or not edit.get("segments"):
+        return edit
+    for sg in edit["segments"]:
+        sg.setdefault("role", "broll")
+        sg.setdefault("audio", "mute")
+    if pdir is not None:
+        try:
+            M = media(pdir)
+            vin = float(v.get("in", 0))
+            vout = float(v.get("out") or M[v["src"]]["duration"])
+            v["in"], v["out"] = vin, vout
+            last = edit["segments"][-1]
+            rest = sum(float(x["out"]) - float(x["in"]) for x in edit["segments"][:-1])
+            want = round(float(last["in"]) + (vout - vin) - rest, 3)
+            dur_src = float(M[last["src"]].get("duration") or 1e9)
+            if want - float(last["in"]) >= 0.5 and want <= dur_src + 0.01:
+                last["out"] = want
+        except Exception:
+            pass
+    return edit
 
 
 def auto_zoom(edit: dict) -> dict:
@@ -229,9 +267,23 @@ def _fix(edit: dict, src: str, w: dict) -> dict:
 
 
 def words_out(edit: dict, pdir) -> list[dict]:
-    """lời của các đoạn talk, đổi sang giây trên timeline xuất (theo J-cut)."""
+    """lời của các đoạn talk, đổi sang giây trên timeline xuất (theo J-cut). Chế độ lồng tiếng: lời của giọng lồng."""
     M = media(pdir)
     out = []
+    v = vo(edit)
+    if v:
+        vin, vout = float(v.get("in", 0)), float(v.get("out") or 1e9)
+        for w in M[v["src"]].get("words", []):
+            if w["start"] < vin - 1e-3 or w["start"] >= vout or not w["text"].strip():
+                continue
+            w = _fix(edit, v["src"], w)
+            t = round(w["start"] - vin, 3)
+            if out and re.fullmatch(r"[.,]\d+[.,]?", w["text"]) and re.search(r"\d$", out[-1]["text"]):
+                out[-1] = {**out[-1], "text": out[-1]["text"] + w["text"], "t_end": round(w["end"] - vin, 3), "end": w["end"]}
+                continue
+            sg = seg_at(edit, t)
+            out.append({**w, "t": t, "t_end": round(min(w["end"], vout) - vin, 3), "seg": sg["id"] if sg else "VO", "grp": "VO"})
+        return out
     for s in layout(edit):
         if s.get("role", "talk") != "talk" or s.get("audio", "voice") != "voice":
             continue
@@ -275,6 +327,25 @@ def validate(pdir, edit: dict) -> list[tuple[str, str]]:
     ids = set()
     if not edit.get("segments"):
         return [("error", "edit.json chưa có đoạn nào")]
+    v = vo(edit)
+    if v:
+        mv = M.get(v["src"])
+        if not mv:
+            return [("error", f"voiceover: nguồn {v['src']} không có trong kiểm kê")]
+        if not mv.get("words"):
+            out.append(("error", f"voiceover {v['src']}: chưa chép được lời (file im lặng / sai file?)"))
+        L = float(v.get("out", mv.get("duration", 0))) - float(v.get("in", 0))
+        tot = duration(edit)
+        if abs(tot - L) > 0.3:
+            out.append(("error", f"tổng các cảnh {tot:.2f}s ≠ giọng lồng {L:.2f}s — thêm / bớt cảnh hoặc kéo dài cảnh cuối (nguồn cảnh cuối không đủ dài)"))
+        for sg in edit["segments"]:
+            ms = M.get(sg.get("src"))
+            if ms and ms.get("kind") == "am_thanh":
+                out.append(("error", f"{sg.get('id')}: cảnh hình không được là file âm thanh ({sg['src']}) — giọng lồng khai ở \"voiceover\""))
+            if float(sg["out"]) - float(sg["in"]) < 1.0:
+                out.append(("warn", f"{sg.get('id')}: cảnh chỉ {float(sg['out']) - float(sg['in']):.2f}s — người xem chưa kịp thấy (nên ≥ 1,2s)"))
+            if not sg.get("why"):
+                out.append(("warn", f"{sg.get('id')}: cảnh {sg.get('src')} chưa ghi lý do khớp lời lồng tiếng (why)"))
     for s in edit["segments"]:
         sid = s.get("id", "?")
         if sid in ids:
@@ -430,7 +501,7 @@ def validate(pdir, edit: dict) -> list[tuple[str, str]]:
                     out.append(("warn", f"{s_['id']} [{fmt_}]: reframe zoom {k['to']['zoom']} có thể vỡ nét — dùng 'face+<track>' (tự giới hạn) hoặc chú thích"))
     # điểm nối theo nhịp nói tự nhiên (audio gốc + transcript + năng lượng)
     from .audiocut import junctions
-    for j in junctions(edit, pdir):
+    for j in ([] if v else junctions(edit, pdir)):             # lồng tiếng: giọng không bị cắt → không chấm điểm nối lời
         out += j["flags"]
     # lời nhắc sản phẩm phải trùng lúc sản phẩm được nhấn (spotlight / viền / nhãn) — không thay bằng chữ
     terms = [x.lower() for x in edit.get("product_terms", [])]

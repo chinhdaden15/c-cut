@@ -23,4 +23,11 @@ Review Editor — bản dựng (edit.json): mạch review tham chiếu tới ngu
  "missing": ["thiếu cảnh mặt tiền", …],  "notes": "…"
 }
 - in/out: giây trong file nguồn.  at: giây tính từ đầu đoạn (segment).  Phụ đề tự sinh từ lời của đoạn talk (subtitles=true).
+
+CHẾ ĐỘ LỒNG TIẾNG (quay hình trước, về nhà thu giọng sau — file âm thanh riêng):
+ "voiceover": {"src": "F01", "in": 0.0, "out": 42.5, "gain_db": 0}     giọng lồng chạy LIỀN cả video (không cắt), phụ đề lấy từ giọng này
+ "segments": các CẢNH HÌNH xếp nối tiếp theo lời: {"id", "src": <video/ảnh>, "in", "out", "say": "câu lồng tiếng lúc này",
+             "why": "vì sao cảnh này khớp lời", "audio": "mute" (mặc định) | "nat", "nat_db": -20 (tiếng hiện trường nhỏ: xèo xèo, rót…),
+             "crop"/"reframe"/"texts" như thường (nhãn bám vật, vòng nhấn, chữ thông tin áp lên CHÍNH cảnh đó)}
+ Tổng thời lượng cảnh = độ dài giọng (cảnh cuối tự co / giãn cho khớp nếu nguồn đủ dài). Tiếng của video gốc TẮT trừ khi "audio": "nat".
 ```

@@ -1,6 +1,7 @@
 # Changelog — Review Editor
 
-## 1.3.0 — 2026-11-09
+## 1.3.0 — 2026-11-10
+- Chế độ lồng tiếng: quay trước, thu giọng sau — `voiceover` + cảnh hình xếp theo lời, tắt tiếng clip (giữ tiếng hiện trường nhỏ tuỳ cảnh), phụ đề từ giọng lồng.
 - Cấu trúc review ngắn (phán → mở hộp → 2–3 điểm → 1 nhược điểm thật → giá + CTA), nhịp 3–6s, giữ lần nói sạch cuối, cảnh cận một từ / chú thích đường dẫn.
 - Tài liệu chung `.claude/shared/editatlas/` (thông số chuyển động, luật cắt / âm / phụ đề).
 

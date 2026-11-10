@@ -239,6 +239,14 @@ formats.md, audio.md, qa.md — làm đúng mọi quy tắc.
 Nhiệm vụ:
 1. Xem ảnh tổng hợp từng file (Read review/sheets/*.jpg), media + takes: nhận diện người dẫn, sản phẩm/phiên bản, không gian (tầng/phòng), thao tác, cỡ cảnh.
    Không phân biệt được footage thuộc sản phẩm/căn nhà nào (thiết yếu) → hỏi người dùng 1 câu ngắn rồi dừng chờ; còn lại tự quyết.
+1c. HAI KIỂU NGUỒN — nhận diện từ inventory:
+   (a) VỪA QUAY VỪA NÓI: nhiều clip có lời (nói tại chỗ, tắt máy, quay tiếp, nói tiếp) → cách dựng thường bên dưới: chọn take, ghép đoạn talk + cutaway.
+   (b) LỒNG TIẾNG SAU: có file ÂM THANH (kind "am_thanh") có lời + các clip / ảnh quay sẵn (thường không nói, hoặc tiếng hiện trường)
+       → CHẾ ĐỘ LỒNG TIẾNG: "voiceover": {{"src": "<ID file giọng>"}}; segments = CẢNH HÌNH xếp nối tiếp theo lời giọng (đọc words của file giọng,
+       mỗi câu / ý → cảnh ĐÚNG vật đang nói, xem frames để chắc), tổng cảnh = độ dài giọng, mỗi cảnh ≥ 1,2s, ghi "say" (câu lồng lúc đó) + "why".
+       Tiếng clip TẮT (mặc định); món ăn / rót / xèo xèo / mở hộp nên giữ "audio": "nat", "nat_db": -20. KHÔNG chạy joins/fixjoins/clean
+       (giọng lồng không bị cắt). Chữ thông tin / nhãn bám vật / vòng nhấn đặt trên chính cảnh hình như thường.
+       Có cả clip nói tại chỗ lẫn file giọng → hỏi người dùng qua confirm, mặc định (b) nếu file giọng phủ trọn nội dung.
 2. Chọn take (không mặc định take cuối/ngắn nhất), xây mạch theo phong cách, ghép lời với B-roll ĐÚNG đối tượng (xem bằng frames), viết {pdir}/review/edit.json
    (định dạng: .claude/shared/schemas/review-edit.md — ghi say/why/missing cho từng đoạn).
    Soát “CẦN SOÁT” của từng file: chữ chép sai (tên app/sản phẩm/thương hiệu, số) → sửa phụ đề bằng "replace"/"fixes" trong edit.json.

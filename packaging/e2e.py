@@ -877,6 +877,32 @@ def _review():
     return f"{T:.1f}s × 2 tỷ lệ, 5 loại chữ + spotlight/nhãn bám track, 2 lĩnh vực"
 
 
+@case("review", "Review chế độ lồng tiếng: file giọng + clip quay sẵn → giọng liền, tắt tiếng clip, phụ đề từ giọng, cảnh cuối tự khớp")
+def _rv_vo():
+    P = WORK / "review_vo"
+    shutil.rmtree(P, ignore_errors=True)
+    run("thagent.review", "inventory", P, FIX / "voice_vi.mp3", FIX / "broll.mp4", FIX / "presenter.mp4", timeout=1800)
+    from thagent.review import edit as RE
+    RE.media.__defaults__[0].pop(str(P), None)
+    inv = json.loads((P / "review" / "inventory.json").read_text(encoding="utf-8"))
+    ids = {Path(m["path"]).name: m["id"] for m in inv["media"]}
+    vo, br, pr = ids["voice_vi.mp3"], ids["broll.mp4"], ids["presenter.mp4"]
+    M = RE.media(P)
+    L = float(M[vo]["duration"])
+    e = {"category": "san_pham", "formats": ["9x16"], "fps": 30, "subtitles": True, "voiceover": {"src": vo},
+         "segments": [{"id": "S01", "src": br, "in": 0.0, "out": min(2.0, float(M[br]["duration"]) - 0.1), "say": "mở", "why": "cảnh mở"},
+                      {"id": "S02", "src": pr, "in": 0.0, "out": 1.5, "say": "phần còn lại", "why": "cảnh cuối tự khớp"}]}
+    (P / "review" / "edit.json").write_text(json.dumps(e, ensure_ascii=False), encoding="utf-8")
+    ed = RE.load(P)
+    assert abs(RE.duration(ed) - L) < 0.35 or float(M[pr]["duration"]) < L - 1.9, f"cảnh cuối không tự khớp giọng: {RE.duration(ed)} vs {L}"
+    errs = [m for lv, m in RE.validate(P, ed) if lv == "error"]
+    assert not errs or all("≠ giọng lồng" in m for m in errs), errs
+    ws = RE.words_out(ed, P)
+    assert ws and ws[0]["grp"] == "VO", "phụ đề không lấy từ giọng lồng"
+    assert all(s["audio"] == "mute" and s["role"] == "broll" for s in ed["segments"]), "tiếng clip phải tắt mặc định"
+    return f"giọng {L:.1f}s · {len(ws)} từ phụ đề · cảnh cuối tự khớp"
+
+
 @case("review", "Review với HyperFrames (nhãn/spotlight bám track thật, bảng so sánh) — 2 tỷ lệ")
 def _review_hf():
     if not hyper_ready():
