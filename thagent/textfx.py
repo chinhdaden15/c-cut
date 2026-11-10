@@ -21,7 +21,11 @@ import json
 import re
 
 KINDS = {"headline", "scramble", "drum", "flipstack", "spring"}
-ACC = {"gold": "#FFC21F", "blue": "#38B6FF", "red": "#FF3B4A"}
+# bảng màu dịu (góp ý người dùng 2026-11-10: "phối màu chưa ổn"): chữ trắng ngà + MỘT màu nhấn nhạt, thẻ giấy ngà chữ đậm — không đỏ / vàng gắt
+PAL = {"gold": {"acc": "#FFD978", "ink": "#FBF7EE", "card": "#F4EFE4", "card_ink": "#1A1712", "hl": "#FFE38A"},
+       "blue": {"acc": "#8FDDF2", "ink": "#F5FAFC", "card": "#EEF3F5", "card_ink": "#11181C", "hl": "#A9E8F7"},
+       "red": {"acc": "#FF9C8A", "ink": "#FFF6F2", "card": "#F7EFEA", "card_ink": "#1C1412", "hl": "#FFB9AA"}}
+ACC = {k: v["acc"] for k, v in PAL.items()}
 
 RUNTIME = r"""
 const KT=(()=>{const C=(v,a=0,b=1)=>v<a?a:v>b?b:v;const EO=p=>p>=1?1:p<=0?0:1-Math.pow(2,-10*p);const EI=p=>p<=0?0:p>=1?1:Math.pow(2,10*(p-1));
@@ -34,14 +38,14 @@ const OUT='expo.out',IN='power3.in';
 
 CSS = """
 .kt{position:absolute;left:0;right:0;display:flex;flex-direction:column;align-items:center;text-align:center;font-family:Montserrat,sans-serif;color:var(--ink)}
-.kt-pk{position:absolute;left:-15%;right:-15%;background:radial-gradient(50% 50% at 50% 50%,rgba(0,0,0,.62) 0%,rgba(0,0,0,.34) 45%,rgba(0,0,0,0) 100%)}
+.kt-pk{position:absolute;left:-10%;right:-10%;background:radial-gradient(50% 50% at 50% 50%,rgba(8,8,10,.5) 0%,rgba(8,8,10,.26) 48%,rgba(8,8,10,0) 100%)}
 .kt-line{display:block;white-space:nowrap;line-height:1.08;text-shadow:0 3px 14px rgba(0,0,0,.45)}
 .kt-m{display:inline-block;overflow:hidden;vertical-align:bottom;padding:.28em .16em .22em;margin:-.28em -.16em -.22em}
 .kt-mi{display:inline-block;transform-origin:0% 100%}
 .kt-mk{position:relative;display:inline-block;isolation:isolate}
 .kt-mkw{position:absolute;pointer-events:none;z-index:-1}.kt-mkw svg{display:block;width:100%;height:100%;overflow:visible}
 .kt-mk.under .kt-mkw{left:-4%;right:-4%;top:90%;height:.3em}.kt-mk.marker .kt-mkw{left:-5%;right:-5%;top:14%;height:.8em;opacity:.95}
-.kt-mk.marker .kt-mi{color:#141414;text-shadow:none}
+.kt-mk.marker .kt-mi{color:#16130E;text-shadow:none}.kt-mk.marker{--acc:var(--hl)}
 .kt-mk.box .kt-mkw{left:-7%;right:-7%;top:-10%;bottom:-16%}.kt-mk.strike .kt-mkw{left:-6%;right:-6%;top:42%;height:.28em;z-index:2}
 .kt-sc{position:relative;display:inline-block}.kt-sc>i{font-style:normal;visibility:hidden}
 .kt-sc>b{position:absolute;left:50%;top:0;transform:translateX(-50%);font-weight:inherit;white-space:pre}
@@ -88,7 +92,7 @@ def _times(n: int, at, start: float = 0.25, step: float = 0.35) -> list[float]:
 def fit(text: str, size: float, V: bool, upper: bool = True) -> float:
     """co cỡ chữ để dòng không tràn khung (ước lượng bề rộng Montserrat đậm: chữ HOA ~0,68 em, thường ~0,58 em)."""
     n = max(1, len(str(text)))
-    maxw = (1080 if V else 1920) * 0.86
+    maxw = 1080 * (0.70 if V else 0.98)        # khối chữ gọn: ~70% bề ngang khung dọc, ~55% khung ngang (chừa khoảng thở)
     return round(min(size, maxw / (n * (0.68 if upper else 0.58))), 1)
 
 
@@ -150,8 +154,9 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
     """→ (html, js, beats [giây], sfx [(giây, âm, dB)])."""
     k = sc["kind"]
     B = _B(D)
-    acc = sc.get("accent") or ACC.get(tone, ACC["gold"])
-    ink = sc.get("color") or "#FFFFFF"
+    pal = PAL.get(tone, PAL["gold"])
+    acc = sc.get("accent") or pal["acc"]
+    ink = sc.get("color") or pal["ink"]
     y = float(sc.get("y", 0.62 if V else 0.58))
     t_out = _r(max(0.4, D - float(sc.get("exit", 0.32))))
     beats, sfx = [0.0], []
@@ -159,7 +164,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
 
     if k == "headline":
         lines = [l if isinstance(l, str) else l.get("text", "") for l in (sc.get("lines") or [sc.get("text", "")])]
-        size = min(fit(l.replace("*", ""), float(sc.get("size", 104 if V else 92)), V, l.replace("*", "").isupper()) for l in lines)
+        size = min(fit(l.replace("*", ""), float(sc.get("size", 86 if V else 78)), V, l.replace("*", "").isupper()) for l in lines)
         mark = sc.get("mark") or ("under" if any("*" in l for l in lines) else None)
         n_tok = sum(len(l.split()) for l in lines)
         times = _times(n_tok, sc.get("at"))
@@ -204,7 +209,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
 
     elif k == "spring":
         text = str(sc.get("text", "")).upper() if sc.get("upper", True) else str(sc.get("text", ""))
-        size = fit(text, float(sc.get("size", 168 if V else 140)), V)
+        size = fit(text, float(sc.get("size", 132 if V else 116)), V)
         chars = list(text)
         start = _r(float((sc.get("at") or [0.2])[0]) - 0.1)
         stg = float(sc.get("stagger", 0.045))
@@ -232,7 +237,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
     elif k == "scramble":
         text = str(sc.get("text", ""))
         text = text.upper() if sc.get("upper", True) else text
-        size = fit(text, float(sc.get("size", 120 if V else 104)), V, text.isupper())
+        size = fit(text, float(sc.get("size", 92 if V else 84)), V, text.isupper())
         words = text.split()
         on = _times(len(words), sc.get("at"), start=0.75)
         start = _r(max(0.02, on[0] - 0.45))
@@ -268,7 +273,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
 
     elif k == "drum":
         items = [str(x) for x in sc.get("items") or []]
-        size = min(fit(x, float(sc.get("size", 120 if V else 104)), V, x.isupper()) for x in items) if items else 100
+        size = min(fit(x, float(sc.get("size", 90 if V else 80)), V, x.isupper()) for x in items) if items else 100
         N = len(items)
         S = max(6, 2 * N)
         stp = 360 / S
@@ -303,13 +308,13 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
 
     elif k == "flipstack":
         items = [str(x) for x in sc.get("items") or []]
-        size = min(fit(x, float(sc.get("size", 76 if V else 66)), V, False) for x in items) if items else 70
+        size = min(fit(x, float(sc.get("size", 58 if V else 52)), V, False) for x in items) if items else 70
         times = [_r(t - 0.12) for t in _times(len(items), sc.get("at"), start=0.4)]
         ch = round(size * 2.05)
         off = round(ch * 0.7)
         rows = "".join(
-            f'<div class="kt-crow" style="z-index:{i + 1}"><div class="kt-card c{i}" style="min-width:{_px(600 if V else 520)};height:{_px(ch)};padding:0 {_px(46)};'
-            f'border-radius:{_px(30)};background:{acc if (i == len(items) - 1 and sc.get("last_accent", True)) else "#FFFFFF"};color:#111;font-size:{_px(size)};'
+            f'<div class="kt-crow" style="z-index:{i + 1}"><div class="kt-card c{i}" style="min-width:{_px(440 if V else 420)};height:{_px(ch)};padding:0 {_px(46)};'
+            f'border-radius:{_px(30)};background:{acc if (i == len(items) - 1 and sc.get("last_accent", True)) else pal["card"]};color:{pal["card_ink"]};font-size:{_px(size)};'
             f'letter-spacing:-.02em">{_e(x)}<i class="kt-dim d{i}"></i></div></div>' for i, x in enumerate(items))
         B.painter(f"const T={json.dumps(times)};const n=T.length;const s=parseFloat(getComputedStyle(q('.kt')).getPropertyValue('--s'))||1;"
                   "for(let i=0;i<n;i++){const el=q('.c'+i),dm=q('.d'+i);if(!el)continue;const u=t-T[i];if(u<0){el.style.opacity='0';continue}"
@@ -333,7 +338,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
                     f"ft('.kt-pk',{{opacity:1}},{{opacity:0,duration:.3,ease:IN}},{t_out});")
         pk = f'<div class="kt-pk" style="top:{_px(round(top - h * 0.6))};height:{_px(round(h * 2.2))}"></div>'
     # chữ chờ dưới mặt nạ / mặt sau trống / thẻ chưa lật là CHE CÓ CHỦ ĐÍCH → báo cho bộ kiểm bố cục HyperFrames (đã kiểm bằng ảnh tĩnh)
-    html = (f'<div class="ktwrap" data-layout-allow-overflow data-layout-allow-occlusion style="--acc:{acc};--ink:{ink};position:absolute;inset:0">{pk}'
+    html = (f'<div class="ktwrap" data-layout-allow-overflow data-layout-allow-occlusion style="--acc:{acc};--ink:{ink};--hl:{pal["hl"]};position:absolute;inset:0">{pk}'
             f'<div class="kt" style="top:{_px(round(top))}">{body}</div></div>')
     # cờ phải nằm trên CHÍNH phần tử chữ (bộ kiểm không xét tổ tiên): chữ dưới mặt nạ / chữ xáo / mặt trống / thẻ chưa lật
     html = re.sub(r'class="(kt-mi|kt-ch|kt-dw|kt-card|kt-line)\b', r'data-layout-allow-occlusion data-layout-allow-overflow class="\1', html)
