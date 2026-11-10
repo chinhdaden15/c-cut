@@ -1,5 +1,6 @@
 ---
 name: text-to-video
+version: 1.1.0
 description: Dựng video từ kịch bản hoặc yêu cầu ngắn của người dùng — app đọc kịch bản bằng giọng đã chọn (tốc độ 1.1, mốc từng từ đúng chữ kịch bản), Claude chia cảnh theo câu và dựng bằng bộ kit Voice to Motion: video/ảnh minh hoạ thật đúng vật đang nói + motion graphic (số, sơ đồ, bản đồ, chữ động). Xuất cả dọc lẫn ngang. Dùng khi người dùng chọn style Text to Video.
 ---
 
