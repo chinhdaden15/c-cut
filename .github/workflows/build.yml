@@ -75,6 +75,10 @@ jobs:
         with: {python-version: "3.11", cache: pip, cache-dependency-path: "requirements.lock.txt"}
       - run: pip install -r packaging/requirements-build.txt
       - run: pip install --no-deps vieneu==3.2.1
+      - name: onnxruntime GPU (DirectML) cho Windows — tách nền / mô hình chạy trên GPU tích hợp, tự quay về CPU nếu máy không hỗ trợ
+        run: |
+          pip uninstall -y onnxruntime
+          pip install "onnxruntime-directml>=1.20,<1.24"
       - run: choco install innosetup -y --no-progress
       - uses: actions/cache@v4
         with: {path: build/ffmpeg, key: "ffmpeg-win64-tools-ffmpeg-1"}

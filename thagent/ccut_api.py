@@ -961,8 +961,11 @@ def _progress(job: dict) -> None:
     job["stage_s"] = round(now - job["_st_t0"])
     pct = done_w + (cur[2] * frac if cur else 0)
     job["percent"] = round(pct, 1)
-    el = time.time() - job["t0"]
-    job["eta_s"] = round(el / pct * (100 - pct)) if pct > 3 else None
+    if "_m0" not in job:                         # đồng hồ đơn điệu: máy chỉnh giờ / đồng bộ giờ không làm ETA âm
+        job["_m0"] = time.monotonic() - max(0.0, time.time() - job.get("t0", time.time()))
+    el = time.monotonic() - job["_m0"]
+    eta = round(el / pct * (100 - pct)) if pct > 3 else None
+    job["eta_s"] = eta if eta is not None and eta > 0 else None
 
 
 def _run_multi(item: dict, pid: str, job: dict, settings: dict, log) -> Path:
