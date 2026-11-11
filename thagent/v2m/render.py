@@ -991,6 +991,13 @@ class Renderer:
         D.place(dst, spr, M, op, bv)
 
     def d_image(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):
+        if p.get("_logodim"):                          # lớp làm tối toàn khung (logo reveal): nhân thẳng lên khung, không ghép sprite
+            spr = D._image(self.tl.path(p["src"]))
+            if spr.shape[:2] == dst.shape[:2]:
+                a = spr[..., 3:4] * float(op)
+                dst *= (1 - a)
+                dst += spr[..., :3] * float(op)       # ảnh đã nhân alpha sẵn (premultiplied)
+                return
         qs = _q(scale, 0.05)
         w, h = float(p.get("w", 600)), float(p.get("h", 400))
         kb = (1.0, 0.0, 0.0)
@@ -1293,8 +1300,13 @@ def hf_spec(tl: Timeline, o: dict) -> dict:
     import json as _json
     v0, v1 = o["_vis"]
     sp = dict(o.get("spec") or _json.loads(Path(tl.path(o["spec_file"])).read_text(encoding="utf-8")))
-    sp.update(job_id=f"v2m-{tl.fmt}-{o['id']}", width=tl.W, height=tl.H, fps=tl.fps, duration=round(min(v1, tl.duration) - v0, 3),
-              background="transparent", output={"path": str(tl.base / "hf" / f"{o['id']}_{tl.fmt}.mov"), "format": "mov"})
+    sp.update(width=tl.W, height=tl.H, fps=tl.fps, duration=round(min(v1, tl.duration) - v0, 3), background="transparent")
+    import hashlib
+    sp.pop("job_id", None)
+    sp.pop("output", None)
+    key = hashlib.sha1(_json.dumps(sp, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()[:12]
+    # job + file đặt theo NỘI DUNG cảnh (không theo số thứ tự object): thêm / bớt object khác → cảnh không đổi vẫn dùng lại bản đã dựng
+    sp.update(job_id=f"v2m-{tl.fmt}-{key}", output={"path": str(tl.base / "hf" / f"{key}_{tl.fmt}.mov"), "format": "mov"})
     return sp
 
 

@@ -145,7 +145,7 @@ def check(pdir, words: list[tuple[str, float]], scenes: list[dict], real_ok, uni
     """scenes: [{"id", "t0", "t1", "text": chữ trên hình, "images": [{"file": basename, "real": bool, "label": str}]}] — t cùng đơn vị với words.
     real_ok(img) → ảnh được dựng như ảnh thật (Talking Head: w_*; V2M: real=True)."""
     # logo chính thức (tools logo → logo_*.png): là nhận diện thương hiệu, không phải ảnh minh hoạ → miễn mô tả / miễn “dùng một lần”
-    scenes = [dict(s, images=[im for im in s["images"] if not str(im.get("file", "")).startswith("logo_")]) for s in scenes]
+    scenes = [dict(s, images=[im for im in s["images"] if not str(im.get("file", "")).startswith(("logo_", "_"))]) for s in scenes]
     img_scenes = [s for s in scenes if s["images"]]
     web = [i for s in img_scenes for i in s["images"] if (Path(pdir) / "assets_web" / i["file"]).exists()]
     if not web:
