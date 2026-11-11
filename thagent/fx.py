@@ -599,16 +599,19 @@ def _t_kinetic(sc, V, tone):
         if isinstance(ln, str):
             ln = {"text": ln}
         lines.append(dict(ln, at=float(ln.get("at", 0.1 + i * 0.7))))
-    avail = (W * 0.88) / S
-    rows = ""
+    avail = (W * (0.72 if V else 0.80)) / S             # khối chữ gọn ~70% bề ngang, không tràn mép (chữ quá to khó đọc liền)
+    rows, sizes = "", []
+    NB = "\u00a0"
     for i, ln in enumerate(lines):
         txt = str(ln["text"]).upper()
-        ws_ = txt.split()
-        if len(txt) > (11 if V else 18) and len(ws_) > 1:          # dòng dài → 2 hàng cân nhau (chữ vẫn to)
+        hl = str(ln.get("hl") or "").upper().strip()
+        if hl and hl in txt:                                    # cụm nhấn là MỘT khối, không bẻ đôi qua 2 hàng
+            txt = txt.replace(hl, hl.replace(" ", NB))
+        ws_ = [w for w in txt.split(" ") if w]                  # split(" "): giữ NBSP trong cụm nhấn (split() tách cả NBSP)
+        if len(txt) > (13 if V else 20) and len(ws_) > 1:         # dòng dài → 2 hàng cân nhau
             best = min(range(1, len(ws_)), key=lambda j: abs(len(" ".join(ws_[:j])) - len(" ".join(ws_[j:]))))
             txt = " ".join(ws_[:best]) + "\n" + " ".join(ws_[best:])
-        size = _fit(txt, ln.get("size") or (190 if V else 160), avail, 0.84)   # Montserrat Black chữ hoa ≈ 0.8em
-        hl = str(ln.get("hl") or "").upper()
+        size = _fit(txt.replace(NB, " "), ln.get("size") or (128 if V else 116), avail, 0.84)
         words = ""
         for w in txt.replace("\n", " \n ").split(" "):
             if w == "\n":
@@ -616,17 +619,19 @@ def _t_kinetic(sc, V, tone):
                 continue
             if not w:
                 continue
-            if hl and w.strip(",.!?") in hl.split():
-                words += (f'<span class="w hw" style="position:relative;display:inline-block;margin:0 .12em;color:#0B1022;padding:0 .12em">'
-                          f'<span class=hb style="position:absolute;inset:6% -2%;background:linear-gradient(90deg,{a[1]},{a[0]});border-radius:.12em;z-index:-1;'
-                          f'transform-origin:0 50%;box-shadow:0 0 {_px(40)} {a[0]}"></span>{_E(w)}</span>')
+            if NB in w or (hl and w.strip(",.!?") == hl):
+                words += (f'<span class="w hw" style="position:relative;display:inline-block;margin:0 .1em;color:#0B1022;padding:0 .18em">'
+                          f'<span class=hb style="position:absolute;inset:4% 0;background:linear-gradient(90deg,{a[1]},{a[0]});border-radius:.18em;z-index:-1;'
+                          f'transform-origin:0 50%;box-shadow:0 0 {_px(30)} {a[0]}88"></span>{_E(w.replace(NB, " "))}</span>')
             else:
-                words += f'<span class=w style="display:inline-block;margin:0 .12em">{_E(w)}</span>'
-        rows += (f'<div class="kl kl{i}" style="font-weight:900;line-height:1.05;font-size:{_px(size)};text-align:center;white-space:nowrap;'
-                 f'white-space:nowrap;position:relative;z-index:1;isolation:isolate;text-shadow:0 {_px(6)} {_px(30)} rgba(0,0,0,.5)">{words}</div>')
+                words += f'<span class=w style="display:inline-block;margin:0 .1em;color:#FFFFFF">{_E(w)}</span>'
+        sizes.append(size)
+        rows += (f'<div class="kl kl{i}" style="font-weight:900;line-height:1.08;font-size:@@SZ@@;text-align:center;'
+                 f'white-space:nowrap;position:relative;z-index:1;isolation:isolate;text-shadow:0 {_px(4)} {_px(18)} rgba(0,0,0,.45)">{words}</div>')
+    rows = rows.replace("@@SZ@@", _px(min(sizes))) if sizes else rows      # mọi dòng cùng cỡ → đọc thành một câu liền
     back = _E(str((lines[-1].get("hl") or lines[-1]["text"]) if lines else "").upper())
     out = (f'<div class=bk style="position:absolute;top:{"30%" if V else "22%"};left:0;white-space:nowrap;font-weight:900;font-size:{_px(420)};'
-           f'color:{a[0]}30;-webkit-text-stroke:{_px(3)} {a[0]}55;opacity:.35">{back} · {back} · {back}</div>'
+           f'color:{a[0]}18;-webkit-text-stroke:{_px(2)} {a[0]}30;opacity:.18">{back} · {back} · {back}</div>'
            f'<div class=fl style="position:absolute;left:50%;top:46%;width:{_px(900)};height:{_px(900)};margin:{_px(-450)};border-radius:50%;'
            f'background:radial-gradient({a[0]}88,transparent 65%);opacity:0"></div>'
            f'<div class=stk style="position:absolute;left:0;right:0;top:0;bottom:{"14%" if V else "12%"};display:flex;flex-direction:column;'
@@ -639,8 +644,7 @@ let acc=0;const ys=hs.map(h=>{{acc+=h;return (tot-acc)/2;}});
 tl.set(q('.stk'),{{y:ys[0]||0}},0).fromTo(q('.bk'),{{x:0}},{{x:{-900*S:.0f},duration:{D},ease:'none'}},0);
 L.forEach((e,i)=>{{const t=AT[i];
  if(i>0)tl.to(q('.stk'),{{y:ys[i],duration:.45,ease:'power3.out'}},t);
- if(i>0)tl.to(L.slice(0,i),{{opacity:.45,scale:.94,duration:.4}},t);
- tl.from(e.querySelectorAll('.w'),{{scale:2.4,opacity:0,filter:'blur(14px)',y:-40,duration:.42,stagger:.07,ease:'expo.out'}},t);
+ tl.from(e.querySelectorAll('.w'),{{scale:1.5,opacity:0,filter:'blur(10px)',y:-24,duration:.38,stagger:.06,ease:'expo.out'}},t);
  const hb=e.querySelectorAll('.hb');if(hb.length)tl.from(hb,{{scaleX:0,duration:.35,ease:'power3.out'}},t+.25);
  tl.fromTo(q('.fl'),{{opacity:.9,scale:.6}},{{opacity:0,scale:1.4,duration:.6,ease:'power2.out'}},t)
    .fromTo(q('.stk'),{{scale:1.04}},{{scale:1,duration:.3,ease:'power2.out'}},t+.05);

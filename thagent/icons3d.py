@@ -74,7 +74,12 @@ def index() -> list[dict]:
     return _IDX
 
 
+# icon 3dicons dễ hiểu nhầm (túi tiền tròn buộc dây trông như QUẢ BOM) → tự đổi sang bản Fluent rõ nghĩa
+ALIAS = {"money-bag": "f-dollar-banknote", "f-money-bag": "f-dollar-banknote", "bag": "f-dollar-banknote", "money": "f-dollar-banknote"}   # tiền = XẤP TIỀN, không bao giờ túi
+
+
 def get(icon_id: str) -> dict | None:
+    icon_id = ALIAS.get(icon_id, icon_id)
     return next((x for x in index() if x["id"] == icon_id), None)
 
 

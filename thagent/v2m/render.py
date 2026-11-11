@@ -969,6 +969,15 @@ class Renderer:
         M = D.affine(sx, sy, res, rot, pad + int(r * qs), pad + int(r * qs))
         D.place(dst, _clip(spr, clip), M, op, bv)
 
+    def d_basemap(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):
+        """nền bản đồ đường phố (thagent/v2m/streetmap.py): warp thẳng phần đang thấy của ảnh gốc lên khung (không dựng sprite to)."""
+        spr = D._image(self.tl.path(p["src"]))
+        ih, iw = spr.shape[:2]
+        if p.get("dim"):
+            spr = spr * np.array([1 - float(p["dim"])] * 3 + [1.0], np.float32)
+        M = D.affine(sx, sy, scale * float(p["w"]) / iw, rot, iw / 2, ih / 2)
+        D.place(dst, spr, M, op, bv)
+
     def d_image(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):
         qs = _q(scale, 0.05)
         w, h = float(p.get("w", 600)), float(p.get("h", 400))
@@ -1731,6 +1740,8 @@ def _d_callout(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):
     f = D.font("bold", int(size))
     lines = VT.break_lines(title, "bold", int(size), float(p.get("max_w", 420)), tuple(p.get("keep", [])))
     tw = max(f.getlength(l) for l in lines)
+    if sub:                                            # dòng phụ dài hơn tên → khung rộng theo dòng phụ (không tràn mép)
+        tw = max(tw, D.font("semi", int(size * 0.62)).getlength(sub))
     th = len(lines) * size * 1.12 + (size * 0.72 if sub else 0)
     pad = 12 if style == "tag" else 2
     bw_, bh_ = tw + 2 * pad, th + 2 * pad

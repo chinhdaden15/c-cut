@@ -242,6 +242,18 @@ class Kit:
         if source:
             self.source("Bản đồ: Natural Earth (public domain)")
 
+    def street_map(self, src: str, dim: float = 0.0, source=True):
+        """nền bản đồ ĐƯỜNG PHỐ thật (python -m thagent.v2m streetmap …) đặt đúng toạ độ — ghim / tuyến OSRM / callout / camera
+        s.look(box) nằm khớp lên trên. Khung camera nên nằm trong khung ảnh (không lộ mép)."""
+        meta = json.loads((self.pdir / Path(src).with_suffix(".json")).read_text(encoding="utf-8"))
+        lon0, lat0, lon1, lat1 = meta["bbox"]
+        x0, y0 = geo_xy(lon0, lat1)
+        x1, y1 = geo_xy(lon1, lat0)
+        self.base.append({"id": self.uid("sm"), "type": "basemap", "src": src, "x": (x0 + x1) / 2, "y": (y0 + y1) / 2,
+                          "w": x1 - x0, "h": y1 - y0, "dim": dim, "persist": True, "layer": -12})
+        if source:
+            self.source(meta.get("credit", "Bản đồ © OpenStreetMap contributors"))
+
     def provinces(self, files: list[str], labels: dict | None = None, source=True):
         """ranh giới tỉnh (assets/geo/vn34/*.geojson). labels {tên trong geojson: (chữ hiển thị, lon, lat)} → tên nằm TRONG tỉnh."""
         files = [f if "/" in f else f"assets/geo/vn34/{f}.geojson" for f in files]
@@ -989,11 +1001,61 @@ class Scene:
         sz = size or (84 if K.V else 60)
         sz = min(sz, int(K.W * 0.9 / (len(text) * 0.6 + 1.6)))      # cả viên nằm gọn trong khung
         w = len(text) * sz * 0.6 + sz * 1.6
+        y2 = self._kw_free_y(x, y, w, sz * 2.0, t)                   # không đè lên ảnh / bản đồ / video khung bo góc
+        if y2 is None:                                               # khe trống hẹp → thu viên chữ cho vừa
+            sz = min(sz, 52 if K.V else 40)
+            w = len(text) * sz * 0.6 + sz * 1.6
+            y2 = self._kw_free_y(x, y, w, sz * 2.0, t)
+        y = y2 if y2 is not None else y
         rid = self.add({"type": "rect", "w": w, "h": sz * 2.0, "r": sz, "fill": color or K.th["accent"], "space": "screen", "x": x, "y": y,
-                        "shadow": 0.3}, t - 0.05, "pop", 0.35)
+                        "shadow": 0.3, "_kw": True}, t - 0.05, "pop", 0.35)
         self.add({"type": "text", "text": text, "font": "black", "size": sz, "color": K.th["ink_on_accent"], "parent": rid, "x": 0, "y": 0,
                   "shadow": 0})
         return rid
+
+    def _kw_free_y(self, x, y, w, h, t):
+        """viên chữ nhấn rơi vào ảnh minh hoạ (ảnh / bản đồ / video bo góc, không phải nền phủ khung) đang hiện → dời lên dải
+        tiêu đề phía trên ảnh, hoặc xuống dưới ảnh; nhiều viên thì xếp chồng không đè nhau."""
+        K = self.K
+        boxes = []
+        for o in self.objs:
+            if o.get("type") not in ("image", "video") or o.get("role") == "backdrop" or o.get("space") != "screen":
+                continue
+            ow, oh = float(o.get("w", 0)), float(o.get("h", 0))
+            boxes.append((float(o["x"]) - ow / 2, float(o["y"]) - oh / 2, float(o["x"]) + ow / 2, float(o["y"]) + oh / 2))
+        for o in self.objs:                                         # tiêu đề / chữ lớn trên màn hình cũng phải né
+            if o.get("type") == "text" and o.get("space") == "screen" and not o.get("parent") and o.get("role") not in ("caption", "source"):
+                sz = float(o.get("size", 60))
+                n = str(o.get("text", "")).count("\n") + 1
+                ln = max(len(s) for s in str(o.get("text", " ")).split("\n"))
+                ow = min(float(o.get("max_w") or K.W), ln * sz * 0.62)
+                boxes.append((float(o["x"]) - ow / 2, float(o["y"]) - n * sz * 0.6, float(o["x"]) + ow / 2, float(o["y"]) + n * sz * 0.6))
+        kw = [o for o in self.objs if o.get("type") == "rect" and o.get("_kw")]
+        def hit(yy):
+            r = (x - w / 2, yy - h / 2, x + w / 2, yy + h / 2)
+            if any(r[0] < b[2] and r[2] > b[0] and r[1] < b[3] and r[3] > b[1] for b in boxes):
+                return True
+            return any(abs(float(o["y"]) - yy) < (float(o["h"]) + h) / 2 + 12 and abs(float(o["x"]) - x) < (float(o["w"]) + w) / 2
+                       for o in kw)
+        if not hit(y):
+            return y
+        top = min((b[1] for b in boxes), default=y)
+        bot = max((b[3] for b in boxes), default=y)
+        y0 = K.zone("title")[1] + h / 2
+        cand = [top - h / 2 - 24 - i * (h + 16) for i in range(4)] + [bot + h / 2 + 24 + i * (h + 16) for i in range(3)]
+        cap = K.zone("caption")[1] - h / 2 - 10
+        for yy in cand:
+            if y0 <= yy <= cap and not hit(yy):
+                return yy
+        if kw:                                                       # hết chỗ → thay chỗ viên trước (viên cũ tắt), không đè ảnh
+            old = kw[-1]
+            self.hide(old["id"], t - 0.08, "fade", 0.12)
+            for ch in self.objs:
+                if ch.get("parent") == old["id"]:
+                    self.hide(ch["id"], t - 0.08, "fade", 0.12)
+            old["_kw"] = False
+            return float(old["y"])
+        return None
 
     def checklist(self, items, region="main", tick_after=0.5) -> list[str]:
         """danh sách đánh dấu: items [(chữ, t)] — dòng hiện theo lời, dấu tích bật xanh sau `tick_after` giây; dòng cũ mờ bớt."""
@@ -1121,7 +1183,7 @@ class Scene:
     def callout(self, lonlat, text, t, sub=None, style="tag", color=None, dirs=None, **k) -> str:
         """callout CHỈ cho vật nhỏ: đường, dự án, cây cầu, nút giao, công trình. Dấu neo + thân mảnh + nhãn ở xa, tự né tuyến."""
         x, y = geo_xy(*lonlat)
-        o = {"type": "callout", "x": x, "y": y, "text": text, "style": style, "size": 30 if style == "tag" else 26,
+        o = {"type": "callout", "x": x, "y": y, "text": text, "style": style, "size": (40 if self.K.V else 34) if style == "tag" else 30,
              "color": color or self.K.th["accent"], "stem": 140 if style == "tag" else 80, "marker": "dot", "layer": 9, **k}
         if sub:
             o["sub"] = sub
@@ -1129,8 +1191,25 @@ class Scene:
             o["dirs"] = dirs
         return self.add(o, t, "fade", 0.6)
 
+    def street_map(self, src: str, dim: float = 0.0) -> str:
+        """nền bản đồ ĐƯỜNG PHỐ thật CHỈ trong cảnh này (python -m thagent.v2m streetmap …): ghim / tuyến / callout / s.look(box)
+        nằm khớp toạ độ. Khung camera nằm trong khung ảnh."""
+        K = self.K
+        meta = json.loads((K.pdir / Path(src).with_suffix(".json")).read_text(encoding="utf-8"))
+        lon0, lat0, lon1, lat1 = meta["bbox"]
+        x0, y0 = geo_xy(lon0, lat1)
+        x1, y1 = geo_xy(lon1, lat0)
+        self.add({"type": "text", "text": meta.get("credit", "Bản đồ © OpenStreetMap contributors"), "font": "medium", "size": 20,
+                  "color": "#9FB0C6", "space": "screen", "x": K.W / 2, "y": K.F.center("source")[1], "shadow": 0.5, "layer": 30,
+                  "role": "source", "max_w": K.F.width("source")}, self.t0, "fade", 0.4)
+        return self.add({"type": "basemap", "src": src, "x": (x0 + x1) / 2, "y": (y0 + y1) / 2, "w": x1 - x0, "h": y1 - y0,
+                         "dim": dim, "layer": -12}, self.t0, "fade", 0.4)
+
     def route(self, src, feature, t, d=1.2, color=None, width=6, dash=None, head=8, **k) -> str:
-        """vẽ tuyến GeoJSON (đường, sông, tuyến bay) chạy dần theo lời."""
+        """vẽ tuyến GeoJSON (đường, sông, tuyến bay) chạy dần theo lời. src trong dự án (assets_web/route_*.geojson từ lệnh osrm)
+        → đường dẫn tuyệt đối; feature = tên tuyến (hoặc số thứ tự)."""
+        if not Path(src).is_absolute() and (self.K.pdir / src).exists():
+            src = str((self.K.pdir / src).resolve())
         o = {"type": "geoline", "src": src, "feature": feature, "color": color or self.K.th["accent"], "width": width, "head": head,
              "progress": 0, "layer": 2, **k}
         if dash:

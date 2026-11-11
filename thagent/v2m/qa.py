@@ -270,7 +270,7 @@ def _hero(o) -> float:
         return max(float(o.get("w", 0)), float(o.get("h", 0)))
     if ty == "hf":
         return 600.0                                   # cảnh Motion Graphics bố cục (mg) — khối lớn
-    if ty in ("map", "geo", "region"):
+    if ty in ("map", "geo", "region", "basemap"):
         return 900.0
     if ty in ("rect", "circle"):
         if o["type"] == "circle":
@@ -294,7 +294,9 @@ def engagement(tl) -> list[tuple[str, str]]:
     sigs, illus, icon_only = [], [], []
     for sc in tl.scenes:
         d = sc["end_s"] - sc["start_s"]
-        if d > SCENE_MAX + 0.05 and sc is not tl.scenes[-1]:
+        mine0 = [o for o in objs if o.get("_scene") == sc["id"]]
+        cam_map = any(o["type"] == "basemap" for o in mine0)          # bản đồ đường phố: camera + tuyến chạy suốt cảnh
+        if d > (SCENE_MAX * 1.6 if cam_map else SCENE_MAX) + 0.05 and sc is not tl.scenes[-1]:
             out.append(("error", f"{sc['id']}: cảnh dài {d:.1f}s (> {SCENE_MAX:.0f}s) — tách thành 2 cảnh theo ý / theo câu"))
         mine = [o for o in objs if o.get("_scene") == sc["id"]]
         big = max((_hero(o) for o in mine), default=0)
@@ -308,7 +310,7 @@ def engagement(tl) -> list[tuple[str, str]]:
         kinds = sorted({("hf:" + o.get("kind", "") if o["type"] == "hf" else
                          "photo_bg" if o.get("role") == "backdrop" else o["type"])
                         for o in mine if o.get("role") not in ("caption", "source") and not o.get("parent")})
-        if any(k == "photo_bg" or (k.startswith("hf:") and any(o.get("full") for o in mine if o["type"] == "hf")) for k in kinds):
+        if any(k in ("photo_bg", "basemap") or (k.startswith("hf:") and any(o.get("full") for o in mine if o["type"] == "hf")) for k in kinds):
             illus.append(d)
         elif any(o["type"] == "icon" for o in mine) and not any(o["type"] in ("hf", "image", "video", "map", "region", "geo") for o in mine):
             icon_only.append(sc["id"])

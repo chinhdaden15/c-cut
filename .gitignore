@@ -19,5 +19,7 @@ tools/
 /license.json
 /models/vieneu/
 /voices/
+/ai_reels_data/
 /assets/icons3d/*/
 /api_keys.json
+cache/

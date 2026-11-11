@@ -34,6 +34,17 @@ MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son 
 Không có clip của ĐÚNG mẫu (thường gặp: xe, điện thoại đời cụ thể) → tìm clip CHUNG khớp ý câu (xe chạy nhanh, đồng hồ tốc độ, khoang máy, mâm xe,
 trạm sạc, người ngoái nhìn), mỗi câu một clip; KHÔNG đặt clip mẫu / hãng khác đúng lúc đang gọi tên chủ thể (dễ hiểu nhầm là chính nó).
 Đổi nền giữa câu trong cùng cảnh: `s.photo_bg(src, t, dim=…)` (ảnh thật nhận diện → clip ý tiếp theo).
+**Địa danh / vị trí / kết nối → BẢN ĐỒ ĐƯỜNG PHỐ THẬT, không icon** (học từ map-route-video, MIT): nhắc khu vực, phường, nút giao,
+"gần X", "cách Y bao nhiêu phút" → `python -m thagent.v2m geocode "<tên>"` (toạ độ OSM, KHÔNG tự nhớ toạ độ) →
+`python -m thagent.v2m osrm {pdir} <lon,lat> <lon,lat> <tên>` (tuyến + km + phút THẬT) → `python -m thagent.v2m streetmap {pdir}
+<lon0,lat0,lon1,lat1> dark <tên>` → trong cảnh: `s.street_map("assets_web/map_<tên>.png")`, `s.look(box, t)`, `s.callout(lonlat, "Tên", t,
+sub="~6,1 km · ~9 phút (ước tính)")`, `s.route("assets_web/route_<tên>.geojson", "<tên>", t, d=2)`. Camera: khu vực → dự án → vẽ tuyến
+tới điểm đến đúng lúc nói. Thời gian luôn ghi "ước tính", nguồn bản đồ tự hiện. Ảnh mặt bằng / bản đồ vị trí của chủ đầu tư vẫn dùng được.
+CẤM: hàng icon (pin / cây cầu / con đường) thay cho địa danh; ảnh vệ tinh ghép từ dịch vụ khác.
+**Chữ nhấn (keyword) KHÔNG đè ảnh / bản đồ:** app tự dời viên chữ lên trên / xuống dưới ảnh; đừng đặt ry vào giữa ảnh.
+Ảnh đã nói đủ thì bỏ chữ nhấn. **Icon tiền = XẤP TIỀN** (`3d:f-dollar-banknote`), không bao giờ túi tiền (app tự đổi).
+**Chữ động (kinetic) đọc thành MỘT câu:** 2–3 dòng nối nhau đúng thứ tự lời (vd "LƯU VIDEO / THEO DÕI KÊNH"), mỗi dòng ≤ 3 từ,
+`hl` là MỘT cụm liền trong dòng (không tô lẻ từng chữ), không dòng rời không nghĩa; cùng cỡ, gọn ~70% bề ngang (app tự chỉnh).
 **Phụ đề:** mỗi cụm trong captions.json ≤ 2 dòng, dòng dọc ≤ ~22 ký tự (chữ đậm 62px, khung 920px) — app đo chữ thật và tự tách cụm dài,
 nhưng tự chia ngắn từ đầu thì nhịp đẹp hơn; không ngắt giữa từ ghép / cụm số (“ánh / mắt”, “ba trăm sáu / mươi”).
 

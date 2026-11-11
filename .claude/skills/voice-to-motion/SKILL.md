@@ -70,6 +70,19 @@ số liệu giữ đủ lâu để đọc 2 lần. Luật cắt / âm / phụ đ
 
 Đọc `references/style-and-motion.md` trước khi dựng. Đọc `references/timeline-and-qa.md` khi lập timeline, kiểm tra hoặc sửa video. Đọc `references/real-estate-assets.md` nếu nội dung liên quan dự án, địa điểm, bản đồ, mặt bằng hay số liệu. Dùng `references/test-script.md` chỉ khi người dùng yêu cầu bài thử; không thay thế voice thật bằng kịch bản mẫu. Khi được yêu cầu xây app thực thi skill, đọc thêm `references/app-contract.md`.
 
+
+**Địa danh / vị trí / kết nối → BẢN ĐỒ ĐƯỜNG PHỐ THẬT, không icon** (học từ map-route-video, MIT): nhắc khu vực, phường, nút giao,
+"gần X", "cách Y bao nhiêu phút" → `python -m thagent.v2m geocode "<tên>"` (toạ độ OSM, KHÔNG tự nhớ toạ độ) →
+`python -m thagent.v2m osrm {pdir} <lon,lat> <lon,lat> <tên>` (tuyến + km + phút THẬT) → `python -m thagent.v2m streetmap {pdir}
+<lon0,lat0,lon1,lat1> dark <tên>` → trong cảnh: `s.street_map("assets_web/map_<tên>.png")`, `s.look(box, t)`, `s.callout(lonlat, "Tên", t,
+sub="~6,1 km · ~9 phút (ước tính)")`, `s.route("assets_web/route_<tên>.geojson", "<tên>", t, d=2)`. Camera: khu vực → dự án → vẽ tuyến
+tới điểm đến đúng lúc nói. Thời gian luôn ghi "ước tính", nguồn bản đồ tự hiện. Ảnh mặt bằng / bản đồ vị trí của chủ đầu tư vẫn dùng được.
+CẤM: hàng icon (pin / cây cầu / con đường) thay cho địa danh; ảnh vệ tinh ghép từ dịch vụ khác.
+**Chữ nhấn (keyword) KHÔNG đè ảnh / bản đồ:** app tự dời viên chữ lên trên / xuống dưới ảnh; đừng đặt ry vào giữa ảnh.
+Ảnh đã nói đủ thì bỏ chữ nhấn. **Icon tiền = XẤP TIỀN** (`3d:f-dollar-banknote`), không bao giờ túi tiền (app tự đổi).
+**Chữ động (kinetic) đọc thành MỘT câu:** 2–3 dòng nối nhau đúng thứ tự lời (vd "LƯU VIDEO / THEO DÕI KÊNH"), mỗi dòng ≤ 3 từ,
+`hl` là MỘT cụm liền trong dòng (không tô lẻ từng chữ), không dòng rời không nghĩa; cùng cỡ, gọn ~70% bề ngang (app tự chỉnh).
+
 ## Đầu vào và mặc định
 
 - Nhận file âm thanh (WAV/MP3/M4A/AAC/FLAC/OGG) hoặc file video (chỉ lấy tiếng); kiểm tra định dạng thực tế, thời lượng, số kênh và khả năng giải mã.

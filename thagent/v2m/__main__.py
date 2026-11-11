@@ -4,6 +4,9 @@
   python -m thagent.v2m music <dự-án> mixkit:<mã>          tải nhạc → assets_web/m_<mã>.mp3, dùng K.music(...)
   python -m thagent.v2m brollsearch <dự-án> "<từ khoá EN>"   tìm b-roll Mixkit (miễn phí) → ảnh ghép có mã clip
   python -m thagent.v2m broll  <dự-án> <url|mixkit:mã> v_ten.mp4 [nguồn]  tải video b-roll (Mixkit, Pexels, Pinterest, link .mp4)
+  python -m thagent.v2m geocode "<địa điểm>"                  toạ độ thật (Photon / OSM)
+  python -m thagent.v2m osrm <dự-án> <lon,lat> <lon,lat> <tên>  tuyến đường thật + km + phút (OSRM) → assets_web/route_<tên>.geojson
+  python -m thagent.v2m streetmap <dự-án> <lon0,lat0,lon1,lat1> [dark|light] [tên]   nền bản đồ ĐƯỜNG PHỐ thật → K.street_map(...)
   python -m thagent.v2m icons  <từ khóa…>                    tra tên icon trong kho của app (tiếng Anh/Việt)
   python -m thagent.v2m init   <voice|video> <thư-mục-dự-án>   kiểm tra file, chép voice, chép lời → transcript.json
   python -m thagent.v2m clean  <dự-án> [--no-denoise]           cắt vấp/lắp bắp/từ đệm/khoảng lặng (như Talking Head) → voice_clean.wav
@@ -152,7 +155,7 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
     if tr0.get("source") == "t2v":
         # hình thật (video / ảnh minh hoạ phủ khung hoặc khung lớn) ≥ 40% thời lượng — tránh cả video chỉ nền màu + icon
         iv = sorted((float(o["_vis"][0]), float(o["_vis"][1])) for o in tl.objs.values()
-                    if o["type"] in ("video", "image") and o.get("_vis") and "assets_web/" in str(o.get("src", "")))
+                    if o["type"] in ("video", "image", "basemap") and o.get("_vis") and "assets_web/" in str(o.get("src", "")))
         cov, cur = 0.0, None
         for a, b in iv:
             if cur and a <= cur[1]:
@@ -209,7 +212,7 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
             out.append(("error", f"{o['id']}: parent {o['parent']} không có"))
         if o["type"] == "video" and not Path(tl.path(o["src"])).is_file():
             out.append(("error", f"{o['id']}: không có clip {o['src']}"))
-        if o["type"] not in ("text", "rect", "circle", "image", "video", "icon", "line", "list", "counter", "progress", "bars", "quote", "map", "region", "geo", "geoline", "routelabel", "callout", "figure", "pulse", "flow", "stack", "halo", "hf"):
+        if o["type"] not in ("text", "rect", "circle", "image", "video", "icon", "line", "list", "counter", "progress", "bars", "quote", "map", "region", "geo", "geoline", "routelabel", "callout", "figure", "pulse", "flow", "stack", "halo", "hf", "basemap"):
             out.append(("error", f"{o['id']}: loại {o['type']} chưa hỗ trợ"))
         if o["type"] == "hf":                     # lớp HyperFrames (công cụ dựng chung) — spec hợp lệ + công cụ sẵn sàng
             from ..capabilities import status
@@ -519,7 +522,28 @@ def brollsearch(pdir, query):
     search(pdir, query)
 
 
-CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise}
+def geocode(*q):
+    """geocode "<tên địa điểm>" — toạ độ thật (Photon / OSM)."""
+    from . import streetmap as SM
+    for r in SM.geocode(" ".join(q)):
+        print(f"{r['lonlat'][0]},{r['lonlat'][1]}  {r['name']} — {r['where']} [{r['kind']}]")
+
+
+def osrm(pdir, a, b, name="tuyen"):
+    """osrm <dự-án> <lon,lat> <lon,lat> <tên> — tuyến đường thật + km + phút → assets_web/route_<tên>.geojson."""
+    from . import streetmap as SM
+    r = SM.osrm(pdir, [float(x) for x in a.split(",")], [float(x) for x in b.split(",")], name)
+    print(f"{r['file']}\n~{str(r['km']).replace('.', ',')} km · ~{r['phut']} phút (ước tính, đường thông thoáng)\n"
+          f"khung camera gợi ý: {r['box']}\n→ s.route(\"assets_web/route_{name}.geojson\", \"{name}\", t, d=…)")
+
+
+def streetmap(pdir, bbox, style="dark", name="khuvuc"):
+    """streetmap <dự-án> <lon0,lat0,lon1,lat1> [dark|light] [tên] — nền bản đồ đường phố thật (OpenFreeMap)."""
+    from . import streetmap as SM
+    print(SM.streetmap(pdir, [float(x) for x in bbox.split(",")], style, name), "→ K.street_map(\"assets_web/map_" + name + ".png\")")
+
+
+CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "streetmap": streetmap}
 
 
 def main():
