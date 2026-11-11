@@ -50,6 +50,12 @@ _I3D = {"lightbulb-on": "light bulb", "lightbulb": "light bulb", "document": "pa
         "check": "check mark", "film": "clapper board", "money": "money", "clock": "clock", "rocket": "rocket", "star": "star", "heart": "heart"}
 
 
+def cv2_read_size(p) -> tuple[int, int]:
+    import cv2
+    im = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
+    return im.shape[:2]
+
+
 def to3d(name: str) -> str:
     """icon phẳng → icon 3D cùng nghĩa trong kho chung (nếu có); không có thì giữ icon phẳng."""
     if name.startswith("3d:"):
@@ -928,21 +934,32 @@ class Scene:
             o["kb"] = kb if isinstance(kb, dict) else {"z": [1.03, 1.14], "pan": [-0.3, 0.1, 0.3, -0.1]}
         return self.add(o, t, style, 0.5 if style == "scale" else 0.7)
 
-    def logo(self, src, t, label=None, region="main", ry=0.42, size=None, x=None) -> str:
-        """LOGO / icon app chính thức (python -m thagent.tools logo …) trên ô trắng bo góc — đọc rõ trên mọi nền
-        (logo đen như TikTok không chìm). Nhắc app / hãng nào là hiện đúng logo đó."""
+    def logo(self, src, t, label=None, region="main", ry=0.42, size=None, x=None, dim=True, until=None) -> str:
+        """LOGO / icon app chính thức (python -m thagent.tools logo …) xuất hiện kiểu reveal: nền video tối dần (vignette), logo có
+        QUẦNG SÁNG màu thương hiệu phóng vào từ mờ → nét, nhịp nhẹ; logo đen / tối nằm trên ô trắng bo góc (giữ màu gốc).
+        Không viền / không ô trắng cho logo có màu. until: giây tắt (mặc định hết cảnh)."""
+        from .. import brandkit as BK
         K = self.K
         cx, cy = K.at_zone(region, 0.5, ry)
         cx = x if x is not None else cx
-        sz = size or (340 if K.V else 260)
-        tile = self.add({"type": "rect", "w": sz, "h": sz, "r": sz * 0.22, "fill": "#FFFFFF", "space": "screen", "x": cx, "y": cy,
-                         "shadow": 0.35, "_logo": True}, t, "pop", 0.4)
-        self.add({"type": "image", "src": src, "w": sz * 0.74, "h": sz * 0.74, "r": 0, "fit": "contain", "shadow": 0, "parent": tile,
-                  "x": 0, "y": 0, "logo": True})
+        sz = size or (360 if K.V else 280)
+        g = BK.logo_glow(K.pdir / src)
+        gi = cv2_read_size(g)
+        k = 1.84                                                     # ảnh glow = logo + lề quầng sáng 0,42 mỗi phía
+        if dim and not any(o.get("_logodim") for o in self.objs):
+            v = BK.vignette(K.pdir, K.W, K.H)
+            self.add({"type": "image", "src": str(v.relative_to(K.pdir)), "w": K.W, "h": K.H, "r": 0, "shadow": 0, "fit": "fill",
+                      "space": "screen", "x": K.W / 2, "y": K.H / 2, "layer": -30, "_logodim": True}, t - 0.15, "fade", 0.35)   # ngay trên video nền, dưới chữ
+        lid = self.add({"type": "image", "src": str(g.relative_to(K.pdir)), "w": sz * k, "h": sz * k * gi[0] / gi[1], "r": 0,
+                        "shadow": 0, "fit": "contain", "space": "screen", "x": cx, "y": cy, "layer": 14, "logo": True},
+                       t, "pop", 0.45)
+        self.pulse(lid, t + 0.55)
         if label:
-            self.add({"type": "text", "text": label, "font": "black", "size": 64 if K.V else 50, "color": K.th["text"], "space": "screen",
-                      "x": cx, "y": cy + sz / 2 + 70, "shadow": 0.5}, t + 0.15, "up", 0.35)
-        return tile
+            self.add({"type": "text", "text": label, "font": "black", "size": 60 if K.V else 48, "color": "#FFFFFF", "space": "screen",
+                      "x": cx, "y": cy + sz * 0.62 + 50, "shadow": 0.6, "layer": 14, "spacing": 1.5}, t + 0.2, "up", 0.35)
+        if until is not None:
+            self.hide(lid, until, "fade", 0.25)
+        return lid
 
     def photos(self, items, region="main", real=False) -> list[str]:
         """2–3 ảnh lần lượt theo lời: items [(src, nhãn, t)] — ảnh mới trượt lên chồng, ảnh trước lùi nhẹ/nghiêng."""

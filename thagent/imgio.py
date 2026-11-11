@@ -25,8 +25,8 @@ def imread(path, flags=cv2.IMREAD_COLOR):
         return None
 
 
-def must_read(path):
-    img = imread(path)
+def must_read(path, flags=cv2.IMREAD_COLOR):
+    img = imread(path, flags)
     if img is None:
         raise RuntimeError(f"không đọc được ảnh {os.path.basename(os.fspath(path))} — file hỏng hoặc không phải ảnh, tải ảnh khác")
     return img

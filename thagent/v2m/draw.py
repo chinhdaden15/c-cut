@@ -271,7 +271,11 @@ def icon_glow(name: str, size: int, color: str) -> np.ndarray:
 
 @lru_cache(maxsize=64)
 def _image(path: str) -> np.ndarray:
-    im = imgio.must_read(path)
+    im = imgio.must_read(path, cv2.IMREAD_UNCHANGED)          # giữ kênh trong suốt (logo phát sáng, lớp làm tối, sticker)
+    if im.dtype != np.uint8:
+        im = (im / 257).astype(np.uint8) if im.dtype == np.uint16 else np.clip(im, 0, 255).astype(np.uint8)
+    if im.ndim == 3 and im.shape[2] == 2:
+        im = cv2.cvtColor(im[..., 0], cv2.COLOR_GRAY2BGR); im = np.dstack([im, cv2.imread(path, cv2.IMREAD_UNCHANGED)[..., 1]])
     if im.ndim == 2:
         im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
     if im.shape[2] == 4:

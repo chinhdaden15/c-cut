@@ -20,6 +20,7 @@ import urllib.request
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 
@@ -385,4 +386,77 @@ def logo(pdir, name: str, domain: str | None = None) -> Path:
         best[0].unlink(missing_ok=True)
     srcs[out.name] = best[1]
     srcs_f.write_text(json.dumps(srcs, ensure_ascii=False, indent=1), encoding="utf-8")
+    return out
+
+
+def logo_glow(src: Path, accent: str | None = None) -> Path:
+    """logo → bản PHÁT SÁNG không viền: quầng sáng màu thương hiệu (2 lớp mềm) quanh nét logo; logo tối (TikTok đen…) chuyển trắng
+    để nổi trên nền đã làm tối. → <tên>_glow.png (lớn gấp ~1,8 lần logo, logo nằm giữa)."""
+    src = Path(src)
+    out = src.with_name(src.stem + "_glow.png")
+    im = cv2.imread(str(src), cv2.IMREAD_UNCHANGED)
+    if im is None:
+        raise SystemExit(f"không đọc được {src}")
+    if im.ndim == 2:
+        im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGRA)
+    if im.shape[2] == 3:                                    # logo không nền trong: bỏ nền trắng / gần trắng ở mép
+        a = 255 - cv2.inRange(im, (235, 235, 235), (255, 255, 255))
+        im = np.dstack([im, a])
+    s = 512 / max(im.shape[:2])
+    im = cv2.resize(im, (int(im.shape[1] * s), int(im.shape[0] * s)), interpolation=cv2.INTER_AREA)
+    a = im[..., 3].astype(np.float32) / 255
+    rgb = im[..., :3].astype(np.float32)
+    on = a > 0.5
+    lum = (rgb[on] @ np.array([0.114, 0.587, 0.299], np.float32)).mean() / 255 if on.any() else 1
+    if lum < 0.28:                                          # logo đen / tối: GIỮ màu gốc, đặt trên ô trắng bo góc (kiểu icon app)
+        h0, w0 = im.shape[:2]
+        side = int(max(h0, w0) / 0.68)
+        r = int(side * 0.23)
+        tile_a = np.zeros((side, side), np.uint8)
+        cv2.rectangle(tile_a, (r, 0), (side - r, side), 255, -1)
+        cv2.rectangle(tile_a, (0, r), (side, side - r), 255, -1)
+        for cx, cy in ((r, r), (side - r, r), (r, side - r), (side - r, side - r)):
+            cv2.circle(tile_a, (cx, cy), r, 255, -1, cv2.LINE_AA)
+        tile = np.full((side, side, 3), 255, np.float32)
+        oy, ox = (side - h0) // 2, (side - w0) // 2
+        tile[oy:oy + h0, ox:ox + w0] = rgb * a[..., None] + tile[oy:oy + h0, ox:ox + w0] * (1 - a[..., None])
+        rgb, a = tile, tile_a.astype(np.float32) / 255
+        im = np.dstack([rgb, a * 255]).astype(np.uint8)
+        accent = accent or "#FFFFFF"
+    if accent:
+        acc = np.array([int(accent.lstrip("#")[i:i + 2], 16) for i in (4, 2, 0)], np.float32)
+    else:                                                    # màu thương hiệu = màu bão hoà nhất trên logo
+        hsv = cv2.cvtColor(np.clip(rgb, 0, 255).astype(np.uint8), cv2.COLOR_BGR2HSV)
+        m = on & (hsv[..., 1] > 90) & (hsv[..., 2] > 90)
+        acc = rgb[m].mean(0) if m.sum() > 50 else np.array([255, 200, 120], np.float32)
+    H, W = im.shape[:2]
+    P = int(max(H, W) * 0.42)
+    A = np.zeros((H + 2 * P, W + 2 * P), np.float32)
+    A[P:P + H, P:P + W] = a
+    g1 = cv2.GaussianBlur(A, (0, 0), max(H, W) * 0.10)
+    g2 = cv2.GaussianBlur(A, (0, 0), max(H, W) * 0.035)
+    glow = np.clip(g1 * 1.25 + g2 * 0.9, 0, 1)
+    C = np.zeros((H + 2 * P, W + 2 * P, 3), np.float32)
+    C[:] = acc
+    L = np.zeros_like(C)
+    L[P:P + H, P:P + W] = rgb
+    La = A
+    outa = np.clip(La + glow * (1 - La) * 0.85, 0, 1)
+    outc = (L * La[..., None] + C * (glow * (1 - La) * 0.85)[..., None]) / np.maximum(outa[..., None], 1e-4)
+    cv2.imwrite(str(out), np.dstack([np.clip(outc, 0, 255), outa * 255]).astype(np.uint8))
+    return out
+
+
+def vignette(pdir, W: int, H: int) -> Path:
+    """lớp làm tối nền (giữa tối vừa, mép tối hơn) — phủ lên video khi logo xuất hiện."""
+    out = Path(pdir) / "assets_web" / f"_dim_{W}x{H}.png"
+    if out.exists():
+        return out
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    d = np.sqrt(((xx - W / 2) / (W * 0.62)) ** 2 + ((yy - H * 0.45) / (H * 0.55)) ** 2)
+    a = np.clip(0.50 + 0.35 * d, 0, 0.88)
+    img = np.zeros((H, W, 4), np.uint8)
+    img[..., :3] = (14, 8, 6)
+    img[..., 3] = (a * 255).astype(np.uint8)
+    cv2.imwrite(str(out), img)
     return out
