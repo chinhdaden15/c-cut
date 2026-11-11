@@ -109,6 +109,7 @@ def check(pid: str, stills: bool = False) -> list[tuple[str, str]]:
     out += TR.check(pl, c.project.words, c.dir)
     from . import contentstyle as CS
     out += CS.check(c.dir)
+    out += logo_rules(pl, c.project.words, fps)
 
     # 1) độ dài nguồn: proxy/alpha phải đủ frame cho mọi đoạn giữ
     need = max(T.sec_to_frame(s.source_out, fps) for s in T.kept(pl))
@@ -518,6 +519,38 @@ def open_close_rules(pl, words, fps: int) -> list[tuple[str, str]]:
         out.append(("error", f"đoạn mở đầu chưa có chữ hook trong 1s đầu — thêm tiêu đề/con số hook trên hình nhân vật (tới {T.tc(h)})"))
     if not any(b > e and a < pl.duration_frames for a, b in spans):
         out.append(("error", f"đoạn kết ({T.tc(e)}→hết) chưa có chữ kết — thêm chữ kết/CTA trên hình nhân vật"))
+    return out
+
+
+def logo_rules(pl, words, fps: int) -> list[tuple[str, str]]:
+    """nhắc tên app / thương hiệu (C-Cut, TikTok, YouTube, Zalo…) → trong ±1,5s phải có LOGO chính thức: mg2 "brand" / ảnh logo_*
+    (python -m thagent.tools logo <dự-án> "<tên>") — không dùng icon chung."""
+    from . import brandkit as BK
+    import json as _J
+    names = {BK._norm_name(k): k for k in list(BK.KNOWN) + ["C-Cut"]}
+    spans = []
+    for m in getattr(pl, "mg2", None) or []:
+        s = _J.dumps(m, ensure_ascii=False)
+        if m.get("kind") == "brand" or "logo_" in s or "brand_" in s:
+            spans.append((int(m.get("start", 0)) / fps, int(m.get("end", 0)) / fps))
+    for c in getattr(pl, "callouts", None) or []:
+        s = _J.dumps(c if isinstance(c, dict) else c.model_dump(), ensure_ascii=False)
+        if "logo_" in s or "brand_" in s:
+            d = c if isinstance(c, dict) else c.model_dump()
+            spans.append((int(d.get("start", 0)) / fps, int(d.get("end", 0)) / fps))
+    out, seen = [], set()
+    toks = []
+    for w in words or []:
+        fr = T.src_to_tl(pl, w.source_start)
+        if fr is not None:
+            toks.append((BK._norm_name(w.text), fr / fps))
+    for i, (w, t) in enumerate(toks):
+        for span in (w, w + (toks[i + 1][0] if i + 1 < len(toks) else "")):
+            nm = names.get(span)
+            if nm and nm not in seen and not any(a - 1.5 <= t <= b + 1.5 for a, b in spans):
+                seen.add(nm)
+                out.append(("warn", f"{t:.1f}s nói “{nm}” mà chưa có LOGO chính thức — python -m thagent.tools logo <dự-án> \"{nm}\" → "
+                                    "mg2 kind \"brand\" / ảnh logo_*.png; không dùng icon chung"))
     return out
 
 

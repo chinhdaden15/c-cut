@@ -19,6 +19,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+import cv2
+
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 
 
@@ -290,4 +292,97 @@ def paper(pdir, src: str, name: str | None = None, stroke: int = 22, full: bool 
     cv2.imwrite(str(out), outimg)
     cut.unlink(missing_ok=True)
     print(f"paper → {out} ({wid}×{hgt}) — Read để kiểm viền / tóc / tay")
+    return out
+
+
+# ------------------------------------------------------------------ logo ĐÚNG của app / thương hiệu được nhắc tên
+KNOWN = {   # tên người nói → tên miền (logo / icon app chính thức)
+    "tiktok": "tiktok.com", "youtube": "youtube.com", "facebook": "facebook.com", "instagram": "instagram.com", "reels": "instagram.com",
+    "zalo": "zalo.me", "messenger": "messenger.com", "chatgpt": "chatgpt.com", "openai": "openai.com", "claude": "claude.ai",
+    "gemini": "gemini.google.com", "google": "google.com", "canva": "canva.com", "capcut": "capcut.com", "shopee": "shopee.vn",
+    "lazada": "lazada.vn", "tiki": "tiki.vn", "grab": "grab.com", "momo": "momo.vn", "vnpay": "vnpay.vn", "netflix": "netflix.com",
+    "spotify": "spotify.com", "telegram": "telegram.org", "twitter": "x.com", "threads": "threads.net",
+    "linkedin": "linkedin.com", "apple": "apple.com", "iphone": "apple.com", "samsung": "samsung.com", "microsoft": "microsoft.com",
+    "windows": "microsoft.com", "macos": "apple.com", "adobe": "adobe.com", "premiere": "adobe.com", "figma": "figma.com",
+    "notion": "notion.so", "elevenlabs": "elevenlabs.io", "midjourney": "midjourney.com", "vinfast": "vinfastauto.com",
+    "vinhomes": "vinhomes.vn", "bmw": "bmw.com", "tesla": "tesla.com", "toyota": "toyota.com", "honda": "honda.com",
+}
+OWN = {"ccut", "c-cut", "c cut"}             # app của chính người dùng: logo đóng gói sẵn trong app
+
+
+def _norm_name(s: str) -> str:
+    import unicodedata as U
+    s = U.normalize("NFD", s.lower().replace("đ", "d"))
+    return re.sub(r"[^a-z0-9]", "", "".join(c for c in s if U.category(c) != "Mn"))
+
+
+def logo(pdir, name: str, domain: str | None = None) -> Path:
+    """logo / icon app CHÍNH THỨC → assets_web/logo_<tên>.png (ảnh vuông, nền trong / nền icon app).
+    C-Cut: logo đóng gói sẵn (assets/brand). Hãng khác: icon chính thức theo tên miền (apple-touch-icon → favicon 256px),
+    rồi Simple Icons (SVG CC0) nếu chỉ có bản vector."""
+    from .paths import ROOT
+    pdir = Path(pdir)
+    key = _norm_name(name)
+    out = pdir / "assets_web" / f"logo_{key}.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    srcs_f = pdir / "assets_web" / "illus_sources.json"
+    try:
+        srcs = json.loads(srcs_f.read_text(encoding="utf-8"))
+    except Exception:
+        srcs = {}
+    if key in {_norm_name(x) for x in OWN}:
+        for cand in (ROOT / "assets" / "brand" / "mark_512.png", ROOT / "packaging" / "icon.png"):
+            if cand.exists():
+                out.write_bytes(cand.read_bytes())
+                srcs[out.name] = "logo C-Cut (đóng gói trong app)"
+                srcs_f.write_text(json.dumps(srcs, ensure_ascii=False, indent=1), encoding="utf-8")
+                return out
+    dom = domain or KNOWN.get(key) or (name if "." in name else None)
+    if not dom:
+        raise SystemExit(f"chưa biết tên miền của “{name}” — chạy: tools logo <dự-án> \"{name}\" <tên-miền> (vd zalo.me)")
+    best = None
+    try:                                                    # icon app chất lượng cao từ chính trang chủ
+        kit = brand(pdir, dom, key)
+        for k in ("icon", "logo"):
+            f = pdir / "assets_web" / f"brand_{key}" / kit["files"].get(k, "")
+            if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+                im = cv2.imread(str(f), cv2.IMREAD_UNCHANGED)
+                if im is not None and min(im.shape[:2]) >= 120:
+                    best = (f, kit["sources"].get(f.name, dom))
+                    break
+    except SystemExit:
+        pass
+    except Exception:
+        pass
+    if not best:
+        try:
+            b = _get(f"https://www.google.com/s2/favicons?domain={dom}&sz=256")
+            tmp = out.with_suffix(".tmp.png")
+            tmp.write_bytes(b)
+            im = cv2.imread(str(tmp), cv2.IMREAD_UNCHANGED)
+            if im is not None and min(im.shape[:2]) >= 64:
+                best = (tmp, f"favicon {dom}")
+        except Exception:
+            pass
+    if not best:                                            # chỉ có logo vector (Simple Icons, CC0) → dựng PNG 512px qua Chrome ngầm
+        svg = pdir / "assets_web" / f"brand_{key}" / "logo.svg"
+        if not svg.exists():
+            _simple_icon(key, svg.parent) if svg.parent.mkdir(parents=True, exist_ok=True) is None else None
+        if svg.exists():
+            html = svg.with_suffix(".html")
+            html.write_text('<html><body style="margin:0;background:transparent"><img src="logo.svg" '
+                            'style="width:440px;height:440px;margin:36px"></body></html>', encoding="utf-8")
+            tmp = out.with_suffix(".tmp.png")
+            subprocess.run([_chrome(), "--headless", "--disable-gpu", "--hide-scrollbars", "--default-background-color=00000000",
+                            "--window-size=512,512", f"--screenshot={tmp}", html.as_uri()], capture_output=True, timeout=60)
+            if tmp.exists():
+                best = (tmp, "Simple Icons (CC0)")
+    if not best:
+        raise SystemExit(f"không lấy được logo {name} ({dom}) — tải tay ảnh logo chính thức vào assets_web/logo_{key}.png")
+    im = cv2.imread(str(best[0]), cv2.IMREAD_UNCHANGED)
+    cv2.imwrite(str(out), im)
+    if best[0].name.endswith(".tmp.png"):
+        best[0].unlink(missing_ok=True)
+    srcs[out.name] = best[1]
+    srcs_f.write_text(json.dumps(srcs, ensure_ascii=False, indent=1), encoding="utf-8")
     return out

@@ -7,6 +7,8 @@
   python -m thagent.v2m geocode "<địa điểm>"                  toạ độ thật (Photon / OSM)
   python -m thagent.v2m osrm <dự-án> <lon,lat> <lon,lat> <tên>  tuyến đường thật + km + phút (OSRM) → assets_web/route_<tên>.geojson
   python -m thagent.v2m streetmap <dự-án> <lon0,lat0,lon1,lat1> [dark|light] [tên]   nền bản đồ ĐƯỜNG PHỐ thật → K.street_map(...)
+  python -m thagent.v2m mapclip <dự-án> "<điểm đi>" "<điểm đến>" [giây] [9x16|16x9] [dark|light] [tên]
+                                                                 clip bản đồ dựng sẵn → assets_web/v_map_<tên>.mp4 (TH / Review chèn như b-roll)
   python -m thagent.v2m icons  <từ khóa…>                    tra tên icon trong kho của app (tiếng Anh/Việt)
   python -m thagent.v2m init   <voice|video> <thư-mục-dự-án>   kiểm tra file, chép voice, chép lời → transcript.json
   python -m thagent.v2m clean  <dự-án> [--no-denoise]           cắt vấp/lắp bắp/từ đệm/khoảng lặng (như Talking Head) → voice_clean.wav
@@ -24,6 +26,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import math
 import shutil
@@ -106,6 +109,43 @@ def _timeline(pdir: Path) -> R.Timeline:
     return R.load(_tl_path(pdir))
 
 
+def _logo_rules(pdir: Path, tl) -> list[tuple[str, str]]:
+    """nhắc tên app / ứng dụng / thương hiệu (C-Cut, TikTok, YouTube, Zalo… + chủ thể kind brand / product trong entities.json)
+    → cảnh lúc đó phải có LOGO chính thức (assets_web/logo_*.png, brand_*) hoặc ảnh chụp giao diện thật (web_*, webshot)."""
+    from .. import brandkit as BK
+    tf = pdir / "transcript.json"
+    if not tf.exists():
+        return []
+    words = json.loads(tf.read_text(encoding="utf-8")).get("words") or []
+    names = {BK._norm_name(k): k for k in list(BK.KNOWN) + ["C-Cut"]}
+    try:
+        for e in json.loads((pdir / "entities.json").read_text(encoding="utf-8")):
+            if e.get("kind") in ("brand", "product", "app") and not e.get("not_entity"):
+                for n in [e.get("name", ""), *(e.get("aka") or [])]:
+                    if n:
+                        names[BK._norm_name(n)] = e["name"]
+    except Exception:
+        pass
+    vis = [o for o in tl.objs.values() if o.get("_vis") and o["type"] in ("image", "video", "hf")]
+    def has_logo(t):
+        for o in vis:
+            a, b = o["_vis"]
+            s = str(o.get("src", "")) + " " + json.dumps(o.get("params") or {}, ensure_ascii=False)[:2000]
+            if a - 0.6 <= t <= b + 0.3 and re.search(r"logo_|brand_|/web_|webshot|tu_lieu/", s):
+                return True
+        return False
+    out, seen = [], set()
+    toks = [(BK._norm_name(w.get("text", "")), float(w.get("start", 0))) for w in words]
+    for i, (w, t) in enumerate(toks):
+        for span in (w, w + (toks[i + 1][0] if i + 1 < len(toks) else "")):       # “C-Cut”, “Cap Cut”, “You Tube”
+            nm = names.get(span)
+            if nm and nm not in seen and not has_logo(t):
+                seen.add(nm)
+                out.append(("error", f"{t:.1f}s nói “{nm}” mà hình không có LOGO chính thức — python -m thagent.tools logo {pdir} \"{nm}\" "
+                                     "→ s.logo(\"assets_web/logo_….png\", t, \"{nm}\") (hoặc ảnh chụp giao diện thật); không dùng icon chung"))
+    return out
+
+
 def validate(pdir: Path) -> list[tuple[str, str]]:
     """lỗi chặn dựng (error) + cảnh báo (warn)."""
     from .. import fonts as _FT
@@ -167,6 +207,7 @@ def validate(pdir: Path) -> list[tuple[str, str]]:
         if cov < 0.4 * tl.duration:
             out.append(("error", f"video/ảnh minh hoạ thật chỉ {cov:.0f}s / {tl.duration:.0f}s (< 40%) — thêm b-roll đúng ý từng câu "
                                  "(s.photo_bg video phủ khung + chữ/thẻ đè lên), kể cả video giới thiệu app/dịch vụ: người dùng, màn hình, thiết bị…"))
+        out += _logo_rules(pdir, tl)
         from .kit import Kit
         _K = Kit(pdir, "9x16")
         cap = _K.claude_captions()
@@ -543,7 +584,13 @@ def streetmap(pdir, bbox, style="dark", name="khuvuc"):
     print(SM.streetmap(pdir, [float(x) for x in bbox.split(",")], style, name), "→ K.street_map(\"assets_web/map_" + name + ".png\")")
 
 
-CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "streetmap": streetmap}
+def mapclip(pdir, a, b, dur="6", fmt="9x16", style="dark", name="tuyen"):
+    """mapclip <dự-án> "<điểm đi>" "<điểm đến>" [giây] [9x16|16x9] [dark|light] [tên] — clip bản đồ đường phố dựng sẵn (mọi skill)."""
+    from .mapclip import mapclip as MC
+    MC(pdir, a, b, float(dur), fmt, style, name)
+
+
+CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "streetmap": streetmap, "mapclip": mapclip}
 
 
 def main():

@@ -45,6 +45,7 @@ Kind (tham số):
   webpage    image (web_x.jpg), url, scroll 0..0.6, mark {x,y,w,h} + at [vào, khoanh] — trang web thật trong khung trình duyệt; có mark →
              camera đẩy vào đúng mục đó (zoom tự tính) rồi khoanh + làm tối phần còn lại
   paper      image (p_x.png), name, role, side left|center|right, at [sticker, nhãn] — nhân vật dạng sticker giấy + băng nhãn tên
+  clip       src (ĐƯỜNG DẪN TUYỆT ĐỐI tới mp4 dựng sẵn, vd clip bản đồ `python -m thagent.v2m mapclip …`), in — video phủ khung
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);

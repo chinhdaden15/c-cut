@@ -40,6 +40,7 @@ Kind (tham số):
   webpage    image (web_x.jpg), url, scroll 0..0.6, mark {x,y,w,h} + at [vào, khoanh] — trang web thật trong khung trình duyệt; có mark →
              camera đẩy vào đúng mục đó (zoom tự tính) rồi khoanh + làm tối phần còn lại
   paper      image (p_x.png), name, role, side left|center|right, at [sticker, nhãn] — nhân vật dạng sticker giấy + băng nhãn tên
+  clip       src (ĐƯỜNG DẪN TUYỆT ĐỐI tới mp4 dựng sẵn, vd clip bản đồ `python -m thagent.v2m mapclip …`), in — video phủ khung
 Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);
@@ -57,7 +58,7 @@ import numpy as np
 
 KINDS = {"chart", "money", "notif", "question", "photos", "doc", "iconrow", "chips", "compare", "checklist", "custom",
          "mapdraw", "tech", "prompt", "devices", "pipeline", "kinetic",
-         "headline", "scramble", "drum", "flipstack", "spring", "brand", "webpage", "paper"}   # 5 kind cuối: chữ động (thagent/textfx.py, học từ ghost-editor)          # 6 kind cuối: cảnh hoạt hình toàn khung (thagent/fx.py)
+         "headline", "scramble", "drum", "flipstack", "spring", "brand", "webpage", "paper", "clip"}   # 5 kind cuối: chữ động (thagent/textfx.py, học từ ghost-editor)          # 6 kind cuối: cảnh hoạt hình toàn khung (thagent/fx.py)
 BGS = {"blur", "gradient", "cream", "charcoal", "dots", "spot", "none"}
 OVERLAY_KINDS = {"iconrow", "chips", "headline", "scramble", "drum", "flipstack", "spring", "brand", "webpage", "paper"}   # chồng lên hình (textfx: chữ động)
 TONES = {"gold": ("#FFE47A", "#FF9A1F", "#FFB000"), "blue": ("#A6EEFF", "#1E86FF", "#1E86FF"), "red": ("#FF9A86", "#FF2B3A", "#FF2B3A")}
@@ -572,6 +573,9 @@ def full(sc: dict) -> bool:
 
 def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dict:
     """một cảnh → lớp html HyperFrames (dùng chung: Talking Head plan.mg2, Voice to Motion Kit.mg)."""
+    if sc.get("kind") == "clip":                      # video dựng sẵn phủ khung (clip bản đồ: python -m thagent.v2m mapclip …)
+        return {"id": "mg", "type": "video", "src": str(sc["src"]), "start": 0, "duration": D, "x": 0, "y": 0, "anchor": "top-left",
+                "w": W, "h": H, "fit": "cover", "in": float(sc.get("in", 0)), "z": 5}
     if sc.get("at"):
         sc = dict(sc, at=at_seconds(sc, fps))
     V = H > W
@@ -702,6 +706,8 @@ def check(plan, fps: int, open_close: tuple[int, int] | None = None, demo: list[
             out.append(("error", f"{tag}: thẻ câu hỏi phải có \"image\" — ảnh minh hoạ đúng ý câu hỏi trong khung (không để mỗi icon)"))
         if s["kind"] == "custom" and not s.get("html"):
             out.append(("error", f"{tag}: custom thiếu html"))
+        if s["kind"] == "clip" and not (s.get("src") and Path(str(s["src"])).is_absolute() and Path(str(s["src"])).exists()):
+            out.append(("error", f"{tag}: clip cần \"src\" là ĐƯỜNG DẪN TUYỆT ĐỐI tới mp4 có thật (vd …/assets_web/v_map_x.mp4)"))
         if open_close and full(s) and (int(s["start"]) < open_close[0] or int(s["end"]) > open_close[1]):
             out.append(("error", f"{tag}: cảnh MG che toàn khung trong đoạn mở đầu / kết — hai đoạn này chỉ hình người + chữ"))
     for x, y in zip(scs, scs[1:]):

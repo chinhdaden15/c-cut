@@ -36,8 +36,10 @@ sức khỏe|sức khoẻ|cơ thể|bản thân|chính mình|gia đình|công vi
 thói quen|chăm sóc|dưỡng sinh|đông phương|giáo viên|hướng dẫn|đồng hành|tập luyện|chứng nhận|hoàn thành|tích lũy|quà tặng|
 thân khỏe|tâm an|an vui|khỏe mạnh|cá độ|nhà cái|người chơi|pháp luật|vi phạm|vòng lặp|nợ nần|vay nóng|vận may|người trẻ|điện thoại|đường nét|khoa học|viễn tưởng|công suất|ánh mắt|ánh nhìn|sản xuất|năng lượng|siêu xe|xe đua|tiết kiệm|
 động cơ|mô tơ|xi lanh|sợi carbon|khí thải|bình luận|theo dõi|đỉnh cao|biểu tượng|tương lai|thương mại|cánh bướm|tăng tốc|cây số|mã lực|
-hoàn toàn|mẫu xe|cắm sạc|công nghệ|ứng dụng|sản phẩm|khách hàng|doanh nghiệp|thương hiệu|chất lượng|trải nghiệm|tính năng|màn hình""".replace("\n", "").split("|")}
-UNIT = re.compile(r"^(%|‰|tỷ|tỉ|triệu|nghìn|ngàn|km|m|m2|m²|ha|kg|g|usd|đ|đồng|năm|tháng|ngày|giờ|phút|giây|lần|người|căn|tầng|"
+hoàn toàn|mẫu xe|cắm sạc|công nghệ|ứng dụng|sản phẩm|khách hàng|doanh nghiệp|thương hiệu|chất lượng|trải nghiệm|tính năng|màn hình|truyền tải|miễn phí|máy tính|nội dung|hoàn chỉnh|dùng thử|giọng đọc|kịch bản|chuyển động|tin tức|ý tưởng|
+điện thoại thông minh|ứng dụng|phần mềm|bản dọc|bản ngang|dựng phim|hôm nay|ngân hàng|lãi suất|tiết kiệm|đầu tư|bất động sản|ven sông|phân khu|chủ đầu tư|mét vuông|phòng ngủ|tham chiếu|
+thông thủy|tim tường|diện tích|công ty""".replace("\n", "").split("|")}
+UNIT = re.compile(r"^(%|‰|tỷ|tỉ|triệu|nghìn|ngàn|km|m|m2|m²|mét|ha|héc|hecta|kg|g|usd|đ|đồng|năm|tháng|ngày|giờ|phút|giây|lần|người|căn|tầng|"
                   r"phòng|điểm|bậc|độ|°c?)[.,;:!?]?$", re.I)
 NUMW = {"không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín", "mười", "mươi", "trăm", "nghìn", "ngàn", "triệu",
         "tỷ", "tỉ", "phẩy", "lẻ", "linh", "mốt", "lăm", "tư", "rưỡi"}

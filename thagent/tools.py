@@ -210,7 +210,14 @@ def style(pid, group=None, *why):
         print("điểm: " + ", ".join(f"{k} {v}" for k, v in d["scores"].items()) + "  — đọc lời thật; sai thì: tools style <dự-án> <nhóm> <lý do>")
 
 
-CMDS = {"brand": brand, "webshot": webshot, "paper": paper, "taste": taste, "icon3d": icon3d, "where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords, "style": style}
+def logo(pid, name, domain=None):
+    """logo <dự-án> "<tên app / hãng>" [tên-miền] — logo / icon CHÍNH THỨC → assets_web/logo_<tên>.png (C-Cut: logo trong app)."""
+    from . import brandkit as BK
+    out = BK.logo(_pdir(pid), name, domain)
+    print(f"{out}  → s.photo(\"assets_web/{out.name}\", t, \"\", w=360, h=360, kb=False) hoặc icon cạnh tên (Read để kiểm)")
+
+
+CMDS = {"brand": brand, "webshot": webshot, "paper": paper, "taste": taste, "icon3d": icon3d, "where": where, "words": words, "fix": fix, "frames": frames, "img": img, "imgsearch": imgsearch, "imgpage": imgpage, "speed": speed, "channel": channel, "hfwords": hfwords, "style": style, "logo": logo}
 
 if __name__ == "__main__":
     main()

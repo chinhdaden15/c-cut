@@ -418,6 +418,24 @@ class Kit:
             return None
         return out
 
+    def _mend_chunk_edges(self, ch, VT):
+        """ranh giới giữa 2 cụm phụ đề rơi vào giữa từ ghép / cụm số → kéo từ đầu cụm sau về cụm trước."""
+        sizes = [len(t.split()) for _, _, t in ch]
+        if sum(sizes) != len(self.words):
+            return ch
+        texts = [w["text"] for w in self.words]
+        no = VT._protected_pairs(texts, ())
+        cut = 0
+        for j in range(len(sizes) - 1):
+            cut += sizes[j]
+            if (cut - 1) in no and sizes[j + 1] > 1:
+                sizes[j] += 1; sizes[j + 1] -= 1; cut += 1
+        out, k = [], 0
+        for n in sizes:
+            ws = self.words[k:k + n]; k += n
+            out.append((float(ws[0]["start"]), float(ws[-1]["end"]), " ".join(w["text"] for w in ws)))
+        return out
+
     MAX_CAP_LINES = 2
 
     def _fit_caps(self, ch, role: str, size: int, max_w: float):
@@ -426,6 +444,8 @@ class Kit:
         from . import draw as D
         f = D.font(role, int(size))
         W = lambda ws: f.getlength(" ".join(w["text"] for w in ws))
+        from . import vtext as VT
+        ch = self._mend_chunk_edges(ch, VT)                    # cụm không được cắt ngang từ ghép (“máy | tính”)
         out, k = [], 0
         for a, b, text in ch:
             n = len(text.split())
@@ -434,8 +454,9 @@ class Kit:
             if len(ws) != n or not ws:
                 out.append((a, b, text)); continue
             lines = text.split("\n")
-            if len(lines) <= self.MAX_CAP_LINES and all(f.getlength(l) <= max_w for l in lines):
+            if len(lines) == 1 and f.getlength(lines[0]) <= max_w:
                 out.append((a, b, text)); continue
+            fits2 = len(lines) == 2 and all(f.getlength(l) <= max_w for l in lines)
             from . import vtext as VT
             no = VT._protected_pairs([w["text"] for w in ws], ())
             self._pen = {}
@@ -452,6 +473,10 @@ class Kit:
                 elif VT._norm(ws[i]["text"]) in VT.BREAK_BEFORE:
                     p -= 0.15
                 self._pen[id(ws[i])] = p
+            if fits2:                                         # 2 dòng vừa khung → vẫn CĂN ĐỀU 2 dòng (không trên dài dưới ngắn)
+                bal = self._two_lines(ws, W, max_w, force2=True)
+                if bal:
+                    out.append((a, b, "\n".join(" ".join(w["text"] for w in r) for r in bal))); continue
             for grp in self._split_cap(ws, W, max_w):
                 out.append((float(grp[0][0]["start"]), float(grp[-1][-1]["end"]), "\n".join(" ".join(w["text"] for w in r) for r in grp)))
         return out
@@ -459,16 +484,20 @@ class Kit:
     PUNCT = (",", ";", ":", ".", "?", "!", "…")
     _pen: dict = {}
 
-    def _two_lines(self, ws, W, max_w):
-        """cụm → 1 dòng nếu vừa, không thì 2 dòng gần bằng nhau (ưu tiên ngắt sau dấu câu / trước từ nối); None nếu không vừa 2 dòng."""
-        if W(ws) <= max_w:
+    def _two_lines(self, ws, W, max_w, force2=False):
+        """cụm → 1 dòng nếu vừa, không thì 2 dòng gần bằng nhau (ưu tiên ngắt sau dấu câu / trước từ nối); None nếu không vừa 2 dòng.
+        Lệch bề rộng hai dòng là lỗi chính (căn đều), dấu câu / từ ghép chỉ để chọn giữa các cách gần đều nhau."""
+        if W(ws) <= max_w and not force2:
+            return [ws]
+        if len(ws) < 2:
             return [ws]
         best, bi = 1e18, None
         for i in range(1, len(ws)):
             l, r = W(ws[:i]), W(ws[i:])
             if l > max_w or r > max_w:
                 continue
-            sc = abs(l - r) + max_w * self._pen.get(id(ws[i]), 0.0)
+            pen = self._pen.get(id(ws[i]), 0.0)
+            sc = abs(l - r) + max_w * (pen if pen >= 1.0 else pen * 0.35)    # từ ghép / số: cấm; dấu câu: chỉ nghiêng nhẹ
             if len(ws) >= 4 and (i == 1 or i == len(ws) - 1):
                 sc += max_w                                   # tránh dòng chỉ 1 từ
             if sc < best:
@@ -898,6 +927,22 @@ class Scene:
         if kb:
             o["kb"] = kb if isinstance(kb, dict) else {"z": [1.03, 1.14], "pan": [-0.3, 0.1, 0.3, -0.1]}
         return self.add(o, t, style, 0.5 if style == "scale" else 0.7)
+
+    def logo(self, src, t, label=None, region="main", ry=0.42, size=None, x=None) -> str:
+        """LOGO / icon app chính thức (python -m thagent.tools logo …) trên ô trắng bo góc — đọc rõ trên mọi nền
+        (logo đen như TikTok không chìm). Nhắc app / hãng nào là hiện đúng logo đó."""
+        K = self.K
+        cx, cy = K.at_zone(region, 0.5, ry)
+        cx = x if x is not None else cx
+        sz = size or (340 if K.V else 260)
+        tile = self.add({"type": "rect", "w": sz, "h": sz, "r": sz * 0.22, "fill": "#FFFFFF", "space": "screen", "x": cx, "y": cy,
+                         "shadow": 0.35, "_logo": True}, t, "pop", 0.4)
+        self.add({"type": "image", "src": src, "w": sz * 0.74, "h": sz * 0.74, "r": 0, "fit": "contain", "shadow": 0, "parent": tile,
+                  "x": 0, "y": 0, "logo": True})
+        if label:
+            self.add({"type": "text", "text": label, "font": "black", "size": 64 if K.V else 50, "color": K.th["text"], "space": "screen",
+                      "x": cx, "y": cy + sz / 2 + 70, "shadow": 0.5}, t + 0.15, "up", 0.35)
+        return tile
 
     def photos(self, items, region="main", real=False) -> list[str]:
         """2–3 ảnh lần lượt theo lời: items [(src, nhãn, t)] — ảnh mới trượt lên chồng, ảnh trước lùi nhẹ/nghiêng."""

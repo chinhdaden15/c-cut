@@ -21,6 +21,15 @@ biến đổi đúng từng từ (pin tụt rồi nứt, bảng lật sân bay, 
 
 **Chọn phong cách theo nội dung — Claude TỰ làm, không hỏi người dùng:** ngay khi có lời (transcript / kịch bản) chạy `python -m thagent.tools style <dự-án>` → app nhận diện nhóm (kiến thức, mẹo, tài chính, BĐS, công nghệ, ẩm thực/mỹ phẩm, tin tức, kể chuyện, nhân vật, du lịch, động lực, năng suất, so sánh) + phong cách chủ đạo + điểm nhấn + giọng điệu, ghi `content_style.json`. Đọc lời thật: đúng thì dựng theo; sai / hai nhóm sát điểm thì chốt `tools style <dự-án> <nhóm> <lý do>`. Người dùng đã nói rõ phong cách → làm theo họ. Chi tiết từng nhóm: `.claude/shared/editatlas/chon-phong-cach-theo-noi-dung.md`. Quên bước này thì lúc kiểm tra app tự chọn và báo cảnh báo.
 
+**LOGO CHÍNH THỨC khi nhắc app / ứng dụng / thương hiệu (bắt buộc, app kiểm và chặn):** nói "C-Cut", "TikTok", "YouTube", "Reels",
+"Zalo", "ChatGPT", "Canva", tên hãng / sản phẩm (khai `"kind": "brand"` trong entities.json)… → `python -m thagent.tools logo {pdir} "<tên>"
+[tên-miền]` (C-Cut lấy logo đóng gói trong app; hãng khác lấy icon chính thức) → hiện đúng lúc nói. Không bao giờ thay bằng icon chung
+(hộp tải về, điện thoại, play…). Video hướng dẫn / giới thiệu C-Cut: dùng ẢNH CHỤP GIAO DIỆN THẬT người dùng gửi (tu_lieu/) và đẩy camera
+vào đúng nút đang nói (brandfx webpage `mark`), không thay bằng cảnh "gõ lệnh" / sơ đồ chung.
+Trong builder: `s.logo("assets_web/logo_<tên>.png", t, "Tên")` (ô trắng bo góc — logo đen không chìm).
+
+**Phụ đề 2 dòng phải CĂN ĐỀU** (không trên dài dưới ngắn): app tự cân lại theo bề rộng thật; khi viết captions.json cũng chia cụm sao cho 2 dòng dài gần bằng nhau, không ngắt giữa từ ghép / cụm số.
+
 thư viện ý tưởng `.claude/shared/editatlas/y-tuong-theo-loi.md`; thông số frame / scale / ease cho chữ, số, chuyển cảnh, phụ đề
 `.claude/shared/editatlas/thong-so-chuyen-dong.md`. Dạng giải thích: câu hỏi / vấn đề → từng bước (mỗi ý một khung) → ví dụ → điều cần nhớ;
 số liệu giữ đủ lâu để đọc 2 lần. Luật cắt / âm / phụ đề chung: `.claude/shared/editatlas/quy-tac-dung.md` (luật trong skill này ưu tiên hơn nếu khác).
