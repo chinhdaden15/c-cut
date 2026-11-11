@@ -18,6 +18,10 @@ Thư mục dự án `{pdir}`; kết quả công cụ nằm trong `{pdir}/review/
 - Lời: chép từng từ + giây + độ tin cậy; câu; **từ cần soát** (tin cậy thấp, số/đơn vị, có thể là tên riêng) — giá, diện tích, mã sản phẩm
   phải đối chiếu brief/thông số/hình; không chắc → không đưa lên chữ thông tin.
 - `role_guess`: người dẫn / B-roll / hỗn hợp — chỉ là gợi ý, Claude xác nhận bằng ảnh tổng hợp.
+- `voice`: `nguoi_dung` | `loi_sau_may` | `khong` | **`phim_dung_san`** — phim quảng cáo của chủ đầu tư / nhãn hàng (thuyết minh không thấy
+  người nói, cắt cảnh dày). Phim dựng sẵn CHỈ dùng hình (broll / cutaway, audio mute) minh hoạ đúng câu người dùng nói; không làm talk,
+  voiceover hay nat. Mạch review = lời người dùng; ít lời thì video ngắn. App chưa nhận ra → `"promo": [id]`; nhận nhầm giọng
+  chính người dùng → `"own_voice": [id]` + `"own_voice_why"`. Validate báo lỗi nếu vi phạm.
 
 ```
 .venv/bin/python -m thagent.review media {pdir}            danh sách + ảnh tổng hợp review/sheets/<ID>.jpg (Read để nhận diện sản phẩm/không gian/thao tác)

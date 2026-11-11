@@ -71,6 +71,9 @@ GHÉP NHIỀU ĐOẠN (chỉ khi app yêu cầu viết edl.json — dự án g�
      không nhìn thẳng ống kính, theo nhãn cam của clips/*.json) → cam=false: CHỈ LẤY TIẾNG, hình phải che kín bằng broll (đoạn quay không người/không nói,
      chọn khớp ý câu nói) và/hoặc cover (= Motion Graphics minh họa). Ưu tiên: b-roll của dự án > MG > ảnh minh họa web.
    - Đoạn nhìn máy cũng có thể chèn broll ngắn khi câu nói tả cảnh/tiện ích. Không dùng 1 khúc b-roll 2 lần.
+   - PHIM DỰNG SẴN của chủ đầu tư / nhãn hàng (clips/index.json "voice": "phim_dung_san" — thuyết minh không thấy người nói, cắt cảnh
+     dày, logo hãng cuối phim): CHỈ lấy HÌNH làm broll đúng chỗ người dùng nói tới; KHÔNG làm segment, KHÔNG dùng lời thuyết minh làm mạch.
+     Mạch video = lời của người dùng trong các đoạn tự quay — người dùng nói ít thì video ngắn, không độn bằng lời phim.
    - Câu kịch bản không có take nào, b-roll không dùng tới, take còn nghi ngờ → ghi confirm.json. KHÔNG dừng chờ duyệt.
    - Ghi {pdir}/edl.json theo định dạng ở .claude/shared/schemas/edl.md (app cũng gửi kèm trong yêu cầu ghép), "ready": true. App tự kiểm tra; nếu báo lỗi thì sửa và ghi lại.
    - Sau khi app ghép xong: {pdir}/covers.json liệt kê các khoảng (giây trên video mới) kind=broll/mg/audio_only.

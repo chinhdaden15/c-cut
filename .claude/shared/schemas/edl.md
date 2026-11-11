@@ -17,4 +17,9 @@ edl.json:
                "cover": [{"at": 4.5, "dur": 2.4, "desc": "MG: 3 tiện ích"}]}],
  "notes": "..."}
 - in/out: giây trong file đoạn nói. at: giây tính từ đầu segment. cam=false → phải che kín bằng broll/cover.
+- clips/index.json "voice": "nguoi_dung" | "loi_sau_may" | "khong" | "phim_dung_san". Đoạn "phim_dung_san" (phim quảng cáo
+  của chủ đầu tư / nhãn hàng: thuyết minh không thấy người nói, cắt cảnh dày) KHÔNG được làm segment — chỉ làm "broll".
+  Mạch video = lời của người dùng; video ngắn theo lời họ, không độn bằng lời thuyết minh của phim.
+  Thấy phim dựng sẵn mà app chưa gắn (có người mẫu/KOL nói trên hình, logo hãng cuối phim…) → thêm "promo": ["tên file"].
+  Chắc chắn là giọng chính người dùng dù app gắn phim_dung_san → "own_voice": ["tên file"], "own_voice_why": "…".
 ```

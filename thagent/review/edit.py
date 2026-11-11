@@ -25,6 +25,12 @@ CHẾ ĐỘ LỒNG TIẾNG (quay hình trước, về nhà thu giọng sau — f
              "why": "vì sao cảnh này khớp lời", "audio": "mute" (mặc định) | "nat", "nat_db": -20 (tiếng hiện trường nhỏ: xèo xèo, rót…),
              "crop"/"reframe"/"texts" như thường (nhãn bám vật, vòng nhấn, chữ thông tin áp lên CHÍNH cảnh đó)}
  Tổng thời lượng cảnh = độ dài giọng (cảnh cuối tự co / giãn cho khớp nếu nguồn đủ dài). Tiếng của video gốc TẮT trừ khi "audio": "nat".
+
+PHIM DỰNG SẴN (kiểm kê "voice": "phim_dung_san" — phim quảng cáo của chủ đầu tư / nhãn hàng: thuyết minh không thấy người
+nói, cắt cảnh dày): chỉ dùng HÌNH (role "broll" / cutaway, audio "mute"); không làm đoạn talk, không làm voiceover, không "nat".
+Mạch review = lời của người dùng; thiếu lời thì video ngắn lại, không độn bằng lời thuyết minh của phim.
+ "promo": ["F03"]            phim dựng sẵn app chưa nhận ra (KOL nói trên hình, logo hãng cuối phim…) → cùng luật
+ "own_voice": ["F04"], "own_voice_why": "…"   chắc chắn là giọng chính người dùng dù app gắn phim_dung_san
 """
 from __future__ import annotations
 
@@ -328,7 +334,19 @@ def validate(pdir, edit: dict) -> list[tuple[str, str]]:
     ids = set()
     if not edit.get("segments"):
         return [("error", "edit.json chưa có đoạn nào")]
+    own = set(edit.get("own_voice") or [])                 # Claude xác nhận là giọng chính người dùng (kèm own_voice_why)
+    if own and not edit.get("own_voice_why"):
+        out.append(("error", "own_voice cần own_voice_why: vì sao chắc đó là giọng của chính người dùng"))
+    promo = {k for k, m in M.items() if m.get("voice") == "phim_dung_san" and k not in own} | set(edit.get("promo") or [])
+    PROMO_MSG = ("là PHIM DỰNG SẴN của chủ đầu tư / nhãn hàng (thuyết minh không thấy người nói, cắt cảnh dày) — không lấy "
+                 "tiếng của nó làm lời video; chỉ dùng hình làm broll (audio mute) đúng chỗ người dùng nói tới. Chắc chắn là "
+                 "giọng chính người dùng → \"own_voice\": [id] + \"own_voice_why\"")
     v = vo(edit)
+    if v and v.get("src") in promo:
+        out.append(("error", f"voiceover {v['src']} {PROMO_MSG}"))
+    for s in edit["segments"]:
+        if s.get("src") in promo and (s.get("role", "talk") == "talk" or s.get("audio") in ("voice", "nat")):
+            out.append(("error", f"{s.get('id', '?')}: {s['src']} {PROMO_MSG}"))
     if v:
         mv = M.get(v["src"])
         if not mv:

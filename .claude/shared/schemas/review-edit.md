@@ -30,4 +30,10 @@ CHẾ ĐỘ LỒNG TIẾNG (quay hình trước, về nhà thu giọng sau — f
              "why": "vì sao cảnh này khớp lời", "audio": "mute" (mặc định) | "nat", "nat_db": -20 (tiếng hiện trường nhỏ: xèo xèo, rót…),
              "crop"/"reframe"/"texts" như thường (nhãn bám vật, vòng nhấn, chữ thông tin áp lên CHÍNH cảnh đó)}
  Tổng thời lượng cảnh = độ dài giọng (cảnh cuối tự co / giãn cho khớp nếu nguồn đủ dài). Tiếng của video gốc TẮT trừ khi "audio": "nat".
+
+PHIM DỰNG SẴN (kiểm kê "voice": "phim_dung_san" — phim quảng cáo của chủ đầu tư / nhãn hàng: thuyết minh không thấy người
+nói, cắt cảnh dày): chỉ dùng HÌNH (role "broll" / cutaway, audio "mute"); không làm đoạn talk, không làm voiceover, không "nat".
+Mạch review = lời của người dùng; thiếu lời thì video ngắn lại, không độn bằng lời thuyết minh của phim.
+ "promo": ["F03"]            phim dựng sẵn app chưa nhận ra (KOL nói trên hình, logo hãng cuối phim…) → cùng luật
+ "own_voice": ["F04"], "own_voice_why": "…"   chắc chắn là giọng chính người dùng dù app gắn phim_dung_san
 ```

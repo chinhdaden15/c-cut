@@ -62,6 +62,10 @@ Chèn vào video: kiểm kê lại kèm clip (`python -m thagent.review inventor
 
 **Bảng motion + SFX theo hình:** chọn 8–12 kỹ thuật mỗi video từ `.claude/shared/editatlas/danh-muc-ky-thuat.md` (hợp phong cách, khác video trước, ghi `motion: …` vào ghi chú); nhạc nền + tắt ngắn trước cảnh lớn, mỗi SFX gắn đúng một thứ trên hình, loé trắng khi trở về người nói — `.claude/shared/editatlas/sfx-va-nhip.md`.
 
+## Phim dựng sẵn của chủ đầu tư / nhãn hàng (v1.4)
+
+Bộ tư liệu thường lẫn phim quảng cáo do chủ đầu tư / nhãn hàng làm (thuyết minh, nhạc, chữ trên hình, logo cuối phim). Kiểm kê gắn `voice: "phim_dung_san"`. Những phim này **chỉ là kho hình**: lấy cảnh làm broll/cutaway (tắt tiếng) đúng chỗ người dùng nói tới — **không bao giờ** lấy lời thuyết minh của họ làm mạch video. Người dùng nói 30s thì video ~30–40s. Chi tiết: `references/workflow.md` mục Phân tích.
+
 ## Hai kiểu quay (v1.3.0)
 - **Vừa quay vừa nói** (nói tại chỗ, tắt máy, quay đoạn khác, nói tiếp): app chép lời từng clip, nhóm các lần nói lại, chọn take, ghép thành một mạch — quy trình chính bên dưới.
 - **Quay trước, lồng tiếng sau** (thư mục có 1 file âm thanh giọng lồng + các clip / ảnh): dùng CHẾ ĐỘ LỒNG TIẾNG — `"voiceover": {"src": "<ID giọng>"}`,

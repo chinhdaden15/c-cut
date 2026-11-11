@@ -12,6 +12,11 @@ edl.json:
                "cover": [{"at": 4.5, "dur": 2.4, "desc": "MG: 3 tiện ích"}]}],
  "notes": "..."}
 - in/out: giây trong file đoạn nói. at: giây tính từ đầu segment. cam=false → phải che kín bằng broll/cover.
+- clips/index.json "voice": "nguoi_dung" | "loi_sau_may" | "khong" | "phim_dung_san". Đoạn "phim_dung_san" (phim quảng cáo
+  của chủ đầu tư / nhãn hàng: thuyết minh không thấy người nói, cắt cảnh dày) KHÔNG được làm segment — chỉ làm "broll".
+  Mạch video = lời của người dùng; video ngắn theo lời họ, không độn bằng lời thuyết minh của phim.
+  Thấy phim dựng sẵn mà app chưa gắn (có người mẫu/KOL nói trên hình, logo hãng cuối phim…) → thêm "promo": ["tên file"].
+  Chắc chắn là giọng chính người dùng dù app gắn phim_dung_san → "own_voice": ["tên file"], "own_voice_why": "…".
 """
 from __future__ import annotations
 
@@ -211,11 +216,35 @@ def analyze(pid: str, clips: list[str], log=print) -> dict:
                "kind_guess": "broll" if talk < 1.0 else ("talk" if talk > 0.6 * info.duration else "mixed"),
                "speech": speech, "quiet": quiet, "sheet": f"clips/{_stem(name)}_sheet.jpg",
                "words": words, "gaze": gaze}
+        _mark_promo(rec)
         cache.write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
         index.append(rec)
+    for r in index:                                   # bản phân tích cũ (trước 2.5.10) chưa có cờ phim dựng sẵn
+        if "voice" not in r:
+            _mark_promo(r)
+            (d / f"{_stem(r['name'])}.json").write_text(json.dumps(r, ensure_ascii=False), encoding="utf-8")
     summary = [{k: v for k, v in r.items() if k not in ("words", "gaze")} for r in index]
     (d / "index.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"clips": summary}
+
+
+def _mark_promo(rec: dict) -> dict:
+    """gắn rec["voice"]: "nguoi_dung" (lời của người dùng, dùng làm mạch) | "phim_dung_san" (phim chủ đầu tư / nhãn hàng:
+    chỉ lấy hình) | "loi_sau_may" (người dùng nói sau máy, không thấy mặt) | "khong" (không có lời)."""
+    from . import promo as PR
+    sp = [(s["start"], s["end"]) for s in rec.get("speech", [])]
+    talk = sum(b - a for a, b in sp)
+    if talk < 1.0:
+        rec["voice"] = "khong"; return rec
+    fr = PR.face_in_speech(sp, [(g["t"], bool(g.get("face"))) for g in rec.get("gaze", [])])
+    cuts = PR.cut_count(rec["path"], rec["duration"]) if fr < PR.NARR_FACE else 0
+    kind = PR.classify(talk, rec["duration"], fr, cuts)
+    rec["voice"] = kind or "nguoi_dung"
+    rec["face_in_speech"], rec["cuts"] = fr, cuts
+    if kind == "phim_dung_san":
+        rec["kind_guess"] = "broll"
+        rec["note"] = PR.NOTE
+    return rec
 
 
 # ---------------- 2. kiểm EDL ----------------
@@ -235,10 +264,20 @@ def validate(pid: str, edl: dict) -> list[str]:
     segs = edl.get("segments") or []
     if not segs:
         return ["edl.json không có segments"]
+    if edl.get("own_voice") and not edl.get("own_voice_why"):
+        errs.append("own_voice cần own_voice_why: vì sao chắc đó là giọng của chính người dùng (cùng giọng với đoạn có mặt họ…)")
+    own = set(edl.get("own_voice") or [])            # Claude xác nhận (nghe/xem) đây là giọng chính người dùng
+    promo = {n for n, r in clips.items() if r.get("voice") == "phim_dung_san" and n not in own} | set(edl.get("promo") or [])
     for i, s in enumerate(segs, 1):
         c = clips.get(s.get("clip"))
         if not c:
             errs.append(f"seg {i}: không có đoạn '{s.get('clip')}'"); continue
+        if c["name"] in promo:
+            errs.append(f"seg {i}: '{c['name']}' là PHIM DỰNG SẴN của chủ đầu tư / nhãn hàng (lời thuyết minh, không thấy người "
+                        "nói, cắt cảnh dày) — không lấy tiếng của nó làm đoạn nói. Mạch video là lời người dùng trong các đoạn tự "
+                        "quay; phim này chỉ chèn làm \"broll\" (hình, tắt tiếng) đúng chỗ người dùng nói tới. Nếu chắc chắn đó là "
+                        "giọng của chính người dùng thì thêm tên file vào \"own_voice\" kèm \"own_voice_why\".")
+            continue
         if not c["has_audio"]:
             errs.append(f"seg {i}: '{c['name']}' không có tiếng, không làm đoạn nói được")
         if not (0 <= s["in"] < s["out"] <= c["duration"] + 0.05):

@@ -278,6 +278,9 @@ def inventory(pdir, files: list[str], log=print, refs: list[str] | None = None, 
         if cache.exists():
             rec = json.loads(cache.read_text(encoding="utf-8"))
             if rec.get("sig") == sig:
+                if rec.get("kind") == "video" and "voice" not in rec and "w" in rec:     # kiểm kê cũ: chưa có cờ phim dựng sẵn
+                    _mark_promo(rec, p)
+                    cache.write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
                 media.append(rec); sigs.setdefault(sig, fid); continue
         log(f"Phân tích {fid}: {p.name}")
         rec = {"id": fid, "path": str(p), "name": p.name, "kind": kind, "sig": sig, **probe(p)}
@@ -312,6 +315,7 @@ def inventory(pdir, files: list[str], log=print, refs: list[str] | None = None, 
             talk = rec.get("speech_s", 0)
             fr = float(np.mean([s["face_ratio"] for s in rec.get("shots", [])] or [0]))
             rec["role_guess"] = "nguoi_dan" if talk > 0.4 * rec["duration"] and fr > 0.3 else ("broll" if talk < 1.0 else "hon_hop")
+            _mark_promo(rec, p)
         rec["usable"] = rec.get("usable", "error" not in rec and not rec.get("duplicate_of"))
         cache.write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
         media.append(rec)
@@ -324,6 +328,24 @@ def inventory(pdir, files: list[str], log=print, refs: list[str] | None = None, 
                "references": ref_list}
     (d / "inventory.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")
     return summary
+
+
+def _mark_promo(rec: dict, p: Path) -> dict:
+    """rec["voice"]: nguoi_dung | loi_sau_may | khong | phim_dung_san (phim chủ đầu tư / nhãn hàng — chỉ lấy hình)."""
+    from .. import promo as PR
+    sp = [(s["start"], s["end"]) for s in rec.get("sentences", [])]
+    talk = sum(b - a for a, b in sp)
+    if talk < 1.0:
+        rec["voice"] = "khong"; return rec
+    fr = PR.face_in_speech(sp, [(x["t"], bool(x.get("face"))) for x in rec.get("samples", [])])
+    cuts = max(len(rec.get("shots", [])) - 1, PR.cut_count(str(p), rec["duration"]) if fr < PR.NARR_FACE else 0)
+    kind = PR.classify(talk, rec["duration"], fr, cuts)
+    rec["voice"] = kind or "nguoi_dung"
+    rec["face_in_speech"], rec["cuts"] = fr, cuts
+    if kind == "phim_dung_san":
+        rec["role_guess"] = "phim_dung_san"
+        rec["note"] = PR.NOTE
+    return rec
 
 
 def load(pdir, fid: str) -> dict:
