@@ -292,6 +292,8 @@ def _t_money(sc, V, tone):
 <div class=sub style="position:absolute;left:{_px(46)};top:{_px(108)};font-size:{_px(36)}">{E(sc.get('sub', ''))}</div>{badge}<div class=sweep></div></div>"""
     h = max(hit_at(sc, 1.55), 0.8)                      # số giữ value_from tới khi người nói chuyển sang số cuối, chạm đúng lúc nói
     dur = min(1.0, h - 0.5)
+    if not vf:                                          # bắt đầu từ 0: chạy ngay từ đầu cảnh (không đứng “0,0 tỷ” mấy giây vô nghĩa)
+        dur = max(dur, h - 0.35)
     ph, pj = _punch(h)
     js = f"""const o={{v:{vf}}};const f=v=>v.toLocaleString('{loc}',{{minimumFractionDigits:{d},maximumFractionDigits:{d}}});
 if(q('.ic'))tl.from(q('.ic'),{{y:-120,scale:.3,rotation:30,opacity:0,duration:.6,ease:'back.out(1.8)'}},0).to(q('.ic'),{{y:'-=18',duration:1.2,yoyo:true,repeat:1,ease:'sine.inOut'}},1.0);

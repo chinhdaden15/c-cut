@@ -453,6 +453,17 @@ def _q(v, step=0.05):
     return max(step, round(v / step) * step)
 
 
+@lru_cache(maxsize=8)
+def _basemap_level(src: str, lv: float, dim: float) -> np.ndarray:
+    """bản đồ nền thu sẵn theo bậc (1, 0.7, 0.35, …) — mỗi khung chỉ warp vùng đang thấy, không thu nhỏ ảnh 2600×5000 mỗi khung."""
+    spr = D._image(src)
+    if lv < 1.0:
+        spr = cv2.resize(spr, (max(1, int(spr.shape[1] * lv)), max(1, int(spr.shape[0] * lv))), interpolation=cv2.INTER_AREA)
+    if dim:
+        spr = spr * np.array([1 - dim] * 3 + [1.0], np.float32)
+    return spr
+
+
 def _fmt_num(v: float, dec: int, group: bool = True) -> str:
     s = f"{v:,.{dec}f}" if group else f"{v:.{dec}f}"   # 1,234.5 → 1.234,5 (kiểu Việt); năm / mã số: không ngăn nghìn
     return s.replace(",", "§").replace(".", ",").replace("§", ".")
@@ -971,11 +982,12 @@ class Renderer:
 
     def d_basemap(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):
         """nền bản đồ đường phố (thagent/v2m/streetmap.py): warp thẳng phần đang thấy của ảnh gốc lên khung (không dựng sprite to)."""
-        spr = D._image(self.tl.path(p["src"]))
-        ih, iw = spr.shape[:2]
-        if p.get("dim"):
-            spr = spr * np.array([1 - float(p["dim"])] * 3 + [1.0], np.float32)
-        M = D.affine(sx, sy, scale * float(p["w"]) / iw, rot, iw / 2, ih / 2)
+        src = self.tl.path(p["src"])
+        ih, iw = D._image(src).shape[:2]
+        k = scale * float(p["w"]) / iw                       # px khung / px ảnh gốc
+        lv = 1.0 if k >= 0.7 else max(0.05, 2 ** math.floor(math.log2(k / 0.7) + 1) * 0.7)   # bậc thu nhỏ cố định
+        spr = _basemap_level(src, round(lv, 4), float(p.get("dim", 0)))
+        M = D.affine(sx, sy, k / lv, rot, iw * lv / 2, ih * lv / 2)
         D.place(dst, spr, M, op, bv)
 
     def d_image(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):

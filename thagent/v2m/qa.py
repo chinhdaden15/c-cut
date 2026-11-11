@@ -265,7 +265,8 @@ def _hero(o) -> float:
     if ty == "text":
         return float(o.get("size", 0)) * 2.6          # chữ 100px ≈ khối 260px
     if ty == "icon":
-        return float(o.get("size", 0)) * (1.3 if o.get("tile") == "glass" or o.get("bg") else 1.0)
+        return max(float(o.get("size", 0)) * (1.3 if o.get("tile") == "glass" or o.get("bg") else 1.0),
+                   2 * float(o.get("bg_r") or 0) * 0.9)          # vòng / ô nền của icon cũng là khối thị giác
     if ty in ("image", "video"):
         return max(float(o.get("w", 0)), float(o.get("h", 0)))
     if ty == "hf":

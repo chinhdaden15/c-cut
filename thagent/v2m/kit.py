@@ -54,6 +54,8 @@ def to3d(name: str) -> str:
     """icon phẳng → icon 3D cùng nghĩa trong kho chung (nếu có); không có thì giữ icon phẳng."""
     if name.startswith("3d:"):
         return name
+    if any(k in name for k in ("money", "cash", "dollar", "bill", "coins", "wallet")):
+        return "3d:f-dollar-banknote"                         # tiền = xấp tiền (gu người dùng), không túi / ví / tờ phẳng
     try:
         from .. import icons3d as I
         q = _I3D.get(name, name.replace("-", " "))
@@ -792,13 +794,13 @@ class Scene:
         ids = []
         for (it, t, x, c0) in ((a, t_a, x1, K.th["good"]), (b, t_b, x2, K.th["alt"])):
             col = it[2] if len(it) > 2 else c0
-            sz = 240 if K.V else 160
+            sz = 150 if K.V else 120                  # vòng ≈ 300px, hai vòng cách nhau ≥ 190px cho chữ VS — không to, không đè nhau
             nm = to3d(it[0])
             g3 = {"tile": "glass", "bg": None} if nm.startswith("3d:") else {}
-            ids.append(self.add({"type": "icon", "name": nm, "size": sz, "color": col, "bg": K.th["panel"], "bg_r": sz * 1.2, **g3, "ring": col,
-                                 "ring_w": 6, "x": x, "y": y - 40, "label": it[1], "label_size": 58 if K.V else 42, "label_color": K.th["text"],
+            ids.append(self.add({"type": "icon", "name": nm, "size": sz, "color": col, "bg": K.th["panel"], "bg_r": sz, **g3, "ring": col,
+                                 "ring_w": 5, "x": x, "y": y - 40, "label": it[1], "label_size": 46 if K.V else 38, "label_color": K.th["text"],
                                  "space": "screen"}, t, "pop", 0.35))
-        self.add({"type": "text", "text": vs, "font": "black", "size": 84 if K.V else 60, "color": K.th["text"], "space": "screen", "x": (x1 + x2) / 2,
+        self.add({"type": "text", "text": vs, "font": "black", "size": 64 if K.V else 52, "color": K.th["text"], "space": "screen", "x": (x1 + x2) / 2,
                   "y": y - 30, "shadow": 0}, min(t_a + 0.4, t_b - 0.1), "fade", 0.3)
         return ids
 
