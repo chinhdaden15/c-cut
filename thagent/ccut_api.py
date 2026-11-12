@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.12"
+APP_VERSION = "2.5.13"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1184,7 +1184,7 @@ def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
         item["pf_tries"] = item.get("pf_tries", 0) + 1
         if item["pf_tries"] <= 3:
             sess.send(f"App chưa dựng được, sửa review/edit.json rồi chạy check và ghi lại plan_ready.json:\n{e}", show=False)
-        raise RuntimeError(f"Kiểm tra bản dựng có lỗi (lần {item['pf_tries']}/3): {str(e)[:200]}")
+        raise _self_fix(item, "Kiểm tra bản dựng có lỗi", str(e))
     for x in ("build", "finish"):
         if x not in job["done"]:
             job["done"].append(x)
@@ -1196,7 +1196,7 @@ def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
         msg = "; ".join(f"[{q['format']}] " + " | ".join(q["errors"][:4]) for q in bad)
         if item["pf_tries"] <= 3:
             sess.send(f"File xuất chưa đạt kiểm tra — sửa edit.json, check + stills, ghi lại plan_ready.json:\n{msg}", show=False)
-        raise RuntimeError(f"File xuất chưa đạt (lần {item['pf_tries']}/3): {msg[:200]}")
+        raise _self_fix(item, "File xuất chưa đạt", msg)
     item["pf_tries"] = 0
     job["done"].append("check"); job["stage"] = "export"
     out_dir = export_dir(settings)
@@ -1506,7 +1506,7 @@ def _v2m_render(item: dict, pid: str, job: dict, settings: dict, log, sess):
         item["pf_tries"] = item.get("pf_tries", 0) + 1
         if item["pf_tries"] <= 3:
             sess.send(f"App chưa xuất được, sửa rồi chạy lại check và ghi lại plan_ready.json:\n{e}", show=False)
-        raise RuntimeError(f"Kiểm tra trước khi xuất có lỗi (lần {item['pf_tries']}/3): {str(e)[:200]}")
+        raise _self_fix(item, "Kiểm tra trước khi xuất có lỗi", str(e))
     item["pf_tries"] = 0
     base = _final_path(item, out_dir, False)
     outs = []
@@ -1522,6 +1522,43 @@ def _v2m_render(item: dict, pid: str, job: dict, settings: dict, log, sess):
         pr.replace(pdir / "plan_ready.used.json")
     notify("ok", f"Xong {item['name']} → " + ", ".join(o.name for o in outs))
     save_queue()
+
+
+class SelfFix(RuntimeError):
+    """kiểm tra trước / sau khi xuất còn lỗi và ĐÃ GIAO Claude sửa (≤ 3 lần): không phải hỏng — việc chuyển sang
+    trạng thái "claude" (Claude đang sửa), Claude ghi lại plan_ready.json thì app tự xuất lại."""
+
+
+def _self_fix(item: dict, what: str, detail: str) -> RuntimeError:
+    """lỗi để ném sau khi đã tăng item["pf_tries"]: ≤ 3 lần → SelfFix (đang sửa), quá 3 → lỗi thật."""
+    n = item.get("pf_tries", 0)
+    if n <= 3:
+        return SelfFix(f"{what} — Claude đang tự sửa (lần {n}/3): {detail[:200]}")
+    return RuntimeError(f"{what} — vẫn lỗi sau 3 lần Claude sửa, xem khung chat: {detail[:200]}")
+
+
+def _item_failed(item: dict, job: dict, e: Exception) -> bool:
+    """xử lý chung khi một việc trong hàng chờ ném lỗi. Trả True nếu là lệnh huỷ (dừng cả hàng chờ)."""
+    cancelled = str(e) == "cancelled" or job["cancel"]
+    if isinstance(e, SelfFix) and not cancelled:
+        item["status"] = "claude"
+        item["error"] = None
+        item["note"] = str(e)[:300]
+        job["log"].append(str(e))
+        notify("warn", f"{item['name']}: {str(e)[:160]}")
+        return False
+    item["status"] = "cancelled" if cancelled else "failed"
+    item["error"] = None if cancelled else str(e)[:300]
+    item.pop("note", None); item.pop("_idle_t", None)
+    job["log"].append(traceback.format_exc()[-1200:])   # ghi thẳng, không qua log() (log() ném lệnh dừng)
+    if not cancelled:
+        try:
+            with open(ROOT / "error.log", "a", encoding="utf-8") as f:
+                f.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} · {item['name']} · {job['stage']}\n{traceback.format_exc()}")
+        except Exception:
+            pass
+    notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
+    return cancelled
 
 
 def _run_queue(settings: dict):
@@ -1556,12 +1593,7 @@ def _run_queue(settings: dict):
             try:
                 _run_review(item, pid, job, settings, log)
             except Exception as e:
-                cancelled = str(e) == "cancelled" or job["cancel"]
-                item["status"] = "cancelled" if cancelled else "failed"
-                item["error"] = None if cancelled else str(e)[:300]
-                job["log"].append(traceback.format_exc()[-1200:])
-                notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
-                if cancelled:
+                if _item_failed(item, job, e):
                     break
             continue
         if item.get("kind") == "t2v":
@@ -1569,12 +1601,7 @@ def _run_queue(settings: dict):
             try:
                 _run_t2v(item, pid, job, settings, log)
             except Exception as e:
-                cancelled = str(e) == "cancelled" or job["cancel"]
-                item["status"] = "cancelled" if cancelled else "failed"
-                item["error"] = None if cancelled else str(e)[:300]
-                job["log"].append(traceback.format_exc()[-1200:])
-                notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
-                if cancelled:
+                if _item_failed(item, job, e):
                     break
             continue
         if settings.get("style") == V2M and not multi:
@@ -1582,12 +1609,7 @@ def _run_queue(settings: dict):
             try:
                 _run_v2m(item, pid, job, settings, log)
             except Exception as e:
-                cancelled = str(e) == "cancelled" or job["cancel"]
-                item["status"] = "cancelled" if cancelled else "failed"
-                item["error"] = None if cancelled else str(e)[:300]
-                job["log"].append(traceback.format_exc()[-1200:])
-                notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
-                if cancelled:
+                if _item_failed(item, job, e):
                     break
             continue
         c = P.Ctx(pid, log, cancel=lambda: job["cancel"])
@@ -1665,8 +1687,7 @@ def _run_queue(settings: dict):
                 if item["pf_tries"] <= 3:
                     sess.send("Preflight còn lỗi, app chưa xuất. Sửa kế hoạch cho hết lỗi, chạy lại preflight rồi ghi lại plan_ready.json:\n- "
                               + "\n- ".join(errs[:8]), show=False)
-                    raise RuntimeError(f"Kiểm tra trước khi xuất có lỗi — đã gửi Claude sửa (lần {item['pf_tries']}/3): " + "; ".join(errs[:2]))
-                raise RuntimeError("Kiểm tra trước khi xuất vẫn lỗi sau 3 lần Claude sửa — xem khung chat: " + "; ".join(errs[:3]))
+                raise _self_fix(item, "Kiểm tra trước khi xuất có lỗi", "; ".join(errs[:3]))
             item["pf_tries"] = 0
             job["done"].append("preflight")
             job["stage"] = "render"
@@ -1695,19 +1716,9 @@ def _run_queue(settings: dict):
                 pr.replace(c.dir / "plan_ready.used.json")
             notify("ok", f"Xong {item['name']} → {final.name}")
         except Exception as e:
-            cancelled = str(e) == "cancelled" or job["cancel"]
-            item["status"] = "cancelled" if cancelled else "failed"
-            item["error"] = None if cancelled else str(e)[:300]
-            job["log"].append(traceback.format_exc()[-1200:])   # ghi thẳng, không qua log() (log() ném lệnh dừng)
-            try:
-                with open(ROOT / "error.log", "a", encoding="utf-8") as f:
-                    f.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} · {item['name']} · {job['stage']}\n{traceback.format_exc()}")
-            except Exception:
-                pass
             for part in c.dir.rglob("*.part*"):                 # dọn file tạm dở dang
                 part.unlink(missing_ok=True)
-            notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
-            if cancelled:
+            if _item_failed(item, job, e):
                 break
     _flush_stage(job)
     job["state"] = "cancelled" if job["cancel"] else "done"
@@ -2056,6 +2067,30 @@ def confirm(body: ConfirmIn):
 _WATCH = {"on": False}
 
 
+def _watch_fixing(q: dict, idle_limit: float = 180.0):
+    """việc đang chờ Claude tự sửa lỗi kiểm tra (SelfFix): Claude treo → khởi động lại (watchdog); Claude đã dừng
+    hẳn mà chưa ghi lại plan_ready.json quá idle_limit giây (hoặc app vừa mở lại, không còn phiên) → báo lỗi thật,
+    không để việc nằm mãi ở "đang sửa" (CN.AI / người dùng chờ vô hạn)."""
+    from . import agent as A
+    sess = A.SESSIONS.get(q["project"])
+    if sess is not None and sess.busy:
+        q.pop("_idle_t", None)
+        try:
+            sess.watchdog()
+        except Exception:
+            pass
+        return
+    t0 = q.setdefault("_idle_t", time.time())
+    if sess is not None and time.time() - t0 < idle_limit:
+        return
+    q["status"] = "failed"
+    q["error"] = ("Claude dừng mà chưa sửa xong lỗi kiểm tra — xem khung chat, góp ý để Claude làm tiếp. "
+                  + str(q.get("note") or ""))[:300]
+    q.pop("note", None); q.pop("_idle_t", None)
+    notify("error", f"{q['name']}: Claude chưa sửa xong lỗi kiểm tra — xem khung chat")
+    save_queue()
+
+
 def _ensure_watcher():
     """Sau khi Claude sửa theo góp ý và ghi lại plan_ready.json → app tự kiểm tra + xuất lại."""
     if _WATCH["on"]:
@@ -2071,9 +2106,12 @@ def _ensure_watcher():
             for q in STATE["queue"]:
                 if q.get("project") and (P.PROJECTS / q["project"] / "plan_ready.json").exists() and q["status"] in ("done", "failed", "claude"):
                     q["status"] = "wait"
+                    q.pop("note", None); q.pop("_idle_t", None)
                     notify("ok", f"Claude đã sửa xong {q['name']} — đang xuất lại")
                     start()
                     break
+                if q["status"] == "claude" and q.get("note"):
+                    _watch_fixing(q)
     threading.Thread(target=loop, daemon=True).start()
 
 
