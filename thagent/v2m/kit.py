@@ -50,6 +50,15 @@ _I3D = {"lightbulb-on": "light bulb", "lightbulb": "light bulb", "document": "pa
         "check": "check mark", "film": "clapper board", "money": "money", "clock": "clock", "rocket": "rocket", "star": "star", "heart": "heart"}
 
 
+def FT_visible_label(text) -> bool:
+    """nhãn ảnh có hiện trên video không (nhãn “Hình ảnh minh hoạ / thực tế” đang ẩn; nhãn riêng như “Ảnh chụp trang …” hiện)."""
+    try:
+        from .render import FT_visible
+        return bool(FT_visible(text))
+    except Exception:
+        return True
+
+
 def cv2_read_size(p) -> tuple[int, int]:
     import cv2
     im = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
@@ -297,6 +306,7 @@ class Kit:
             d = s.dump()
             if i == 0:
                 d["objects"] = self.base + d["objects"]
+                d["events"] = list(getattr(self, "base_evs", [])) + d["events"]     # lớp nền hiện muộn (thanh tin tức…)
                 d.pop("transition_in", None)
             out.append(d)
         if out:
@@ -816,8 +826,11 @@ class Scene:
             self.evs.append({"object_id": cid, "action": "count", "start_s": round(t, 3), "end_s": round(t + count_d, 3),
                              "to": {"value": value}, "ease": "out"})
         if label:
-            self.add({"type": "text", "text": label, "font": "black", "size": 60 if K.V else 48, "color": K.th["text"], "space": "screen", "x": x,
-                      "y": y + (210 if K.V else 160), "max_w": K.F.width(region) * 0.9, "shadow": 0}, t + 0.25, "up", 0.35)
+            from . import draw as D
+            lsz, mw = (60 if K.V else 48), K.F.width(region) * 0.9
+            n = max(1, -(-int(D.font("black", lsz).getlength(label)) // int(mw)))    # nhãn dài xuống dòng → dời xuống, không chạm số
+            self.add({"type": "text", "text": label, "font": "black", "size": lsz, "color": K.th["text"], "space": "screen", "x": x,
+                      "y": y + (228 if K.V else 172) + (n - 1) * lsz * 0.6, "max_w": mw, "shadow": 0}, t + 0.25, "up", 0.35)
         return cid
 
     def compare(self, a, b, t_a, t_b, vs="VS", region="main") -> list[str]:
@@ -934,7 +947,7 @@ class Scene:
             o["kb"] = kb if isinstance(kb, dict) else {"z": [1.03, 1.14], "pan": [-0.3, 0.1, 0.3, -0.1]}
         return self.add(o, t, style, 0.5 if style == "scale" else 0.7)
 
-    def logo(self, src, t, label=None, region="main", ry=0.42, size=None, x=None, dim=True, until=None) -> str:
+    def logo(self, src, t, label=None, region="main", ry=0.42, size=None, x=None, dim=True, until=None, y=None) -> str:
         """LOGO / icon app chính thức (python -m thagent.tools logo …) xuất hiện kiểu reveal: nền video tối dần (vignette), logo có
         QUẦNG SÁNG màu thương hiệu phóng vào từ mờ → nét, nhịp nhẹ; logo đen / tối nằm trên ô trắng bo góc (giữ màu gốc).
         Không viền / không ô trắng cho logo có màu. until: giây tắt (mặc định hết cảnh)."""
@@ -942,6 +955,7 @@ class Scene:
         K = self.K
         cx, cy = K.at_zone(region, 0.5, ry)
         cx = x if x is not None else cx
+        cy = y if y is not None else cy
         sz = size or (360 if K.V else 280)
         g = BK.logo_glow(K.pdir / src)
         gi = cv2_read_size(g)
@@ -1008,13 +1022,16 @@ class Scene:
         self.hide(ids[0], t_b + 0.95, "fade", 0.1)     # ảnh sau đã phủ kín → bỏ ảnh trước
         return ids
 
-    def photo_bg(self, src, t=None, dim=0.55, source=None, **k) -> str:
+    def photo_bg(self, src, t=None, dim=0.55, source=None, real=False, **k) -> str:
         """ảnh / video (.mp4) làm nền cả khung (tối đi để chữ lớn đè lên đọc rõ) — câu mở đầu, câu kết, chuyển chương;
-        Text to Video: video minh hoạ phủ kín khung (dim 0.3–0.4, in=giây bắt đầu trong clip)."""
+        Text to Video: video minh hoạ phủ kín khung (dim 0.3–0.4, in=giây bắt đầu trong clip). real=True: ảnh thật đúng chủ thể đang nói."""
         K = self.K
         s_, _, srcn = self._img_meta(src, None, source, False)
         o = {"type": "image", "src": s_, "w": K.W, "h": K.H, "r": 0, "space": "screen", "x": K.W / 2, "y": K.H / 2,
              "dim": dim, "shadow": 0, "layer": -40, "role": "backdrop", "kb": {"z": [1.04, 1.16], "pan": [0, 0.2, 0, -0.2]}}
+        if real:
+            from .. import fonts as FT
+            o["label"] = FT.label(True)
         if _is_video(s_):             # b-roll phủ kín khung (Text to Video): video nền tối nhẹ, chữ / thẻ số đè lên
             o.update(type="video", **{"in": k.get("in", 0.0), "rate": k.get("rate", 1.0)})
             o["kb"] = {"z": [1.0, 1.06], "pan": [0, 0, 0, 0]}
@@ -1063,12 +1080,19 @@ class Scene:
         K = self.K
         x, y = K.at_zone(region, 0.5, ry)
         sz = size or (84 if K.V else 60)
-        sz = min(sz, int(K.W * 0.9 / (len(text) * 0.6 + 1.6)))      # cả viên nằm gọn trong khung
-        w = len(text) * sz * 0.6 + sz * 1.6
+        from . import draw as D
+        pw = lambda z: D.font("black", int(z)).getlength(text) + z * 1.4       # noqa: E731 — bề rộng viên đo bằng font thật
+        while sz > 30 and pw(sz) > K.W * 0.9:                        # cả viên nằm gọn trong khung
+            sz -= 2
+        w = pw(sz)
         y2 = self._kw_free_y(x, y, w, sz * 2.0, t)                   # không đè lên ảnh / bản đồ / video khung bo góc
         if y2 is None:                                               # khe trống hẹp → thu viên chữ cho vừa
             sz = min(sz, 52 if K.V else 40)
-            w = len(text) * sz * 0.6 + sz * 1.6
+            w = pw(sz)
+            y2 = self._kw_free_y(x, y, w, sz * 2.0, t)
+        if y2 is None and not K.V:                                    # ngang: ảnh chiếm cột phải → viên chữ sang cột chữ bên trái
+            zx0, _, zx1, _ = K.zone("text")
+            x = (zx0 + zx1) / 2
             y2 = self._kw_free_y(x, y, w, sz * 2.0, t)
         y = y2 if y2 is not None else y
         rid = self.add({"type": "rect", "w": w, "h": sz * 2.0, "r": sz, "fill": color or K.th["accent"], "space": "screen", "x": x, "y": y,
@@ -1086,7 +1110,15 @@ class Scene:
             if o.get("type") not in ("image", "video") or o.get("role") == "backdrop" or o.get("space") != "screen":
                 continue
             ow, oh = float(o.get("w", 0)), float(o.get("h", 0))
-            boxes.append((float(o["x"]) - ow / 2, float(o["y"]) - oh / 2, float(o["x"]) + ow / 2, float(o["y"]) + oh / 2))
+            if o.get("_logodim") or (ow >= K.W * 0.98 and oh >= K.H * 0.98):     # lớp phủ toàn khung (làm tối) — không phải ảnh
+                continue
+            lab = 70 if (o.get("label") and FT_visible_label(o["label"])) else 0      # dòng nhãn dưới ảnh cũng không được che
+            boxes.append((float(o["x"]) - ow / 2, float(o["y"]) - oh / 2, float(o["x"]) + ow / 2, float(o["y"]) + oh / 2 + lab))
+        for o in self.objs:                                         # số lớn (s.stat) cũng là khối phải né
+            if o.get("type") == "counter" and o.get("space") == "screen":
+                sz = float(o.get("size", 200))
+                ln = len(f"{o.get('prefix', '')}{o.get('value', 0)}{o.get('suffix', '')}") + 1
+                boxes.append((float(o["x"]) - ln * sz * 0.3, float(o["y"]) - sz * 0.45, float(o["x"]) + ln * sz * 0.3, float(o["y"]) + sz * 0.45))
         for o in self.objs:                                         # tiêu đề / chữ lớn trên màn hình cũng phải né
             if o.get("type") == "text" and o.get("space") == "screen" and not o.get("parent") and o.get("role") not in ("caption", "source"):
                 sz = float(o.get("size", 60))
@@ -1094,10 +1126,12 @@ class Scene:
                 ln = max(len(s) for s in str(o.get("text", " ")).split("\n"))
                 ow = min(float(o.get("max_w") or K.W), ln * sz * 0.62)
                 boxes.append((float(o["x"]) - ow / 2, float(o["y"]) - n * sz * 0.6, float(o["x"]) + ow / 2, float(o["y"]) + n * sz * 0.6))
+        nb = getattr(K, "news_bar_from", None)                     # thanh tin tức (khuôn tin tức) giữ suốt video → vùng cấm
+        fixed = [(56, 150, 620, 206) if K.V else (84, 28, 760, 78)] if nb is not None and t >= nb - 0.4 else []
         kw = [o for o in self.objs if o.get("type") == "rect" and o.get("_kw")]
         def hit(yy):
             r = (x - w / 2, yy - h / 2, x + w / 2, yy + h / 2)
-            if any(r[0] < b[2] and r[2] > b[0] and r[1] < b[3] and r[3] > b[1] for b in boxes):
+            if any(r[0] < b[2] and r[2] > b[0] and r[1] < b[3] and r[3] > b[1] for b in boxes + fixed):
                 return True
             return any(abs(float(o["y"]) - yy) < (float(o["h"]) + h) / 2 + 12 and abs(float(o["x"]) - x) < (float(o["w"]) + w) / 2
                        for o in kw)
@@ -1107,6 +1141,9 @@ class Scene:
         bot = max((b[3] for b in boxes), default=y)
         y0 = K.zone("title")[1] + h / 2
         cand = [top - h / 2 - 24 - i * (h + 16) for i in range(4)] + [bot + h / 2 + 24 + i * (h + 16) for i in range(3)]
+        for b in boxes:                                              # khe hở sát trên / dưới từng khối (giữa tiêu đề và ảnh…)
+            cand += [b[1] - h / 2 - 18, b[3] + h / 2 + 18]
+        cand = sorted(set(round(c, 1) for c in cand), key=lambda c: abs(c - y))
         cap = K.zone("caption")[1] - h / 2 - 10
         for yy in cand:
             if y0 <= yy <= cap and not hit(yy):
@@ -1330,6 +1367,12 @@ class Scene:
         if self.bg:
             d["bg"] = self.bg
         return d
+
+
+# khuôn video tin tức (thagent/v2m/news.py): K.news(), K.news_bar(t), s.news_open(), s.news_page(i, t), s.news_end(t)
+from . import news as _news  # noqa: E402
+Kit.news, Kit.news_bar = _news.news, _news.news_bar
+Scene.news_open, Scene.news_page, Scene.news_end = _news.news_open, _news.news_page, _news.news_end
 
 
 def build(builder_file, content, fmts=None, theme="dark", project_id=None):

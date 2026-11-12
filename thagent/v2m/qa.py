@@ -114,6 +114,10 @@ def rhythm(tl) -> list[tuple[str, str]]:
         ts += [float(e["start_s"]) for e in evs]
     for k in tl.camera:
         ts += [float(k["t"]) - float(k.get("dur", 0.6)), float(k["t"])]
+    for oid, o in tl.objs.items():          # ảnh chụp trang báo (khuôn tin tức): camera đẩy dần vào đoạn đang nói = chuyển động liên tục
+        if o.get("news_page") and o.get("_vis") and float((o.get("kb") or {}).get("z", [1, 1])[-1]) >= 1.2:
+            v0, v1 = map(float, o["_vis"])
+            ts += [v0 + 2.5 * i for i in range(1, int((v1 - v0) / 2.5) + 1)]
     for oid, o in tl.objs.items():          # lớp HyperFrames: lớp con hiện/ẩn bên trong cũng là hành động hình (theo spec)
         if o["type"] == "hf":
             v0 = o["_vis"][0]
@@ -311,7 +315,8 @@ def engagement(tl) -> list[tuple[str, str]]:
         kinds = sorted({("hf:" + o.get("kind", "") if o["type"] == "hf" else
                          "photo_bg" if o.get("role") == "backdrop" else o["type"])
                         for o in mine if o.get("role") not in ("caption", "source") and not o.get("parent")})
-        if any(k in ("photo_bg", "basemap") or (k.startswith("hf:") and any(o.get("full") for o in mine if o["type"] == "hf")) for k in kinds):
+        if any(k in ("photo_bg", "basemap") or (k.startswith("hf:") and any(o.get("full") for o in mine if o["type"] == "hf")) for k in kinds) \
+                or any(o.get("news_page") for o in mine):               # ảnh chụp trang báo thật (khuôn tin tức) = tư liệu thật
             illus.append(d)
         elif any(o["type"] == "icon" for o in mine) and not any(o["type"] in ("hf", "image", "video", "map", "region", "geo") for o in mine):
             icon_only.append(sc["id"])

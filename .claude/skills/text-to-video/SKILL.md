@@ -111,6 +111,33 @@ Không lặp cùng một ý tưởng trong một video; b-roll thật vẫn là 
 **Không đè dính:** icon, shape, ảnh, nhãn minh hoạ KHÔNG chồng / chạm nhau (chừa ≥ 24px); vật chuyển động (xe, mũi tên, con trỏ) dừng TRƯỚC vật đích, xuất phát SAU vật nguồn; nhãn nằm hẳn ngoài khung / vòng của icon. Xem ảnh tĩnh lúc vào, giữa và cuối chuyển động.
 **Luật đo trên reel thật + gu người dùng:** `.claude/shared/editatlas/bai-hoc-ghost-editor.md` (b-roll đúng câu, ưu tiên tư liệu của người dùng và ảnh trong khung, một ý một cảnh, liệt kê → chữ; SFX theo đỉnh giọng, 6–12 âm nhẹ / phút, âm phản ứng vào khoảng ngừng sau câu chốt; phụ đề ≥ 48px, tương phản ≥ 3:1). Người dùng góp ý cách dựng → sửa + `python -m thagent.tools taste add "<lời họ>" [skill|all]`.
 
+## 5e. Video TIN TỨC từ bài báo (article.json có sẵn — từ 2.5.11)
+
+Người dùng dán LINK bài báo (hoặc nội dung bài) → app đã đọc bài (`article.json`: title, sapo, date, source, paragraphs, images,
+interaction), tải ảnh trong bài (`assets_web/news_chinh.jpg`, `news_anh_NN.jpg`), chụp trang báo thật (`assets_web/_bao/doan_NN.jpg`
+= vùng quanh đoạn NN đã tô dạ quang). Xem nhanh: `assets_web/_bao/sheet.jpg`.
+Đọc lại bài bất kỳ lúc nào: `python -m thagent.article fetch <link>`; chuẩn bị lại: `python -m thagent.article prepare <dự-án> <link>`.
+
+**Lời đọc** (app giao trước khi dựng): bản tin 40–90 giây; câu đầu là hook; giữ ĐÚNG số liệu, tên riêng, chức danh, mốc thời gian;
+không chép nguyên văn cả đoạn, không thêm thông tin ngoài bài, không bình luận chủ quan; ghi nguồn bằng lời một lần (“Theo VnExpress, …”);
+không đọc link.
+
+**Khuôn hình** (bắt buộc, cả 9:16 và 16:9 — `thagent/v2m/news.py`):
+```
+A = K.news()                                  # bật khuôn tin tức, chuyển cảnh nhẹ
+s = K.scene(0, t_hook, "thumbnail"); s.news_open()          # ảnh chính + TIÊU ĐỀ LỚN + ngày đăng (trong câu hook)
+K.news_bar()                                  # 1 dòng nhỏ “Nguồn: <báo>” góc trên trái, suốt video
+...thân bài theo từng ý của bài: ảnh trong bài (photo / photo_bg, real=True khi đúng chủ thể), video thật đúng chủ thể (v2m broll),
+   stat / bars cho số liệu, street_map / mapclip khi bài có địa điểm, logo khi nhắc thương hiệu
+s.news_page(i, t)                             # ẢNH CHỤP TRANG BÁO THẬT, phóng chậm vào đúng ĐOẠN i đang nói (i theo article.json
+                                              # "paragraphs", 1 = đoạn đầu; 0 = đầu trang) — ít nhất 2 lần, đúng đoạn chứa ý đang đọc
+s = K.scene(t_end, K.T, "nguồn"); s.news_end(t_end, summary="câu tóm")   # câu tóm + “Nguồn: <báo> · <ngày>” + tiêu đề bài
+```
+- KHÔNG khung / nhãn / logo / màu của báo trên hình (người dùng duyệt 12/11/2026): nguồn chỉ là 1 dòng nhỏ góc trên trái
+  (K.news_bar) + dòng nguồn ở cảnh kết. Không đặt chữ / khối đè lên dòng nguồn.
+- Thumbnail và cảnh kết KHÔNG cần ảnh minh hoạ web thêm; thân bài ưu tiên ảnh trong bài > video thật đúng chủ thể > ảnh web đúng chủ thể.
+- Ảnh trong bài là của báo: chỉ dùng để minh hoạ đúng bài đó (đã ghi nguồn trong illus_sources.json).
+
 ## 5c. Âm thanh + chuyển động
 Nhạc nền (Mixkit, `musicsearch` → `music` → `K.music`), SFX hiện đại, chuyển cảnh zoom/glitch, icon nét `ui:` — engagement.md §4b.
 

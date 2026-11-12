@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.10"
+APP_VERSION = "2.5.11"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -875,6 +875,44 @@ def queue_script(idx: int, body: ScriptIn):
     return {"chars": len(text)}
 
 
+class RereadIn(BaseModel):
+    voice: str
+    speed: float = 1.1
+    formats: list[str] = ["9x16", "16x9"]
+
+
+@router.post("/queue/{idx}/reread")
+def queue_reread(idx: int, body: RereadIn):
+    """Voice to Motion → “Đọc lại bằng giọng AI”: bỏ file giọng, lấy link / nội dung bài (hoặc kịch bản) đã gắn làm lời,
+    đọc bằng giọng đã chọn rồi dựng như Text to Video (khuôn tin tức nếu là bài báo)."""
+    from . import t2v as TV
+    from . import voice as V
+    if not 0 <= idx < len(STATE["queue"]):
+        raise HTTPException(404, "Không có video này")
+    item = STATE["queue"][idx]
+    if item.get("status") == "running":
+        raise HTTPException(400, "Video đang dựng — dừng trước rồi chọn đọc lại")
+    if body.voice not in [v["id"] for v in V.voices()]:
+        raise HTTPException(400, "chọn giọng đọc")
+    text = (item.get("script") or "").strip()
+    if not text:
+        raise HTTPException(400, "Gắn link bài báo hoặc nội dung / kịch bản vào video này trước (nút + kịch bản)")
+    new = _article_item(text, ART.looks_like_article(text))
+    if not new:
+        sp = TV.spoken(text)
+        new = {"name": item["name"], "script": sp}
+    words = len((new.get("script") or "").split())
+    vname = next(v["name"] for v in V.voices() if v["id"] == body.voice)
+    meta = (f"bài báo {new['article'].get('source') or ''} · đọc lại giọng AI" if new.get("article")
+            else f"kịch bản {words} từ · đọc lại giọng AI") + f" · giọng {vname}"
+    new.update(kind="t2v", path=f"t2v:{int(time.time() * 1000)}:{idx}", status="wait", project=None, voice=body.voice,
+               speed=body.speed, formats=[f for f in body.formats if f in ("9x16", "16x9")] or ["9x16", "16x9"], meta=meta,
+               replaced_audio=item["path"])
+    STATE["queue"][idx] = new
+    save_queue()
+    return {"queue": STATE["queue"], "name": new["name"]}
+
+
 def _write_script(pid: str, text: str | None):
     f = P.PROJECTS / pid / "script.txt"
     if text:
@@ -1202,10 +1240,18 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
     else:
         job["done"].append("ingest")
     job["done"].append("transcribe"); job["stage"] = "clean"
-    if item.get("script") and not (pdir / "transcript_raw.json").exists():   # có kịch bản → phụ đề đúng chữ kịch bản (C-Cut, tên riêng…)
+    art = _v2m_article(item, pdir, log)
+    if art is not None and not (pdir / "transcript_asr.json").exists():  # giọng đọc của bài báo → phụ đề theo chữ trong bài
+        try:
+            ART.retext_audio(pdir, art, log=log)
+        except Exception as e:
+            log(f"Không đối chiếu được với bài báo: {e}")
+    elif item.get("script") and not (pdir / "transcript_raw.json").exists():   # có kịch bản → phụ đề đúng chữ kịch bản (C-Cut, tên riêng…)
         from . import t2v as T2V
         try:
-            T2V.retext(pdir, T2V.spoken(item["script"]), log=log)
+            r = T2V.retext(pdir, T2V.spoken(item["script"]), log=log)
+            if r < 0.5 and len(item["script"].split()) >= 120:      # giọng đọc tóm tắt khác văn bản → sửa chữ theo những chỗ khớp
+                ART.retext_audio(pdir, ART.from_text(item["script"]), log=log)
         except Exception as e:
             log(f"Không đối chiếu được kịch bản: {e}")
     if not (pdir / "voice_edit.json").exists():
@@ -1230,11 +1276,43 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
             sess._add("claude", f"Đã nhận {item['name']}. Mình dựng Motion Graphic từ voice, xuất cả dọc lẫn ngang.", kind="text")
         sess.send(f"Dựng Motion Graphic cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill voice-to-motion. "
                   "Voice đã chép lời và làm sạch. "
+                  + (("Đây là giọng đọc của MỘT BÀI BÁO (article.json): phụ đề đã lấy chữ theo bài. " + NEWS_PLAN)
+                     if (pdir / "article.json").exists() else "")
+                  + (f"Link bài báo không mở được ({item['article_error']}) — dựng như voice thường. " if item.get("article_error") else "")
                   + (f"Người dùng gửi kèm {len(mats)} tư liệu (b-roll, ảnh trám) ở {pdir}/tu_lieu/ — xem trước ở tu_lieu/_xem/*.jpg "
                      "(video: 4 khung cách 2s), ưu tiên dùng khi ĐÚNG nội dung đang nói. " if mats else "")
                   + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
         _wait_plan(sess, item, job)
     _v2m_render(item, pid, job, settings, log, sess)
+
+
+NEWS_PLAN = ("DỰNG THEO KHUÔN TIN TỨC (skill text-to-video, mục Video tin tức — thagent/v2m/news.py): s.news_open() thumbnail mở đầu "
+             "(ảnh chính + tiêu đề lớn + ngày) trong câu hook; K.news_bar() = 1 dòng nhỏ “Nguồn: <báo>” góc trên trái (không khung / logo / màu báo); thân bài "
+             "theo từng ý: ảnh trong bài (assets_web/news_*.jpg) / video thật đúng chủ thể, thẻ số liệu, street_map khi bài có địa điểm, "
+             "s.news_page(i, t) ảnh chụp trang báo thật phóng vào ĐÚNG đoạn i đang nói (ít nhất 2 lần); kết s.news_end(t, summary=…) tóm 1 câu + nguồn. "
+             "Xem nhanh tư liệu: assets_web/_bao/sheet.jpg. ")
+
+
+def _v2m_article(item: dict, pdir: Path, log) -> dict | None:
+    """Voice to Motion kèm link bài báo (gắn ở ô kịch bản) hoặc nội dung bài có link nguồn → article.json + ảnh trang báo."""
+    f = pdir / "article.json"
+    if f.exists():
+        return json.loads(f.read_text(encoding="utf-8"))
+    text = item.get("script") or ""
+    try:
+        if item.get("article"):
+            a = item["article"]
+        elif ART.find_url(text):
+            a = ART.fetch(ART.find_url(text))
+        elif ART.looks_like_article(text):
+            a = ART.from_text(text)
+        else:
+            return None
+        return ART.prepare(pdir, a=a, log=log)
+    except ART.ArticleError as e:
+        item["article_error"] = str(e)[:200]
+        log(f"Không mở được bài báo: {e}")
+        return None
 
 
 def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
@@ -1253,6 +1331,38 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
     script = pdir / "script.txt"
     if item.get("script"):
         script.write_text(item["script"], encoding="utf-8")
+    if item.get("article") and not script.exists():   # link bài báo → tư liệu bài + Claude tóm thành lời bản tin
+        if not (pdir / "article.json").exists():
+            ART.prepare(pdir, a=item["article"], log=log)
+        flag = pdir / "script_ready.json"
+        a = json.loads((pdir / "article.json").read_text(encoding="utf-8"))
+        n = len(ART.body_text(a).split())
+        lo, hi = (40, 60) if n < 450 else (55, 75) if n < 900 else (70, 90)
+        if not sess.messages:
+            sess._add("claude", f"Đã đọc bài “{a.get('title', '')[:80]}” ({a.get('source', '')}). Mình tóm thành lời bản tin "
+                                f"{lo}–{hi} giây rồi dựng theo khuôn tin tức.", kind="text")
+        sess.send(f"Video TIN TỨC từ bài báo — đọc {pdir}/article.json (tiêu đề, sapo, ngày, nguồn, các đoạn) và xem ảnh "
+                  f"{pdir}/assets_web/_bao/sheet.jpg. Viết LỜI ĐỌC kiểu bản tin {lo}–{hi} giây (≈ {int(lo * TV.WPS)}–{int(hi * TV.WPS)} từ): "
+                  "câu đầu là HOOK (điều bất ngờ / con số / hệ quả lớn nhất của bài); sau đó các ý chính theo thứ tự bài; giữ ĐÚNG số liệu, "
+                  "tên riêng, chức danh, mốc thời gian như trong bài; KHÔNG chép nguyên văn cả đoạn, KHÔNG thêm thông tin ngoài bài, "
+                  f"không bình luận chủ quan. Ghi nguồn bằng lời một lần ở câu 1 hoặc 2 (“Theo {a.get('source') or 'báo'}, …”); câu cuối "
+                  "tóm 1 câu kết của bài. Không đọc link, không đọc ngày dạng số dài. Số viết bằng chữ số như bài (app tự đọc). "
+                  + (f"Người dùng dặn thêm: “{item['note']}”. " if item.get("note") else "")
+                  + f"Ghi {script} CHỈ lời đọc (mỗi ý một đoạn, không tiêu đề / ghi chú / emoji), rồi ghi {flag} = {{\"ready\": true}}. "
+                  "CHƯA dựng video — app đọc kịch bản thành giọng rồi giao tiếp.", show=False)
+        item["status"] = "claude"
+        while not (flag.exists() and script.exists()):
+            _pause_wait(job)
+            if job["cancel"]:
+                sess.stop(); raise RuntimeError("cancelled")
+            job["activity"] = sess.activity
+            if not sess.busy:
+                time.sleep(5)
+                if not sess.busy and not flag.exists():
+                    _nudge(sess, job, item, f"Viết tiếp lời bản tin vào {script} rồi ghi {flag}.",
+                           "Claude chưa viết xong lời bản tin — xem khung chat")
+            time.sleep(2)
+        item["status"] = "running"
     if not script.exists():                 # chỉ có yêu cầu → Claude viết kịch bản đúng độ dài
         secs = int(item.get("seconds") or 60)
         flag = pdir / "script_ready.json"
@@ -1285,6 +1395,7 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
         weak = [m["i"] + 1 for m in meta["sentences"] if m.get("match", 1) < 0.6 and len(m["text"].split()) >= 3]
         sess.send(f"Dựng video Text to Video cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill text-to-video. "
                   f"Giọng đọc đã xong: voice.wav {meta['duration_s']:.1f}s, {len(meta['sentences'])} câu (script.json, transcript.json). "
+                  + (NEWS_PLAN if (pdir / "article.json").exists() else "")
                   + (f"Câu {weak} khớp kém — nghe lại trước khi dựng. " if weak else "")
                   + f"Khổ cần xuất: {', '.join(item.get('formats') or ['9x16', '16x9'])} (plan_ready.json → \"formats\"). "
                   + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
@@ -1292,14 +1403,39 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
     _v2m_render(item, pid, job, settings, log, sess)
 
 
+from . import article as ART  # noqa: E402
+
+
 class T2VIn(BaseModel):
     text: str | None = None          # kịch bản dán vào (có thể nhiều video)
     path: str | None = None          # file kịch bản
     request: str | None = None       # yêu cầu sơ sài
+    mode: str | None = None          # "article" = link bài báo / nội dung bài dán vào (ô kịch bản chỉ có link cũng tự hiểu)
     seconds: int = 60
     voice: str = "nam_huong_dan"
     speed: float = 1.1
     formats: list[str] = ["9x16", "16x9"]
+
+
+def _article_item(text: str, forced: bool) -> dict | None:
+    """ô kịch bản / ý tưởng là LINK bài báo (hoặc chọn “Từ bài báo” rồi dán nội dung bài) → việc dựng video tin tức.
+    Mở link ngay lúc thêm: không mở được (cần đăng nhập, bị chặn…) → báo rõ để người dùng dán nội dung bài."""
+    text = (text or "").strip()
+    if not text:
+        return None
+    url = ART.find_url(text)
+    if url:
+        try:
+            a = ART.fetch(url)
+        except ART.ArticleError as e:
+            raise HTTPException(400, str(e))
+    elif forced:
+        a = ART.from_text(text)
+        if len(ART.body_text(a).split()) < 60:
+            raise HTTPException(400, "Dán link bài báo, hoặc dán tiêu đề + nội dung bài (dòng đầu là tiêu đề, ít nhất vài đoạn).")
+    else:
+        return None
+    return {"name": (a.get("title") or "Tin tức")[:60], "article": a, "note": ART.note_of(text) if url else ""}
 
 
 @router.post("/t2v/add")
@@ -1310,7 +1446,10 @@ def t2v_add(b: T2VIn):
     if b.voice not in [v["id"] for v in V.voices()]:
         raise HTTPException(400, "chọn giọng đọc")
     items = []
-    if b.request and b.request.strip() and not (b.text or b.path):
+    art = _article_item((b.request or b.text or "") if not b.path else "", b.mode == "article")
+    if art:
+        items.append(art)
+    elif b.request and b.request.strip() and not (b.text or b.path):
         name = re.sub(r"\s+", " ", b.request.strip())[:60]
         items.append({"name": name, "request": b.request.strip(), "seconds": max(15, min(600, int(b.seconds)))})
     else:
@@ -1325,9 +1464,13 @@ def t2v_add(b: T2VIn):
             items.append({"name": v["title"][:60], "script": sp, **({"script_raw": v["text"]} if sp != v["text"].strip() else {})})
     for it in items:
         words = len((it.get("script") or "").split())
+        if it.get("article"):
+            a = it["article"]
+            meta0 = f"bài báo {a.get('source') or ''} · {len(ART.body_text(a).split())} từ · tự tóm ~40–90s"
         it.update(kind="t2v", path=f"t2v:{int(time.time() * 1000)}:{len(STATE['queue'])}", status="wait", project=None,
                   voice=b.voice, speed=b.speed, formats=[f for f in b.formats if f in ("9x16", "16x9")] or ["9x16", "16x9"],
-                  meta=(f"kịch bản {words} từ · ~{words / TV.WPS:.0f}s" if words else f"yêu cầu · ~{it.get('seconds')}s") + " · giọng " +
+                  meta=(meta0 if it.get("article") else f"kịch bản {words} từ · ~{words / TV.WPS:.0f}s" if words
+                        else f"yêu cầu · ~{it.get('seconds')}s") + " · giọng " +
                   next(v["name"] for v in V.voices() if v["id"] == b.voice))
         STATE["queue"].append(it)
     save_queue()

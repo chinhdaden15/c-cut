@@ -110,6 +110,12 @@ Xác định công cụ có thể thực sự đọc media, nhận dạng tiến
 
 Nếu có pipeline khả dụng, chạy đến final. Nếu không có renderer hoặc quyền thực thi cần thiết, báo chính xác thành phần thiếu, giữ lại storyboard/tài nguyên đã làm và không gọi bản kế hoạch là video hoàn chỉnh. Không tự xây một app lớn khi người dùng chỉ yêu cầu dựng video.
 
+### 1b. Giọng đọc của MỘT BÀI BÁO (từ 2.5.11)
+Người dùng gắn LINK bài báo (hoặc nội dung bài có link nguồn) vào ô kịch bản của file giọng → app đã đọc bài (`article.json` + ảnh +
+ảnh chụp trang `assets_web/_bao/`) và lấy chữ phụ đề theo chữ trong bài (tên riêng, số). Dựng theo **khuôn tin tức** như skill
+text-to-video mục 5e: `K.news()`, `s.news_open()`, `K.news_bar()`, `s.news_page(i, t)` đúng đoạn đang đọc, `s.news_end(t)`.
+Giọng không hay → người dùng bấm “Đọc lại bằng giọng AI” (app chuyển việc sang Text to Video, cùng bài báo).
+
 ### 2. Đọc voice và chia ý
 
 Tạo transcript có thời gian theo từ/cụm; đối chiếu transcript người dùng nếu có. Kiểm tra tên dự án, địa danh, đơn vị, số tiền, phần trăm, từ phủ định và điều kiện. Không lấy lỗi ASR làm nội dung đúng. Nếu chưa xác minh được chữ, tránh dùng chữ đó làm headline và ghi lại giới hạn; giữ voice nguyên trạng.
