@@ -173,7 +173,8 @@ def _slug(s: str) -> str:
 
 
 def voices() -> list[dict]:
-    out = [{"id": k, "name": d["name"], "gender": d.get("gender", ""), "kind": "preset"} for k, d in PRESETS.items()]
+    order = sorted(PRESETS, key=lambda k: (k != DEFAULT, k))     # giọng mặc định luôn đứng đầu (ô chọn giọng lấy mục đầu làm mặc định)
+    out = [{"id": k, "name": PRESETS[k]["name"], "gender": PRESETS[k].get("gender", ""), "kind": "preset"} for k in order]
     for f in sorted(VOICES.glob("*/voice.json")):
         try:
             d = json.loads(f.read_text(encoding="utf-8"))
@@ -219,10 +220,13 @@ def say(text: str, voice_id: str, out: Path | str, speed: float = 1.0) -> Path:
         wav = np.asarray(tts.infer(text, voice=ref, temperature=float(d.get("temperature", 0.7))), dtype=np.float32)
     if d.get("eq"):
         wav = _eq(wav, d["eq"])
+    pk = float(np.abs(wav).max()) if len(wav) else 0.0
+    if pk > 0.95:                                        # cân âm sắc có thể đẩy đỉnh quá 0 dB → rè; hạ cả câu cho vừa
+        wav = (wav * (0.95 / pk)).astype(np.float32)
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(out), wav, SR)
-    speed = max(0.8, min(1.3, float(speed or 1.0)))
+    speed = max(0.8, min(1.3, float(speed or 1.0) * float(d.get("tempo", 1.0))))   # tempo: nhịp riêng của giọng (vd giọng già đọc chậm)
     if abs(speed - 1.0) > 0.01:
         tmp = out.with_suffix(".tmp.wav")
         subprocess.run([_ffmpeg(), "-v", "error", "-y", "-i", str(out), "-af", f"atempo={speed:.3f}", str(tmp)], check=True)
@@ -273,7 +277,7 @@ def _best_window(mask: np.ndarray, hop_s: float, lo: float = 4.0, hi: float = 8.
     return bi
 
 
-def clone(src: Path | str, name: str, consent: bool) -> dict:
+def clone(src: Path | str, name: str, consent: bool, ref_lo: float = 4.0, ref_hi: float = 8.0) -> dict:
     """file thu âm / video có giọng người nói → giọng mới trong thư viện. Cần xác nhận có quyền dùng giọng."""
     import soundfile as sf
     if not consent:
@@ -286,9 +290,11 @@ def clone(src: Path | str, name: str, consent: bool) -> dict:
     mask, snr = _speech_mask(w, hop)
     if mask.sum() * 0.02 < 5.0:
         raise VoiceError("file cần ít nhất 5 giây giọng nói rõ (thu nơi yên tĩnh, nói tự nhiên 5–30 giây)")
-    a, b = _best_window(mask, 0.02)
+    a, b = _best_window(mask, 0.02, ref_lo, ref_hi)
     ref = w[a * hop: b * hop]
-    speech = w[np.repeat(mask, hop)[: len(w)]] if len(w) >= len(mask) * hop else w
+    keep = np.zeros(len(w), dtype=bool)                  # mặt nạ theo khung 20 ms → theo mẫu (phần lẻ cuối file < 20 ms bỏ)
+    keep[: len(mask) * hop] = np.repeat(mask, hop)
+    speech = w[keep]
     with _LOCK:
         tts = engine()
         denoise = snr < 35                                   # thu bằng micro thường có tiếng nền → lọc; file sạch thì giữ nguyên chất giọng
@@ -307,6 +313,68 @@ def clone(src: Path | str, name: str, consent: bool) -> dict:
             "codes": np.asarray(codes, dtype=int).tolist()}
     (d / "voice.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     return {"id": vid, "name": name, "kind": "clone", "ref_seconds": meta["ref_seconds"], "denoised": denoise}
+
+
+EQ_TEXT = ("Mỗi ngày, mình chia sẻ một kinh nghiệm nhỏ giúp công việc của bạn nhẹ nhàng hơn. Hôm nay chúng ta cùng tìm hiểu "
+           "cách làm một video ngắn thật cuốn hút, từ ý tưởng đầu tiên cho tới lúc đăng lên mạng xã hội.")
+
+
+def _ltas(w: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """phổ trung bình dài hạn (dB) của phần có tiếng nói."""
+    from scipy.signal import welch
+    hop = int(SR * 0.02)
+    mask, _ = _speech_mask(w, hop)
+    keep = np.zeros(len(w), dtype=bool)
+    keep[: len(mask) * hop] = np.repeat(mask, hop)
+    f, p = welch(w[keep], SR, nperseg=1024)
+    return f, 10 * np.log10(p + 1e-12)
+
+
+def make_preset(src: Path | str, vid: str, name: str, gender: str, temperature: float = 0.6,
+                tempo: float = 1.0, extra_eq=None, eq_strength: float = 1.0, eq_clip: float = 9.0,
+                ref_lo: float = 4.0, ref_hi: float = 8.0, out_dir: Path | None = None) -> dict:
+    """file thu âm (đã được người nói đồng ý) → giọng CÓ SẴN assets/voices/<vid>.json: chất giọng + mẫu đọc như nhân bản,
+    + đường cân âm sắc (eq) = phổ bản thu gốc − phổ bản đọc thử (làm mượt, giới hạn ±9 dB) → giọng đọc ra gần giọng gốc.
+    extra_eq: [[Hz, dB], …] cộng thêm (tạo chất giọng riêng, vd già / ấm)."""
+    import tempfile
+    import soundfile as sf
+    global VOICES, PRESETS
+    old = VOICES
+    with tempfile.TemporaryDirectory() as tmp:
+        VOICES = Path(tmp)
+        try:
+            r = clone(src, name, True, ref_lo, ref_hi)
+            d = json.loads((VOICES / r["id"] / "voice.json").read_text(encoding="utf-8"))
+            d["temperature"] = temperature
+            with _LOCK:
+                tts = engine()
+                ref = {"speaker_emb": np.asarray(d["speaker_emb"], dtype=np.float32), "codes": np.asarray(d["codes"], dtype=np.int64)}
+                syn = np.asarray(tts.infer(EQ_TEXT, voice=ref, temperature=temperature), dtype=np.float32)
+        finally:
+            VOICES = old
+    f, a = _ltas(_load_audio(Path(src)))
+    _, b = _ltas(syn)
+    diff = a - b
+    pts = np.arange(0, 12000.1, 93.75)
+    g = np.interp(pts, f, diff)
+    g = np.convolve(np.pad(g, 5, mode="edge"), np.ones(11) / 11, mode="valid")    # mượt ~1 kHz (không bắt chước từng gợn → đỡ chói/rè)
+    g -= np.interp(1000, pts, g)                                                  # giữ 1 kHz ở 0 dB (độ to do _eq tự bù)
+    g = np.clip(g * eq_strength, -eq_clip, eq_clip)
+    if extra_eq:
+        g += np.interp(pts, [p[0] for p in extra_eq], [p[1] for p in extra_eq])
+    g = np.clip(g, -9, 9)
+    eq = [[round(float(x), 1), round(float(y), 2)] for x, y in zip(pts, g)]
+    out = {"name": name, "gender": gender, "speaker_emb": d["speaker_emb"], "codes": d["codes"],
+           "temperature": temperature}
+    if eq_strength > 0 or extra_eq:
+        out["eq"] = eq
+    if abs(tempo - 1) > 0.005:
+        out["tempo"] = tempo
+    dst = Path(out_dir) if out_dir else BUILTIN
+    dst.mkdir(parents=True, exist_ok=True)
+    (dst / f"{vid}.json").write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+    PRESETS = _builtin()
+    return {"id": vid, "name": name, "ref_seconds": r["ref_seconds"], "denoised": r["denoised"]}
 
 
 def remove(voice_id: str) -> None:

@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.14"
+APP_VERSION = "2.5.15"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1125,8 +1125,52 @@ def _nudge(sess, job, item, msg: str, err: str):
     sess.send(msg, show=False)
 
 
+def _plan_mark(pdir: Path) -> float:
+    """mốc sửa file mới nhất trong thư mục dự án (Claude có làm được gì giữa hai lần nhắc không)."""
+    m = 0.0
+    try:
+        for f in pdir.iterdir():
+            if f.is_file() and f.name not in ("chat.json", "queue.json") and not f.name.startswith("plan_ready"):
+                m = max(m, f.stat().st_mtime)
+    except OSError:
+        pass
+    return m
+
+
+BG_WAIT_MAX = 45 * 60      # lệnh nền của Claude (check --deep, stills…) chạy quá lâu → coi như Claude dừng
+
+
+def _on_idle(sess, job, item, st: dict):
+    """Claude đã kết thúc lượt mà chưa có plan_ready.json (gọi sau khi chờ 5 s vẫn rảnh). st giữ trạng thái giữa các lần gọi.
+    - còn lệnh chạy nền (check sâu, ảnh tĩnh… trên máy chậm có thể > 10 phút) → CHỜ; lệnh xong thì báo Claude làm tiếp;
+      KHÔNG tính là "dừng" (trước đây bị nhắc liên tục 10 s/lần → đủ 3 lần → lỗi oan "Claude dừng nhiều lần");
+    - vừa sửa được file (có tiến triển) → nhắc làm tiếp, đếm lại từ 0;
+    - không làm được gì → nhắc, tối đa 3 lần liền rồi mới báo lỗi."""
+    if sess.working_child():
+        st["bg"] = st.get("bg") or time.time()
+        if time.time() - st["bg"] < BG_WAIT_MAX:
+            job["activity"] = "Claude chờ lệnh chạy nền (kiểm tra / ảnh tĩnh) xong"
+            sess.last_evt = time.time()                 # chờ lệnh nền là bình thường — watchdog không coi là treo
+            return
+    if st.get("bg") and time.time() - st["bg"] < BG_WAIT_MAX:
+        st["bg"] = None
+        sess.send("Lệnh chạy nền đã xong. Đọc kết quả của nó rồi làm tiếp theo quy trình cho tới khi ghi plan_ready.json.",
+                  show=False)
+        return
+    st["bg"] = None
+    m = _plan_mark(sess.dir)
+    if m > st.setdefault("mark", 0.0):                  # Claude có tiến triển → không tính là dừng
+        st["mark"] = m
+        sess.restarts = 0
+    _nudge(sess, job, item, "Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json. Lệnh lâu thì chạy "
+           "nền rồi KẾT THÚC lượt — app tự báo khi lệnh xong; đừng trả lời chỉ để báo “vẫn đang chạy”.",
+           "Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
+
+
 def _wait_plan(sess, item, job):
+    """chờ Claude ghi plan_ready.json (Claude dừng giữa chừng → _on_idle)."""
     item["status"] = "claude"
+    st = {"mark": _plan_mark(sess.dir)}
     while not sess.plan_ready():
         _pause_wait(job)
         if job["cancel"]:
@@ -1135,8 +1179,7 @@ def _wait_plan(sess, item, job):
         if not sess.busy and not sess.plan_ready():
             time.sleep(5)
             if not sess.busy and not sess.plan_ready():
-                _nudge(sess, job, item, "Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json.",
-                       "Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
+                _on_idle(sess, job, item, st)
         sess.watchdog()
         time.sleep(2)
     item["status"] = "running"
@@ -1673,6 +1716,7 @@ def _run_queue(settings: dict):
                               "preflight, ảnh tĩnh, rồi ghi plan_ready.json.", show=False)
                     sess._add("claude", f"Đã nhận video {item['name']}. Mình bắt đầu lập kế hoạch theo style.", kind="text")
                 item["status"] = "claude"
+                idle_st = {"mark": _plan_mark(sess.dir)}
                 while not sess.plan_ready():          # chờ Claude; người dùng vẫn chat/góp ý trong lúc này
                     _pause_wait(job)
                     if job["cancel"]:
@@ -1693,8 +1737,7 @@ def _run_queue(settings: dict):
                     if not sess.busy and not sess.plan_ready():   # Claude đã dừng giữa chừng mà chưa xong → giao lại việc
                         time.sleep(5)
                         if not sess.busy and not sess.plan_ready():
-                            _nudge(sess, job, item, "Tiếp tục việc đang dở theo quy trình cho tới khi ghi plan_ready.json.",
-                                   "Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
+                            _on_idle(sess, job, item, idle_st)
                     sess.watchdog()
                     time.sleep(2)
                 item["status"] = "running"
@@ -1779,6 +1822,46 @@ def _kill_children():
                 ch.kill()
         except Exception:
             pass
+
+
+def reap_orphans(log=None) -> int:
+    """dọn tiến trình MỒ CÔI của lần mở app trước (app tắt / tự cập nhật khi Claude, ffmpeg, HyperFrames còn chạy):
+    chỉ những tiến trình (1) chạy trong / nhắc tới thư mục dữ liệu C-Cut và (2) tiến trình mẹ đã chết.
+    Không đụng tiến trình của app khác (CN.AI…) hay của một C-Cut khác đang mở."""
+    import psutil
+    root = str(ROOT)
+    me = os.getpid()
+    n = 0
+    for pr in psutil.process_iter(["pid", "ppid", "cmdline"]):
+        try:
+            if pr.pid == me:
+                continue
+            ppid = pr.info["ppid"]
+            if ppid not in (0, 1) and psutil.pid_exists(ppid):
+                continue
+            argv = pr.info["cmdline"] or []
+            if len(argv) <= 1 and argv and Path(argv[0]).stem.lower() == "c-cut":
+                continue                         # chính app C-Cut (mở từ Dock / Finder thì tiến trình mẹ là hệ thống) — không phải mồ côi
+            cmd = " ".join(argv)
+            try:
+                cwd = pr.cwd()
+            except Exception:
+                cwd = ""
+            if not (cwd == root or cwd.startswith(root + os.sep) or root in cmd):
+                continue
+            for ch in pr.children(recursive=True):   # cả cây việc nó đang chạy (zsh → ccut-py check → node HyperFrames…)
+                try:
+                    ch.kill()
+                    n += 1
+                except Exception:
+                    pass
+            pr.kill()
+            n += 1
+        except Exception:
+            pass
+    if n and log:
+        log(f"dọn {n} tiến trình còn sót của lần mở trước")
+    return n
 
 
 def _children():
@@ -2151,6 +2234,15 @@ def _voice_call(fn, *a, **k):
         return fn(V, *a, **k)
     except V.VoiceError as e:
         raise HTTPException(400, str(e))
+    except HTTPException:
+        raise
+    except Exception as e:                  # lỗi lạ → ghi error.log + báo rõ (không hiện “Internal Server Error”)
+        try:
+            with open(ROOT / "error.log", "a", encoding="utf-8") as f:
+                f.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} · giọng đọc\n{traceback.format_exc()}")
+        except Exception:
+            pass
+        raise HTTPException(500, f"Giọng đọc gặp lỗi ({type(e).__name__}: {str(e)[:160]}) — đã ghi vào error.log")
 
 
 @router.get("/voices")

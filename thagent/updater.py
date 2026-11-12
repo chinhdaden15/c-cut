@@ -95,6 +95,10 @@ def _quit_app():
     from . import ccut_api
     time.sleep(1.0)
     try:
+        ccut_api._kill_children()               # bản mới mở lên không còn Claude / ffmpeg của bản cũ chạy mồ côi
+    except Exception:
+        pass
+    try:
         ccut_api.WINDOW.destroy()
     except Exception:
         pass

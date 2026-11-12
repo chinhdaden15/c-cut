@@ -190,6 +190,12 @@ def _fill(times: list, t0: float, t1: float) -> list[tuple[float, float]]:
     return out
 
 
+def _align_rel(sw: list[str], seg: list[tuple[str, float, float]], a: float, b: float):
+    """mốc từng từ của MỘT câu (đang nằm ở [a, b] trong voice) → (từ, mốc tương đối đầu câu, tỷ lệ khớp)."""
+    times, ratio = _align(sw, seg)
+    return sw, [(x - a, y - a) for x, y in _fill(times, a, b)], ratio
+
+
 def retext(pdir, script: str, min_ratio: float = 0.5, log=print) -> float:
     """Voice to Motion CÓ kịch bản: chữ trong transcript.json lấy theo KỊCH BẢN (đúng chính tả, tên riêng như C-Cut),
     chỉ giữ mốc thời gian của bản chép lời. Kịch bản lệch quá nhiều so với lời nói (< min_ratio) → giữ bản chép lời.
@@ -252,8 +258,11 @@ def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print)
     for i in range(len(sents)):
         progress(f"Đọc câu {i + 1}/{len(sents)}")
         files[i] = synth(i)
+    rel: dict[int, tuple] = {}     # câu → (từ, mốc từng từ TƯƠNG ĐỐI đầu câu, tỷ lệ khớp) — đọc lại câu nào chỉ nghe lại câu đó
+    vocab = sorted({w for s in sents for w in s["text"].split() if w[:1].isupper()})[:40]
+    redo = list(range(len(sents)))
     for attempt in range(3):
-        # ghép (nghỉ ngắn giữa câu, dài hơn giữa đoạn) → tốc độ → chép lời một lần cho cả bài
+        # ghép (nghỉ ngắn giữa câu, dài hơn giữa đoạn) → tốc độ → chép lời (lần đầu cả bài, lần sau chỉ câu đọc lại)
         parts, marks, t = [], [], 0.0
         for i, f in enumerate(files):
             x, _ = sf.read(str(f), dtype="float32")
@@ -271,22 +280,48 @@ def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print)
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-af", f"atempo={k:.3f}" if abs(k - 1) > 0.01 else "anull",
                         "-ar", str(sr), str(out)], check=True)
         marks = [(a / k, b / k) for a, b in marks]
-        progress("Kiểm tra giọng đọc (chép lời lại)")
         wav16 = work / "asr16.wav"
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(out), "-ac", "1", "-ar", "16000", str(wav16)], check=True)
-        words, _ = transcribe(str(wav16), vocab=sorted({w for s in sents for w in s["text"].split() if w[:1].isupper()})[:40])
-        asr = [(w.text, w.source_start, w.source_end) for w in words]
-        bad, rows = [], []
+        if len(redo) == len(sents):
+            progress("Kiểm tra giọng đọc (chép lời lại)")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(out), "-ac", "1", "-ar", "16000", str(wav16)], check=True)
+            words, _ = transcribe(str(wav16), vocab=vocab)
+            asr = [(w.text, w.source_start, w.source_end) for w in words]
+            for i in redo:
+                a, b = marks[i]
+                rel[i] = (*_align_rel(sents[i]["text"].split(), [w for w in asr if a - 0.15 <= (w[1] + w[2]) / 2 <= b + 0.15], a, b),)
+        else:
+            # chỉ nghe lại đúng các câu vừa đọc lại (cả bài mất nhiều phút trên máy yếu): ghép các câu đó (cách nhau 1.5 s im)
+            # thành một file → Whisper một lần → trả mốc về đúng vị trí trong voice
+            progress(f"Kiểm tra lại câu {', '.join(str(i + 1) for i in redo)}")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(out), "-ac", "1", "-ar", "16000", str(wav16)], check=True)
+            full, sr16 = sf.read(str(wav16), dtype="float32")
+            chunks, offs, pos = [], [], 0.0
+            for i in redo:
+                a, b = marks[i]
+                a0, b0 = max(0.0, a - 0.15), b + 0.15
+                x = full[int(a0 * sr16):int(b0 * sr16)]
+                offs.append((i, pos, a0, pos + len(x) / sr16))
+                chunks += [x, np.zeros(int(1.5 * sr16), np.float32)]
+                pos += len(x) / sr16 + 1.5
+            part = work / "asr16_redo.wav"
+            sf.write(str(part), np.concatenate(chunks), sr16)
+            words, _ = transcribe(str(part), vocab=vocab)
+            for i, p0, a0, p1 in offs:
+                asr = [(w.text, w.source_start - p0 + a0, w.source_end - p0 + a0) for w in words
+                       if p0 - 0.1 <= (w.source_start + w.source_end) / 2 <= p1 + 0.1]
+                a, b = marks[i]
+                rel[i] = _align_rel(sents[i]["text"].split(), asr, a, b)
+        rows = []
+        bad = []
         for i, s in enumerate(sents):
-            a, b = marks[i]
-            seg = [w for w in asr if a - 0.15 <= (w[1] + w[2]) / 2 <= b + 0.15]
-            sw = s["text"].split()
-            times, ratio = _align(sw, seg)
-            rows.append((sw, _fill(times, a, b), ratio))
+            sw, rtm, ratio = rel[i]
+            a = marks[i][0]
+            rows.append((sw, [(a + x, a + y) for x, y in rtm], ratio))
             if ratio < 0.6 and len(sw) >= 3:
                 bad.append(i)
         if not bad or attempt == 2:
             break
+        redo = bad
         for i in bad:                                 # đọc lại đúng những câu lệch nhiều (giọng nhân bản đôi khi đọc vấp)
             progress(f"Đọc lại câu {i + 1} (lần {attempt + 2})")
             files[i] = synth(i)

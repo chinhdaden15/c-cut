@@ -230,17 +230,84 @@ def frames(tl, samples: list[tuple[float, list[dict]]]) -> list[tuple[str, str]]
     return out
 
 
-def scan(tl, step: float = 0.2, progress=None) -> list[tuple[float, list[dict]]]:
+def _scan_range(tl, step: float, i0: int, i1: int, progress=None) -> list[tuple[float, list[dict]]]:
     Rr = R.Renderer(tl)
-    samples = []
-    n = int(tl.duration / step)
-    for i in range(n + 1):
+    Rr.skip_hf = True
+    out = []
+    for i in range(i0, i1):
         t = min(i * step, tl.duration - 1 / tl.fps)
         Rr.frame(t, t - 1 / tl.fps)
-        samples.append((t, list(Rr.boxes)))
-        if progress and i % 25 == 0:
-            progress(f"qa scan {i}/{n}")
-    return samples
+        out.append((t, list(Rr.boxes)))
+        if progress and (i - i0) % 25 == 0:
+            progress(f"qa scan {i - i0}/{i1 - i0}")
+    return out
+
+
+def scan_part_cli(tl_json: str, base: str, step: str, i0: str, i1: str, out: str):
+    """tiến trình con của scan song song: mẫu [i0, i1) → out (pickle)."""
+    import json
+    import pickle
+    import cv2
+    from pathlib import Path
+    cv2.setNumThreads(1)
+    from .. import fonts as _FT
+    _FT.use_project(base)
+    tl = R.Timeline(json.loads(Path(tl_json).read_text(encoding="utf-8")), Path(base))
+    prog = Path(out).with_suffix(".prog")
+    res = _scan_range(tl, float(step), int(i0), int(i1), lambda m: prog.write_text(m.split()[-1].split("/")[0]))
+    Path(out).write_bytes(pickle.dumps(res))
+
+
+def scan(tl, step: float = 0.2, progress=None) -> list[tuple[float, list[dict]]]:
+    """như _scan_range cho cả video; máy nhiều lõi → chia đoạn cho nhiều tiến trình (như xuất video)."""
+    import json
+    import os
+    import pickle
+    import shutil
+    import subprocess
+    import tempfile
+    import time as _t
+    from pathlib import Path
+    n = int(tl.duration / step) + 1
+    k = R.render_workers(int(tl.duration * tl.fps))
+    if k <= 1 or n < 60:
+        return _scan_range(tl, step, 0, n, progress)
+    wd = Path(tempfile.mkdtemp(prefix="ccut_scan_"))
+    try:
+        tlf = wd / "timeline.json"
+        tlf.write_text(json.dumps(tl.d, ensure_ascii=False, default=str), encoding="utf-8")
+        cuts = [round(n * j / k) for j in range(k + 1)]
+        env = dict(os.environ, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", VECLIB_MAXIMUM_THREADS="1")
+        procs = [subprocess.Popen([*R.pyexe(), "-m", "thagent.v2m", "_scan_part", str(tlf), str(tl.base), str(step),
+                                   str(cuts[j]), str(cuts[j + 1]), str(wd / f"s{j}.pkl")],
+                                  stdout=open(wd / f"s{j}.log", "w", encoding="utf-8"), stderr=subprocess.STDOUT, env=env)
+                 for j in range(k)]
+        try:
+            last = -1
+            while any(p.poll() is None for p in procs):
+                done = 0
+                for j in range(k):
+                    try:
+                        done += int((wd / f"s{j}.prog").read_text() or 0)
+                    except (OSError, ValueError):
+                        pass
+                if progress and done != last and done - last >= 25:
+                    progress(f"qa scan {done}/{n}")
+                    last = done
+                _t.sleep(1.0)
+        finally:
+            for p in procs:
+                if p.poll() is None:
+                    p.kill()
+        bad = [j for j, p in enumerate(procs) if p.wait() != 0]
+        if bad:                                   # tiến trình con lỗi → rà một mạch như cũ (chậm nhưng chắc)
+            return _scan_range(tl, step, 0, n, progress)
+        out = []
+        for j in range(k):
+            out += pickle.loads((wd / f"s{j}.pkl").read_bytes())
+        return out
+    finally:
+        shutil.rmtree(wd, ignore_errors=True)
 
 
 def determinism(tl, t: float | None = None) -> list[tuple[str, str]]:

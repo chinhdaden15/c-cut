@@ -603,7 +603,7 @@ def mapclip(pdir, a, b, dur="6", fmt="9x16", style="dark", name="tuyen"):
     MC(pdir, a, b, float(dur), fmt, style, name)
 
 
-CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "streetmap": streetmap, "mapclip": mapclip}
+CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "_scan_part": Q.scan_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "streetmap": streetmap, "mapclip": mapclip}
 
 
 def main():

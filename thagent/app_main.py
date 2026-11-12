@@ -266,6 +266,7 @@ def run_app():
         win.events.closing += _on_closing
     except Exception:
         pass
+    threading.Thread(target=lambda: ccut_api.reap_orphans(lambda m: _applog(home, m)), daemon=True).start()
     try:                                        # công cụ dựng dùng chung: chưa sẵn sàng → tự cài nền (Node portable + HyperFrames)
         from thagent.hyper.autoinstall import start_background
         start_background()
@@ -282,6 +283,10 @@ def run_app():
         _applog(home, "tắt app")
         try:
             (home / "api.json").unlink(missing_ok=True)
+        except Exception:
+            pass
+        try:                                    # Claude / ffmpeg / dựng hình đang chạy dừng theo app (không chạy mồ côi)
+            ccut_api._kill_children()
         except Exception:
             pass
     srv.should_exit = True

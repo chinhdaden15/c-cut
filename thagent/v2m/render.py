@@ -557,6 +557,7 @@ class Renderer:
         self.boxes: list[dict] = []     # khung chữ/shape đã vẽ ở frame hiện tại (QA va chạm, cắt khung, tương phản)
         self.cur_id = None
         self.slots: dict = {}           # vị trí nhãn đã chọn (giữ ổn định qua các frame, chỉ đổi khi bị chạm)
+        self.skip_hf = False            # rà QA nhanh (check --deep): bỏ lớp HyperFrames — lớp MG phủ khung, không có khung chữ để đo
 
     # --- toạ độ thế giới của object (có parent) ---
     def world(self, oid: str, t: float, depth=0) -> dict:
@@ -622,7 +623,8 @@ class Renderer:
             if not (v0 <= t < v1):
                 continue
             if o["type"] == "hf":            # lớp HyperFrames (công cụ dựng chung): clip alpha toàn khung, tự chuyển động
-                self._draw_hf(out, o, t - v0)
+                if not self.skip_hf:
+                    self._draw_hf(out, o, t - v0)
                 continue
             p = self.world(oid, t)
             if p.get("_parent_vis") is False:
