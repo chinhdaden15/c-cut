@@ -357,12 +357,17 @@ def render(pdir, *fmts, progress=print):
     if len(want) == 2 and "--serial" not in fmts:
         # dựng song song: bản ngang ở tiến trình con, bản dọc ở tiến trình này → tổng thời gian ≈ một bản
         import subprocess as sp
-        py = sys.executable
-        if getattr(sys, "frozen", False):   # app đóng gói: gọi runtime phụ ccut-py (gọi chính app sẽ mở thêm cửa sổ)
-            py = str(Path(sys.executable).with_name("ccut-py.exe" if os.name == "nt" else "ccut-py"))
-        child = sp.Popen([py, "-u", "-m", "thagent.v2m", "_render_one", str(pdir), want[1], str(vdir)],
-                         stdout=open(vdir / f"render_{want[1]}.log", "w"), stderr=sp.STDOUT)
-        res = [_render_one(pdir, want[0], progress, vdir)]
+        os.environ["CCUT_RENDER_SHARE"] = "2"      # hai định dạng chia nhau số lõi khi mỗi bản lại dựng song song nhiều đoạn
+        try:
+            child = sp.Popen([*R.pyexe(), "-m", "thagent.v2m", "_render_one", str(pdir), want[1], str(vdir)],
+                             stdout=open(vdir / f"render_{want[1]}.log", "w"), stderr=sp.STDOUT)
+            try:
+                res = [_render_one(pdir, want[0], progress, vdir)]
+            except BaseException:
+                child.kill()
+                raise
+        finally:
+            os.environ.pop("CCUT_RENDER_SHARE", None)
         if child.wait() != 0:
             raise SystemExit(f"bản {want[1]} dựng lỗi — xem {vdir / f'render_{want[1]}.log'}")
         qf = vdir / f"qa_{want[1]}.json"
@@ -373,7 +378,15 @@ def render(pdir, *fmts, progress=print):
 
 
 def _render_one_cli(pdir, fmt, vdir):
+    from .. import fonts as _FT
+    _FT.use_project(pdir)
     _render_one(Path(pdir), fmt, print, Path(vdir))
+
+
+def _render_part_cli(tl_json, base, f0, f1, out):
+    from ..license import require
+    require(_skill(base), base, print)
+    R.render_part_cli(tl_json, base, f0, f1, out)
 
 
 def _render_one(pdir, fmt, progress=print, vdir=None):
@@ -590,7 +603,7 @@ def mapclip(pdir, a, b, dur="6", fmt="9x16", style="dark", name="tuyen"):
     MC(pdir, a, b, float(dur), fmt, style, name)
 
 
-CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "streetmap": streetmap, "mapclip": mapclip}
+CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "streetmap": streetmap, "mapclip": mapclip}
 
 
 def main():

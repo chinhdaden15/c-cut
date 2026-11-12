@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 
 
 def FT_visible(text) -> bool:
@@ -1320,12 +1321,149 @@ def prerender_hf(tl: Timeline, progress=print, ids=None):
         o["_hf_path"] = st["output"]
 
 
-def render_video(tl: Timeline, out_mp4: Path, progress=print, t_range=None) -> dict:
-    """dựng toàn bộ frame → mp4 không tiếng (h264). Trả số đo đứng hình để QA."""
+def pyexe() -> list[str]:
+    """lệnh chạy Python cho tiến trình con (app đóng gói: runtime phụ ccut-py — gọi chính app sẽ mở thêm cửa sổ)."""
+    import sys
+    py = sys.executable
+    if getattr(sys, "frozen", False):
+        py = str(Path(sys.executable).with_name("ccut-py.exe" if os.name == "nt" else "ccut-py"))
+    return [py, "-u"]
+
+
+def render_workers(n_frames: int) -> int:
+    """số tiến trình dựng song song cho MỘT định dạng. Mỗi tiến trình là một lõi Python đơn luồng (~1–3 GB RAM khi có b-roll)
+    → theo số lõi thật, RAM, và số định dạng đang dựng cùng lúc (CCUT_RENDER_SHARE, mặc định 1). CCUT_RENDER_WORKERS ép số."""
+    if os.environ.get("CCUT_RENDER_WORKERS"):
+        return max(1, int(os.environ["CCUT_RENDER_WORKERS"]))
+    share = max(1, int(os.environ.get("CCUT_RENDER_SHARE") or 1))
+    try:
+        import psutil
+        cores = psutil.cpu_count(logical=False) or 4
+        ram = psutil.virtual_memory().total / 2 ** 30
+    except Exception:
+        cores, ram = max(1, (os.cpu_count() or 4) // 2), 8.0
+    k = min(cores // share, int(ram / 3 / share), 6, n_frames // 300)   # mỗi phần ≥ 10 s
+    return max(1, k)
+
+
+def _split_frames(tl: Timeline, f0: int, f1: int, k: int) -> list[tuple[int, int]]:
+    """chia [f0, f1) thành k phần, ranh giới đặt vào chỗ đổi cảnh gần nhất (đứng hình / chuyển cảnh không bị cắt đôi)."""
+    fps = tl.fps
+    cuts = sorted({int(round(s["start_s"] * fps)) for s in tl.scenes})
+    step = (f1 - f0) / k
+    bounds = [f0]
+    for i in range(1, k):
+        ideal = f0 + step * i
+        c = min(cuts, key=lambda x: abs(x - ideal)) if cuts else int(ideal)
+        if abs(c - ideal) > step / 3:
+            c = int(ideal)
+        if bounds[-1] + fps * 3 <= c <= f1 - fps * 3:
+            bounds.append(c)
+    bounds.append(f1)
+    return list(zip(bounds[:-1], bounds[1:]))
+
+
+def _render_parallel(tl: Timeline, out_mp4: Path, progress, f0: int, f1: int, k: int) -> dict:
+    """k tiến trình con, mỗi tiến trình dựng một đoạn frame → mp4 riêng (cùng thông số mã hoá) → nối bằng concat
+    (không mã hoá lại). Mỗi frame là hàm thuần của (timeline, t) + vị trí nhãn khoá ở prepass → ghép lại giống hệt dựng một mạch."""
+    import pickle
+    import shutil
+    import time as _t
+    parts = _split_frames(tl, f0, f1, k)
+    wd = out_mp4.parent / (out_mp4.stem + "_parts")
+    shutil.rmtree(wd, ignore_errors=True)
+    wd.mkdir(parents=True)
+    tlf = wd / "timeline.json"
+    tlf.write_text(json.dumps(tl.d, ensure_ascii=False, default=str), encoding="utf-8")
+    env = dict(os.environ, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1", VECLIB_MAXIMUM_THREADS="1")
+    procs = []
+    total = f1 - f0
+    try:
+        for i, (a, b) in enumerate(parts):
+            procs.append(subprocess.Popen(
+                [*pyexe(), "-m", "thagent.v2m", "_render_part", str(tlf), str(tl.base), str(a), str(b), str(wd / f"p{i}.mp4")],
+                stdout=open(wd / f"p{i}.log", "w", encoding="utf-8"), stderr=subprocess.STDOUT, env=env))
+        last = -1
+        while any(p.poll() is None for p in procs):
+            if any(p.poll() not in (None, 0) for p in procs):
+                break
+            done = 0
+            for i in range(len(parts)):
+                try:
+                    done += int((wd / f"p{i}.prog").read_text() or 0)
+                except (OSError, ValueError):
+                    pass
+            if done != last:
+                progress(f"v2m frame {done}/{total}")      # bấm Dừng: progress ném lỗi → finally dừng mọi tiến trình con
+                last = done
+            _t.sleep(1.0)
+    finally:
+        for p in procs:
+            if p.poll() is None:
+                p.kill()
+    bad = [i for i, p in enumerate(procs) if p.wait() != 0]
+    if bad:
+        tail = (wd / f"p{bad[0]}.log").read_text(encoding="utf-8", errors="replace")[-1500:]
+        raise RuntimeError(f"dựng song song lỗi ở đoạn {bad[0] + 1}/{len(parts)}:\n{tail}")
+    lst = wd / "list.txt"
+    lst.write_text("".join(f"file '{(wd / f'p{i}.mp4').as_posix()}'\n" for i in range(len(parts))), encoding="utf-8")
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy",
+                        "-movflags", "+faststart", str(out_mp4)], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(f"nối các đoạn dựng lỗi: {r.stderr[-800:]}")
+    stat = {"frames": 0, "max_still_s": 0.0, "still_from": [], "samples": []}
+    for i in range(len(parts)):
+        s = pickle.loads((wd / f"p{i}.stat").read_bytes())
+        stat["frames"] += s["frames"]
+        stat["max_still_s"] = max(stat["max_still_s"], s["max_still_s"])
+        stat["still_from"] += s["still_from"]
+        stat["samples"] += s["samples"]
+    stat["parts"] = len(parts)
+    shutil.rmtree(wd, ignore_errors=True)
+    return stat
+
+
+def render_part_cli(tl_json: str, base: str, f0: str, f1: str, out: str):
+    """tiến trình con của _render_parallel: dựng frame [f0, f1) → out (mp4), số đo → out.stat, tiến độ → .prog."""
+    import pickle
+    import re
+    cv2.setNumThreads(1)
+    out = Path(out)
+    from .. import fonts as _FT
+    _FT.use_project(base)
+    tl = Timeline(json.loads(Path(tl_json).read_text(encoding="utf-8")), Path(base))
+    prog = out.with_suffix(".prog")
+    ppid = os.getppid()
+
+    def report(m):
+        mm = re.match(r"v2m frame (\d+)", str(m))
+        if mm:
+            prog.write_text(mm.group(1))
+            try:                     # tiến trình mẹ bị dừng hẳn (bấm Dừng / tắt app) → thôi dựng, không chạy mồ côi
+                import psutil
+                if not psutil.pid_exists(ppid):
+                    raise SystemExit(3)
+            except ImportError:
+                pass
+    a, b = int(f0), int(f1)
+    stat = render_video(tl, out, report, f_range=(a, b))
+    prog.write_text(str(b - a))
+    out.with_suffix(".stat").write_bytes(pickle.dumps(stat))
+
+
+def render_video(tl: Timeline, out_mp4: Path, progress=print, t_range=None, f_range=None) -> dict:
+    """dựng toàn bộ frame → mp4 không tiếng (h264). Trả số đo đứng hình để QA.
+    Không giới hạn đoạn → chia cho nhiều tiến trình (render_workers) nếu máy đủ lõi / RAM."""
     prerender_hf(tl, progress)
     fps = tl.fps
     n = int(math.ceil(tl.duration * fps))
     f0, f1 = (0, n) if not t_range else (int(t_range[0] * fps), min(n, int(math.ceil(t_range[1] * fps))))
+    if f_range:
+        f0, f1 = f_range
+    elif not t_range:
+        k = render_workers(f1 - f0)
+        if k > 1:
+            return _render_parallel(tl, out_mp4, progress, f0, f1, k)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{tl.W}x{tl.H}",
                             "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "18",
                             "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out_mp4)], stdin=subprocess.PIPE)

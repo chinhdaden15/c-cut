@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.11"
+APP_VERSION = "2.5.12"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -968,6 +968,21 @@ def notify(level: str, text: str):
     STATE["notifications"] = STATE["notifications"][-50:]
 
 
+def _flush_stage(job: dict) -> None:
+    """ghi thời gian bước đang đo vào timing.log (đổi bước / hết một video / hết hàng chờ) — bước cuối không còn bị
+    cộng cả thời gian máy rảnh tới lần dựng sau."""
+    st, t0 = job.get("_st"), job.get("_st_t0")
+    job["_st"] = None
+    if not st or not t0:
+        return
+    try:
+        with open(ROOT / "timing.log", "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M')}\t{job.get('project')}\t{st}\t"
+                    f"{time.time() - t0:.0f}s\t{load_settings().get('build_model')}\n")
+    except Exception:
+        pass
+
+
 def _progress(job: dict) -> None:
     """Cập nhật % và thời gian còn lại từ bước hiện tại + log thật của engine."""
     stages = job.get("stages") or STAGES
@@ -987,14 +1002,7 @@ def _progress(job: dict) -> None:
                 break
     now = time.time()
     if job.get("_st") != job["stage"]:      # đổi bước → ghi thời gian bước trước vào timing.log
-        if job.get("_st"):
-            try:
-                from . import agent as A
-                with open(ROOT / "timing.log", "a", encoding="utf-8") as f:
-                    f.write(f"{time.strftime('%Y-%m-%d %H:%M')}\t{job.get('project')}\t{job['_st']}\t"
-                            f"{now - job['_st_t0']:.0f}s\t{load_settings().get('build_model')}\n")
-            except Exception:
-                pass
+        _flush_stage(job)
         job["_st"], job["_st_t0"] = job["stage"], now
     job["stage_s"] = round(now - job["_st_t0"])
     pct = done_w + (cur[2] * frac if cur else 0)
@@ -1534,6 +1542,7 @@ def _run_queue(settings: dict):
         pid = _slug(Path(item["path"]).stem if not multi else Path(item["path"]).name)
         if item.get("kind") == "t2v":       # việc từ kịch bản: tên dự án theo tiêu đề + mã việc (không trùng)
             pid = item.get("project") or (_slug(item["name"])[:40] + "_" + item["path"].split(":")[1][-6:])
+        _flush_stage(job)                      # bước cuối của video trước (vd Xuất) — đo tới lúc video đó xong
         item.update(status="running", project=pid); save_queue()
         from . import agent as A
         if pid in A.SESSIONS:                  # bấm chạy lại → đếm lại số lần giao lại việc từ 0
@@ -1700,6 +1709,7 @@ def _run_queue(settings: dict):
             notify("error" if not cancelled else "warn", f"{item['name']}: {'đã hủy' if cancelled else 'lỗi ở bước ' + job['stage']}")
             if cancelled:
                 break
+    _flush_stage(job)
     job["state"] = "cancelled" if job["cancel"] else "done"
     save_queue()
 
