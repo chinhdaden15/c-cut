@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.13"
+APP_VERSION = "2.5.14"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -157,6 +157,14 @@ def put_settings(body: SettingsIn):
     old = load_settings().get("build_model")
     SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
     s = load_settings()
+    j = STATE.get("job")
+    if upd.get("style") and not (j and j.get("state") == "running"):
+        # chưa dựng: đổi kiểu = đổi cho mọi việc đang chờ (thả file trước, chọn kiểu sau rồi bấm Bắt đầu).
+        # ĐANG dựng: việc đã thêm giữ đúng kiểu lúc thêm (CN.AI đổi kiểu cho việc sau không làm việc trước dựng sai).
+        for q in STATE["queue"]:
+            if q.get("status") in ("wait", "failed") and q.get("kind") not in ("t2v", "review", "multi"):
+                q["style"] = upd["style"]
+        save_queue()
     if body.build_model and body.build_model != old:      # đổi model → phiên đang rảnh khởi động lại với model mới
         from . import agent as A
         for x in A.SESSIONS.values():
@@ -658,8 +666,23 @@ def _add_video(f: Path, script: str | None = None) -> bool:
     except Exception:
         meta = "không đọc được"
     STATE["queue"].append({"path": str(f), "name": f.name, "meta": meta, "status": "wait", "project": None,
-                           "script": script or None})
+                           "script": script or None, "style": load_settings().get("style")})
     return True
+
+
+def _item_style(item: dict, settings: dict) -> str:
+    """kiểu dựng của MỘT việc: kiểu lúc thêm vào hàng chờ (item["style"]), không theo cài đặt chung lúc bấm chạy —
+    CN.AI / người dùng đổi kiểu cho việc sau trong khi hàng chờ đang chạy thì việc trước không bị dựng sai kiểu.
+    File chỉ có tiếng (việc cũ chưa ghi kiểu) không bao giờ đi Talking Head (cần hình) → Voice to Motion."""
+    kind = item.get("kind")
+    if kind == "review":
+        return REVIEW
+    if kind == "t2v":
+        return T2V
+    st = item.get("style") or settings.get("style")
+    if kind != "multi" and Path(str(item.get("path", ""))).suffix.lower() in AUDIO_EXT and st not in (V2M, REVIEW):
+        st = V2M
+    return st
 
 
 @router.post("/queue/add")
@@ -1563,6 +1586,7 @@ def _item_failed(item: dict, job: dict, e: Exception) -> bool:
 
 def _run_queue(settings: dict):
     job = STATE["job"]
+    base_settings = settings
 
     def log(m):
         _pause_wait(job)
@@ -1575,6 +1599,7 @@ def _run_queue(settings: dict):
             continue
         if job["cancel"]:
             break
+        settings = {**base_settings, "style": _item_style(item, base_settings)}   # mỗi việc dựng đúng kiểu của nó
         multi = item.get("kind") == "multi"
         pid = _slug(Path(item["path"]).stem if not multi else Path(item["path"]).name)
         if item.get("kind") == "t2v":       # việc từ kịch bản: tên dự án theo tiêu đề + mã việc (không trùng)
