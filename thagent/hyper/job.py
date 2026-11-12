@@ -43,6 +43,18 @@ def _probe(p: Path) -> dict:
             "audio": a.get("codec_name") if a else None}
 
 
+def read_state(path: Path) -> dict:
+    """đọc state.json; đúng lúc file đang được thay (bản cũ trên đĩa) mà đọc hụt → thử lại vài lần thay vì văng lỗi."""
+    for _ in range(5):
+        if not path.exists():
+            return {}
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            time.sleep(0.05)
+    return {}
+
+
 class Job:
     def __init__(self, spec: dict, workdir: Path, base: Path | None = None):
         self.spec = S.normalize(spec, base)
@@ -54,12 +66,14 @@ class Job:
 
     # ---------- trạng thái ----------
     def state(self) -> dict:
-        return json.loads(self.state_path.read_text(encoding="utf-8")) if self.state_path.exists() else {}
+        return read_state(self.state_path)
 
     def _save(self, **kw):
         st = self.state()
         st.update(kw, job_id=self.spec["job_id"], updated=time.time())
-        self.state_path.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp = self.state_path.with_name(f"state.{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
+        os.replace(tmp, self.state_path)            # ghi nguyên khối: luồng khác (app, nút huỷ) không đọc phải file dở
         return st
 
     def cancelled(self) -> bool:
@@ -234,7 +248,7 @@ def _kill_tree(pid: int):
 def cancel(job_dir: Path) -> bool:
     jd = Path(job_dir)
     (jd / "CANCEL").write_text("1")
-    st = json.loads((jd / "state.json").read_text()) if (jd / "state.json").exists() else {}
+    st = read_state(jd / "state.json")
     if st.get("pid") and st.get("status") == "running":
         _kill_tree(int(st["pid"]))
     return True
