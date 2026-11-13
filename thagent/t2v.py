@@ -159,10 +159,88 @@ def _tok(t: str) -> list[str]:
     return [x for x in re.split(r"[^\w%]+", t) if x]
 
 
+_DIG = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
+_SAME = {"mốt": "một", "tư": "bốn", "lăm": "năm", "nhăm": "năm", "ngàn": "nghìn", "lẻ": "linh", "tỉ": "tỷ"}
+
+
+def _say3(n: int, full: bool) -> list[str]:
+    """0–999 đọc kiểu Việt; full = có hàng nghìn phía trước (đọc cả “không trăm”, “linh”)."""
+    h, t, u = n // 100, n // 10 % 10, n % 10
+    out = []
+    if h or full:
+        out += [_DIG[h], "trăm"]
+    if t == 0:
+        if u and (h or full):
+            out += ["linh", _DIG[u]]
+        elif u:
+            out += [_DIG[u]]
+    elif t == 1:
+        out += ["mười"] + ([{5: "năm"}.get(u, _DIG[u])] if u else [])
+    else:
+        out += [_DIG[t], "mươi"] + ([{1: "một", 5: "năm"}.get(u, _DIG[u])] if u else [])
+    return out
+
+
+def _say_int(n: int) -> list[str]:
+    if n == 0:
+        return ["không"]
+    out, units, first = [], ["", "nghìn", "triệu", "tỷ"], True
+    groups = []
+    while n:
+        groups.append(n % 1000)
+        n //= 1000
+    for i in range(len(groups) - 1, -1, -1):
+        g = groups[i]
+        if g == 0 and i not in (0, 3):
+            continue
+        if g or i == 3:
+            out += _say3(g, not first) if g else []
+            if units[i % 4] and (g or i == 3):
+                out.append(units[i % 4] if i < 4 else "tỷ")
+            first = False
+    return [w for w in out if w]
+
+
+def _say_num(tok: str) -> list[str] | None:
+    """“42%”, “1.000.000”, “3,6”, “2026” (chữ số Whisper chép) → các từ tiếng Việt như kịch bản viết số bằng chữ."""
+    m = re.fullmatch(r"(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?(%?)", tok)
+    if not m:
+        return None
+    words = _say_int(int(m.group(1).replace(".", "")))
+    if m.group(2):
+        words += ["phẩy"] + [_DIG[int(c)] for c in m.group(2)]
+    if m.group(3):
+        words += ["phần", "trăm"]
+    return words
+
+
+def _norm_word(w: str) -> str:
+    t = _tok(w)
+    t = t[0] if t else ""
+    return _SAME.get(t, t)
+
+
+def _asr_words(asr: list[tuple[str, float, float]]) -> list[tuple[str, float, float]]:
+    """tách từng từ Whisper ra từ đơn đã chuẩn hoá; số viết bằng chữ số → đọc ra chữ (chia đều thời gian cho các từ)."""
+    out = []
+    for w, a, b in asr:
+        raw = unicodedata.normalize("NFC", w).strip().strip(".,;:!?…“”\"()").lower()
+        spoken = _say_num(raw)
+        if spoken:
+            d = (b - a) / len(spoken)
+            out += [(x, a + k * d, a + (k + 1) * d) for k, x in enumerate(spoken)]
+        else:
+            out.append((_norm_word(w), a, b))
+    return out
+
+
 def _align(script_words: list[str], asr: list[tuple[str, float, float]]) -> tuple[list[tuple[float, float] | None], float]:
-    """mốc thời gian cho từng từ KỊCH BẢN theo bản chép lời; trả (mốc, tỷ lệ khớp)."""
-    a = [_tok(w)[0] if _tok(w) else "" for w in script_words]
-    b = [_tok(w)[0] if _tok(w) else "" for w, _, _ in asr]
+    """mốc thời gian cho từng từ KỊCH BẢN theo bản chép lời; trả (mốc, tỷ lệ khớp).
+    Whisper chép số bằng chữ số (“42%”, “2026”) còn kịch bản thường viết bằng chữ (“bốn mươi hai phần trăm”) → đổi số
+    của Whisper ra chữ trước khi so; không thì câu nhiều số bị coi là đọc sai và bị đọc lại vô ích."""
+    asr = _asr_words(asr)
+    a = [_norm_word(w) for w in script_words]
+    b = [w for w, _, _ in asr]
     sm = difflib.SequenceMatcher(a=a, b=b, autojunk=False)
     times: list = [None] * len(a)
     for blk in sm.get_matching_blocks():

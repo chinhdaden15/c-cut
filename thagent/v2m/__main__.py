@@ -369,7 +369,8 @@ def render(pdir, *fmts, progress=print):
         finally:
             os.environ.pop("CCUT_RENDER_SHARE", None)
         if child.wait() != 0:
-            raise SystemExit(f"bản {want[1]} dựng lỗi — xem {vdir / f'render_{want[1]}.log'}")
+            tail = (vdir / f"render_{want[1]}.log").read_text(encoding="utf-8", errors="replace")[-700:]
+            raise SystemExit(f"bản {want[1]} dựng lỗi:\n{tail}")
         qf = vdir / f"qa_{want[1]}.json"
         res.append((vdir / f"video_{want[1]}.mp4", json.loads(qf.read_text(encoding="utf-8"))))
         print(json.dumps({"video": str(vdir / f"video_{want[1]}.mp4"), "format": want[1], "qa": res[1][1]}, ensure_ascii=False, indent=1))
@@ -407,7 +408,12 @@ def _render_one(pdir, fmt, progress=print, vdir=None):
     t0 = time.time()
     shutil.copy2(_tl_path(pdir), vdir / f"timeline{sfx}.json")
     silent = vdir / f"video_noaudio{sfx}.mp4"
-    stat = R.render_video(tl, silent, progress)
+    from ..hyper.job import HyperError
+    try:
+        stat = R.render_video(tl, silent, progress)
+    except HyperError as e:      # lớp hoạt hình lỗi (chữ tràn khung…) → lỗi timeline cho Claude sửa, không phải app hỏng
+        raise SystemExit(f"LỖI lớp hoạt hình (HyperFrames) {fmt or ''}: {str(e)[:400]}\n— sửa chữ / kích thước của lớp đó cho "
+                         "nằm gọn trong khung, chạy check --deep cho hết lỗi rồi ghi lại plan_ready.json.")
     voice = str(pdir / tl.d["audio"]["path"])
     rep = A.mix(tl, voice, vdir / f"mix{sfx}.m4a", tl.d.get("music"))
     final = vdir / f"video{sfx}.mp4"
@@ -478,7 +484,7 @@ def check(pdir, *flags):
         tl = _timeline(pdir)
         issues += Q.static(tl)
         if "--deep" in flags:
-            issues += Q.frames(tl, Q.scan(tl, 0.2, print)) + Q.determinism(tl)
+            issues += Q.frames(tl, Q.scan(tl, 0.2, print)) + Q.determinism(tl) + R.check_hf(tl, lambda *a: None)
     for s, m in issues:
         print(f"[{s}] {m}")
     print(f"{sum(s == 'error' for s, _ in issues)} lỗi, {sum(s == 'warn' for s, _ in issues)} cảnh báo")

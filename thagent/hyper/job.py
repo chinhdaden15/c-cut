@@ -80,13 +80,17 @@ class Job:
         return (self.dir / "CANCEL").exists()
 
     # ---------- chạy ----------
-    def run(self, progress=print, timeout: float | None = None, check: bool = True, force: bool = False) -> dict:
+    def run(self, progress=print, timeout: float | None = None, check: bool = True, force: bool = False,
+            check_only: bool = False) -> dict:
+        """check_only: chỉ kiểm (spec, lint, trình duyệt soát bố cục — chữ tràn khung…) không dựng video; nhớ theo mã băm."""
         s = self.spec
         out = Path(s["output"]["path"])
         h = S.content_hash(s)
         st = self.state()
         if not force and st.get("status") == "done" and st.get("hash") == h and out.exists():
             progress(f"hyperframes {s['job_id']}: dùng lại kết quả đã render ({out.name})")
+            return st
+        if check_only and not force and st.get("checked") == h:
             return st
         (self.dir / "CANCEL").unlink(missing_ok=True)
         self._save(status="running", stage="validate", progress=0, hash=h, output=str(out), error=None, attempts=0,
@@ -121,6 +125,8 @@ class Job:
             if not chk.get("ok"):
                 raise HyperError("check (trình duyệt) báo lỗi — xem " + str(self.dir / "check.json") + ": " + _brief(chk),
                                  self._save(status="failed", stage="check", error=_brief(chk)))
+        if check_only:
+            return self._save(status="checked", stage="check", checked=h)
         T = float(s["duration"])
         tmo = timeout or max(420.0, T * 60 + 180)   # khung dọc nhiều lớp phát sáng chụp chậm (~1 khung/giây)
         last = None

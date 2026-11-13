@@ -1313,6 +1313,23 @@ def hf_spec(tl: Timeline, o: dict) -> dict:
     return sp
 
 
+def check_hf(tl: Timeline, progress=print) -> list[tuple[str, str]]:
+    """soát mọi lớp HyperFrames KHÔNG dựng video (lint + trình duyệt kiểm bố cục: chữ tràn khung…) → lỗi để Claude sửa
+    trước khi ghi plan_ready (check --deep bỏ qua lớp này khi rà khung hình nên phải soát riêng)."""
+    from ..hyper.job import Job, HyperError
+    out = []
+    for oid, o in tl.objs.items():
+        if o["type"] != "hf":
+            continue
+        try:
+            Job(hf_spec(tl, o), tl.base / "hf_jobs").run(progress=progress, check_only=True)
+        except HyperError as e:
+            if (e.state or {}).get("stage") in ("doctor",) or (e.state or {}).get("status") == "blocked":
+                return out + [("warn", f"chưa soát được lớp hoạt hình (HyperFrames chưa sẵn sàng: {str(e)[:160]}) — app tự cài khi xuất")]
+            out.append(("error", f"lớp hoạt hình {oid} (HyperFrames): {str(e)[:300]} — sửa chữ / kích thước của lớp này cho nằm gọn trong khung"))
+    return out
+
+
 def prerender_hf(tl: Timeline, progress=print, ids=None):
     """render (hoặc dùng lại theo mã băm) mọi object "hf" — trước vòng dựng frame."""
     from ..hyper.job import Job

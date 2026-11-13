@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.15"
+APP_VERSION = "2.5.16"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1616,6 +1616,13 @@ def _item_failed(item: dict, job: dict, e: Exception) -> bool:
     item["status"] = "cancelled" if cancelled else "failed"
     item["error"] = None if cancelled else str(e)[:300]
     item.pop("note", None); item.pop("_idle_t", None)
+    if item.get("project") and not cancelled:   # hỏng thật: cất plan_ready → trình theo dõi không tự xuất lại liên tục (từng lặp 9 s/lần)
+        pr = P.PROJECTS / item["project"] / "plan_ready.json"
+        try:
+            if pr.exists():
+                pr.replace(pr.with_name("plan_ready.failed.json"))
+        except OSError:
+            pass
     job["log"].append(traceback.format_exc()[-1200:])   # ghi thẳng, không qua log() (log() ném lệnh dừng)
     if not cancelled:
         try:
@@ -1648,6 +1655,12 @@ def _run_queue(settings: dict):
         if item.get("kind") == "t2v":       # việc từ kịch bản: tên dự án theo tiêu đề + mã việc (không trùng)
             pid = item.get("project") or (_slug(item["name"])[:40] + "_" + item["path"].split(":")[1][-6:])
         _flush_stage(job)                      # bước cuối của video trước (vd Xuất) — đo tới lúc video đó xong
+        pr_failed = P.PROJECTS / pid / "plan_ready.failed.json"
+        if pr_failed.exists() and not (P.PROJECTS / pid / "plan_ready.json").exists():
+            try:                               # người dùng bấm chạy lại video hỏng → dùng lại kế hoạch đã có, không bắt lập lại
+                pr_failed.replace(pr_failed.with_name("plan_ready.json"))
+            except OSError:
+                pass
         item.update(status="running", project=pid); save_queue()
         from . import agent as A
         if pid in A.SESSIONS:                  # bấm chạy lại → đếm lại số lần giao lại việc từ 0
