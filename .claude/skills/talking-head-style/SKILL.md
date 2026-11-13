@@ -25,7 +25,7 @@ chỉ để tra cứu dự án cũ — KHÔNG dùng cho video mới. Thông số
 7. **Số tiền / %:** NGHE LẠI đoạn đó; đúng đơn vị được nói (`prefix` $/€/£, `unit` đ/triệu/tỷ/%); tiếng Anh `locale: "en"` (2,000);
    Số < 5 chữ số để NGUYÊN ($500, $2,000 — không 0.5K / 2.0K); từ 5 chữ số trở lên mới rút gọn — K / M cho cả tiếng Anh lẫn tiếng Việt (10K, 1.5M / 1,5M); hàng tỷ: tiếng Anh B (2B), tiếng Việt “tỷ” (2 tỷ).
    `hit_at` = giây lúc nói số cuối → số chạy chạm đúng lúc đó + loé sáng + phóng lên + tiếng tiền.
-8. **Tên phần mềm / app / hãng → LOGO THẬT** (Wikimedia, `assets_web/logo_*.png`), không icon 3D thay thế. Logo CHỈ đặt trên nền TỐI (kính mờ tối, MG charcoal/blur/spot/dots/gradient) — không nền trắng/kem, không ô trắng; app tự làm glow kiểu editor (logo đen → trắng, logo màu kèm chữ đen → chỉ lấy biểu tượng).
+8. **Tên phần mềm / app / hãng → LOGO THẬT** (Wikimedia, `assets_web/logo_*.png`), không icon 3D thay thế. CHỈ dùng BIỂU TƯỢNG (symbol / icon app) của hãng, không dùng bản có chữ; app tự đặt vào ô kính trắng bo góc, giữ nguyên màu, quầng nhẹ màu hãng.
 9. **Video tiếng Anh:** toàn bộ chữ trên hình tiếng Anh. Tay múa khi nói KHÔNG phải trình diễn vật (`gaze_override.json` kind `"talk"`).
 ## ĐỔI MỚI GIỮA CÁC VIDEO — lõi giữ, mặt đổi (1.6.1)
 Lõi KHÔNG đổi: font, 3 tông, phụ đề neo, chữ nhấn đúng mốc, luật số tiền, logo thật, khung kính mờ.
@@ -53,7 +53,7 @@ Giọng nói và ý nghĩa nguyên bản là nền tảng. Không đổi số, �
 
 **LOGO CHÍNH THỨC khi nhắc app / ứng dụng / thương hiệu (bắt buộc, app kiểm và chặn):** nói "C-Cut", "TikTok", "YouTube", "Reels",
 "Zalo", "ChatGPT", "Canva", tên hãng / sản phẩm (khai `"kind": "brand"` trong entities.json)… → `python -m thagent.tools logo {pdir} "<tên>"
-[tên-miền]` (C-Cut lấy logo đóng gói trong app; hãng khác lấy icon chính thức) → hiện đúng lúc nói. Không bao giờ thay bằng icon chung
+[tên-miền]` (C-Cut lấy logo đóng gói trong app; hãng khác lấy icon chính thức) → hiện đúng lúc nói. CHỈ dùng BIỂU TƯỢNG (symbol / icon app) của doanh nghiệp, thương hiệu, ứng dụng — không dùng bản logo có chữ tên hãng, không tự vẽ / tự gõ chữ thành logo. Tên hãng nếu cần thì để ở nhãn chữ cạnh logo. Không bao giờ thay bằng icon chung
 (hộp tải về, điện thoại, play…). Video hướng dẫn / giới thiệu C-Cut: dùng ẢNH CHỤP GIAO DIỆN THẬT người dùng gửi (tu_lieu/) và đẩy camera
 vào đúng nút đang nói (brandfx webpage `mark`), không thay bằng cảnh "gõ lệnh" / sơ đồ chung.
 

@@ -18,7 +18,7 @@ CSS = """
 .bx-tile{position:relative;display:flex;align-items:center;justify-content:center;border-radius:calc(56px*var(--s));
  background:rgba(14,16,24,.62);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1.5px solid rgba(255,255,255,.18);
  box-shadow:0 calc(26px*var(--s)) calc(60px*var(--s)) rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.2)}
-.bx-tile img{max-width:72%;max-height:72%;object-fit:contain;filter:drop-shadow(0 6px 18px rgba(0,0,0,.35))}
+.bx-tile img{max-width:66%;max-height:66%;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.18))}
 .bx-name{font-weight:900;letter-spacing:-.02em;text-shadow:0 3px 14px rgba(0,0,0,.45);white-space:nowrap}
 .bx-sub{font-weight:600;opacity:.92;text-shadow:0 2px 10px rgba(0,0,0,.45);white-space:nowrap;padding:calc(10px*var(--s)) calc(26px*var(--s));
  border-radius:999px;background:rgba(14,16,24,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14)}
@@ -60,13 +60,31 @@ def layer(sc: dict, V: bool, tone: str, D: float):
     if k == "brand":
         sz = 300 if V else 260
         logo = _uri(sc["logo"]) if sc.get("logo") else ""
+        tw, tile_css = sz, ""
+        try:                                                # logo CÓ CHỮ → tấm trắng (logo trắng → đen), tấm dài theo logo, giữ màu
+            from . import brandkit as BK
+            from pathlib import Path
+            if logo and Path(sc["logo"]).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):   # ô KÍNH TRẮNG, giữ màu logo
+                _rgb, _al, _o, _bg = BK._logo_rgba(Path(sc["logo"]))
+                if _al.shape[1] / _al.shape[0] >= 1.9:
+                    tw = round(min(sz * 2.8, sz * 0.62 * _al.shape[1] / _al.shape[0] + sz * 0.38))
+                if BK.logo_is_light(sc["logo"]):
+                    bgc = "linear-gradient(180deg,#3a3a40,#16161a)"
+                    bd = "rgba(255,255,255,.28)"
+                else:
+                    bgc = "linear-gradient(180deg,#FFFFFF 0%,#F4F5F8 55%,#E6E8EE 100%)"
+                    bd = "rgba(255,255,255,.95)"
+                tile_css = (f";background:{bgc};backdrop-filter:none;border:1.5px solid {bd};"
+                            "box-shadow:0 26px 60px rgba(0,0,0,.4),inset 0 2px 0 rgba(255,255,255,.9),inset 0 -3px 8px rgba(0,0,0,.08)")
+        except Exception:
+            pass
         name, sub = E(sc.get("name", "")), E(sc.get("sub", ""))
         nsz = min(120 if V else 104, (1080 * 0.78) / max(1, len(sc.get("name", "")) * 0.66))
         h = sz + nsz * 1.3 + (90 if sub else 0)
         top = y * H - h / 2
         html = (f'<div class="bx" style="top:{_px(round(top))};--acc:{acc}">'
                 f'<div class="bx-glow gw" style="width:{_px(sz * 1.6)};height:{_px(sz * 1.6)};top:{_px(-sz * 0.3)};background:{acc}"></div>'
-                f'<div class="bx-tile tile" style="width:{_px(sz)};height:{_px(sz)}">' + (f'<img src="{logo}">' if logo else "") + '</div>'
+                f'<div class="bx-tile tile" style="width:{_px(tw)};height:{_px(sz)}{tile_css}">' + (f'<img src="{logo}">' if logo else "") + '</div>'
                 f'<div class="bx-name nm" style="font-size:{_px(round(nsz))};margin-top:{_px(28)}">{name}</div>'
                 + (f'<div class="bx-sub sb" style="font-size:{_px(44 if V else 38)};margin-top:{_px(18)}">{sub}</div>' if sub else "") + '</div>')
         t0, t1, t2 = A(0, 0.15), A(1, 0.6), A(2, 1.1)

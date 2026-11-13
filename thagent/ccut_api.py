@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.16"
+APP_VERSION = "2.5.17"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1823,15 +1823,25 @@ def start():
     return {"ok": True}
 
 
+KEEP_PIDS: set[int] = set()     # tiến trình KHÔNG được dừng khi app thoát (trình cài bản cập nhật — nó chờ app tắt rồi mới cài)
+
+
 def _kill_children():
-    """dừng ffmpeg/Claude/lệnh phụ — KHÔNG đụng tới tiến trình hiển thị cửa sổ (WebView2) kẻo trắng màn hình."""
+    """dừng ffmpeg/Claude/lệnh phụ — KHÔNG đụng tới tiến trình hiển thị cửa sổ (WebView2) kẻo trắng màn hình,
+    và KHÔNG đụng trình cài bản cập nhật (KEEP_PIDS, kể cả tiến trình con của nó)."""
     import psutil
     from . import agent as A
     A.stop_all()
     keep = ("webview", "msedge", "webkit", "crashpad", "conhost")
+    spare = set(KEEP_PIDS)
+    for pid in list(KEEP_PIDS):
+        try:
+            spare |= {c.pid for c in psutil.Process(pid).children(recursive=True)}
+        except Exception:
+            pass
     for ch in psutil.Process().children(recursive=True):
         try:
-            if not any(k in ch.name().lower() for k in keep):
+            if ch.pid not in spare and not any(k in ch.name().lower() for k in keep):
                 ch.kill()
         except Exception:
             pass

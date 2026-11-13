@@ -49,7 +49,7 @@ Thứ gì đã tốt ở Talking Head / Voice to Motion mà áp dụng chung đ�
 
 **LOGO CHÍNH THỨC khi nhắc app / ứng dụng / thương hiệu (bắt buộc, app kiểm và chặn):** nói "C-Cut", "TikTok", "YouTube", "Reels",
 "Zalo", "ChatGPT", "Canva", tên hãng / sản phẩm (khai `"kind": "brand"` trong entities.json)… → `python -m thagent.tools logo {pdir} "<tên>"
-[tên-miền]` (C-Cut lấy logo đóng gói trong app; hãng khác lấy icon chính thức) → hiện đúng lúc nói. Không bao giờ thay bằng icon chung
+[tên-miền]` (C-Cut lấy logo đóng gói trong app; hãng khác lấy icon chính thức) → hiện đúng lúc nói. CHỈ dùng BIỂU TƯỢNG (symbol / icon app) của doanh nghiệp, thương hiệu, ứng dụng — không dùng bản logo có chữ tên hãng, không tự vẽ / tự gõ chữ thành logo. Tên hãng nếu cần thì để ở nhãn chữ cạnh logo. Không bao giờ thay bằng icon chung
 (hộp tải về, điện thoại, play…). Video hướng dẫn / giới thiệu C-Cut: dùng ẢNH CHỤP GIAO DIỆN THẬT người dùng gửi (tu_lieu/) và đẩy camera
 vào đúng nút đang nói (brandfx webpage `mark`), không thay bằng cảnh "gõ lệnh" / sơ đồ chung.
 

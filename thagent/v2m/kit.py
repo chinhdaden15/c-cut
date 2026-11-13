@@ -948,29 +948,32 @@ class Scene:
         return self.add(o, t, style, 0.5 if style == "scale" else 0.7)
 
     def logo(self, src, t, label=None, region="main", ry=0.42, size=None, x=None, dim=True, until=None, y=None) -> str:
-        """LOGO / icon app chính thức (python -m thagent.tools logo …) xuất hiện kiểu reveal: nền video tối dần (vignette), logo có
-        QUẦNG SÁNG màu thương hiệu phóng vào từ mờ → nét, nhịp nhẹ; logo đen / tối nằm trên ô trắng bo góc (giữ màu gốc).
-        Không viền / không ô trắng cho logo có màu. until: giây tắt (mặc định hết cảnh)."""
+        """BIỂU TƯỢNG / icon app chính thức (python -m thagent.tools logo …) xuất hiện kiểu reveal: nền video tối dần (vignette),
+        biểu tượng giữ nguyên màu trong Ô KÍNH TRẮNG bo góc (biểu tượng trắng → ô kính tối; icon app kín ô → giữ ô của nó),
+        quầng sáng nhẹ gradient màu hãng, bật lên, nhịp nhẹ. size: chiều cao ô; until: giây tắt (mặc định hết cảnh)."""
         from .. import brandkit as BK
         K = self.K
         cx, cy = K.at_zone(region, 0.5, ry)
         cx = x if x is not None else cx
         cy = y if y is not None else cy
         sz = size or (360 if K.V else 280)
-        g = BK.logo_glow(K.pdir / src)
-        gi = cv2_read_size(g)
-        k = 1.84                                                     # ảnh glow = logo + lề quầng sáng 0,42 mỗi phía
+        g = BK.logo_plate(K.pdir / src)                              # ô kính trắng + logo giữ màu + quầng nhẹ màu hãng
+        gw, gh, mx, my = BK.plate_box(g)
+        pw, ph = gw - 2 * mx, gh - 2 * my                            # cỡ ô (không tính lề quầng / bóng)
+        s = min(sz * 0.9 / ph, min(K.W * (0.8 if K.V else 0.5), sz * 3.2) / pw)
+        if ph * s < sz * 0.42:                                       # logo rất dài hẹp: chữ logo đủ cao để đọc
+            s = min(sz * 0.42 / ph, K.W * (0.88 if K.V else 0.6) / pw)
         if dim and not any(o.get("_logodim") for o in self.objs):
             v = BK.vignette(K.pdir, K.W, K.H)
             self.add({"type": "image", "src": str(v.relative_to(K.pdir)), "w": K.W, "h": K.H, "r": 0, "shadow": 0, "fit": "fill",
                       "space": "screen", "x": K.W / 2, "y": K.H / 2, "layer": -30, "_logodim": True}, t - 0.15, "fade", 0.35)   # ngay trên video nền, dưới chữ
-        lid = self.add({"type": "image", "src": str(g.relative_to(K.pdir)), "w": sz * k, "h": sz * k * gi[0] / gi[1], "r": 0,
+        lid = self.add({"type": "image", "src": str(g.relative_to(K.pdir)), "w": gw * s, "h": gh * s, "r": 0,
                         "shadow": 0, "fit": "contain", "space": "screen", "x": cx, "y": cy, "layer": 14, "logo": True},
                        t, "pop", 0.45)
         self.pulse(lid, t + 0.55)
         if label:
             self.add({"type": "text", "text": label, "font": "black", "size": 60 if K.V else 48, "color": "#FFFFFF", "space": "screen",
-                      "x": cx, "y": cy + sz * 0.62 + 50, "shadow": 0.6, "layer": 14, "spacing": 1.5}, t + 0.2, "up", 0.35)
+                      "x": cx, "y": cy + ph * s / 2 + 70, "shadow": 0.6, "layer": 14, "spacing": 1.5}, t + 0.2, "up", 0.35)
         if until is not None:
             self.hide(lid, until, "fade", 0.25)
         return lid

@@ -79,7 +79,8 @@ def _icon(name, tone="gold"):
         return _glyph(str(name)[3:], tone)
     p = Path(str(name))
     if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp") and p.exists():
-        return _uri(str(p))                         # logo/ảnh thật giữ nguyên (không đổi glow)
+        from .mg2 import logo_plate
+        return _uri(logo_plate(str(p)))             # biểu tượng thật: ô kính trắng, giữ màu, quầng nhẹ màu hãng
     return icon_uri(name)
 
 

@@ -44,23 +44,32 @@ def fetch_logo(brand: str, pdir) -> str | None:
     ua = {"User-Agent": "Mozilla/5.0 ccut"}
     name = LOGO.get(brand.lower())
     try:
-        if not name:                                       # chưa có trong bảng → tìm trên Commons
-            q = urllib.parse.urlencode({"action": "query", "list": "search", "srnamespace": 6, "format": "json", "srlimit": 1,
-                                        "srsearch": f"{brand} logo filetype:svg"})
-            r = json.loads(urllib.request.urlopen(urllib.request.Request("https://commons.wikimedia.org/w/api.php?" + q, headers=ua), timeout=20).read())
-            hits = r.get("query", {}).get("search") or []
-            if not hits:
-                return None
-            name = hits[0]["title"].removeprefix("File:").replace(" ", "_")
-        url = f"https://commons.wikimedia.org/wiki/Special:FilePath/{urllib.parse.quote(urllib.parse.unquote(name))}?width=512"
-        data = urllib.request.urlopen(urllib.request.Request(url, headers=ua), timeout=30).read()
-        if not data.startswith(b"\x89PNG"):
-            return None
+        from . import brandkit as BK
         dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_bytes(data)
+        if name:                                           # bảng sẵn: file biểu tượng chính thức trên Commons
+            url = f"https://commons.wikimedia.org/wiki/Special:FilePath/{urllib.parse.quote(urllib.parse.unquote(name))}?width=512"
+            data = urllib.request.urlopen(urllib.request.Request(url, headers=ua), timeout=30).read()
+            if not data.startswith(b"\x89PNG"):
+                return None
+            dst.write_bytes(data)
+            name = f"https://commons.wikimedia.org/wiki/File:{urllib.parse.unquote(name)}"
+            got = BK.pick_symbol(dst, name)                # logo kèm chữ → cắt riêng biểu tượng (hãng chỉ có chữ thì giữ nguyên)
+            if got and Path(got[0]) != dst:
+                dst.write_bytes(Path(got[0]).read_bytes())
+                Path(got[0]).unlink(missing_ok=True)
+                name = got[1]
+        else:                                              # CHỈ biểu tượng: bản có chữ → cắt phần biểu tượng / thử kết quả khác
+            got = BK._commons_symbol(brand, dst.with_suffix(".tmp.png"), BK.pick_symbol)
+            if got:
+                dst.write_bytes(Path(got[0]).read_bytes())
+                name = got[1]
+            for t in dst.parent.glob(dst.stem + ".tmp*"):   # dọn ảnh tạm
+                t.unlink(missing_ok=True)
+            if not got:
+                return None
         src = dst.parent / "logo_sources.json"
         d = json.loads(src.read_text()) if src.exists() else {}
-        d[dst.name] = f"https://commons.wikimedia.org/wiki/File:{urllib.parse.unquote(name)}"
+        d[dst.name] = name
         src.write_text(json.dumps(d, ensure_ascii=False, indent=1))
         return str(dst)
     except Exception:

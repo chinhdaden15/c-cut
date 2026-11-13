@@ -41,7 +41,7 @@ Kind (tham số):
              camera đẩy vào đúng mục đó (zoom tự tính) rồi khoanh + làm tối phần còn lại
   paper      image (p_x.png), name, role, side left|center|right, at [sticker, nhãn] — nhân vật dạng sticker giấy + băng nhãn tên
   clip       src (ĐƯỜNG DẪN TUYỆT ĐỐI tới mp4 dựng sẵn, vd clip bản đồ `python -m thagent.v2m mapclip …`), in — video phủ khung
-Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, tải từ Wikimedia, lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
+Icon: "3d:<id>" từ kho chung, hoặc đường dẫn ảnh logo thật (nói tên phần mềm / app / hãng → BẮT BUỘC logo đúng, CHỈ dùng biểu tượng / icon app của hãng, không dùng bản có chữ — python -m thagent.tools logo <dự-án> "<tên>", lưu assets_web) (tra: python -m thagent.tools icon3d <từ khoá>) — chọn icon NHẬN RA NGAY đúng vật (giá nhà → nhà /
 tiền giấy, không dùng túi tiền premium nhìn như quả bom). Ảnh: assets_web/ (luật ảnh như cảnh MG: đúng vật, nhãn minh hoạ, ≥1.8s).
 Nhịp: video KHÔNG phải trình diễn vật → có MG khoảng mỗi 10s (preflight lỗi nếu nói > 12s không có MG, trừ đoạn trình diễn);
 cảnh nền (≠ none) không nằm trong đoạn mở đầu / kết; mỗi video dùng ít nhất 4 kind khác nhau, không lặp kind liền nhau.
@@ -105,7 +105,7 @@ BASE_CSS = """
 .chip{position:absolute;display:flex;align-items:center;gap:calc(14px*var(--s));padding:calc(14px*var(--s)) calc(28px*var(--s)) calc(14px*var(--s)) calc(14px*var(--s));
   border-radius:999px;background:rgba(12,14,24,.62);backdrop-filter:blur(18px);border:2px solid rgba(255,255,255,.2);font-weight:800;font-size:calc(46px*var(--s));white-space:nowrap}
 .chip img{width:calc(74px*var(--s))}
-.chip img.logo{width:calc(104px*var(--s));margin:calc(-15px*var(--s)) calc(-8px*var(--s))}
+.chip img.logo{width:auto;height:calc(108px*var(--s));max-width:calc(360px*var(--s));object-fit:contain;margin:calc(-26px*var(--s)) calc(-14px*var(--s))}
 """.replace("GRAIN", GRAIN)
 
 
@@ -118,69 +118,12 @@ def _uri(path: str) -> str:
 
 
 def logo_plate(path: str) -> str:
-    """logo thật → bản nổi trên video (không ô nền), lưu cạnh file gốc <tên>_glow.png:
-    - logo có màu → giữ màu + glow theo chính màu logo;
-    - logo đen / xám một màu (Apple, ChatGPT…) → đổi sang TRẮNG + glow trắng;
-    - logo màu kèm chữ đen (Meta…) → bỏ phần chữ đen, chỉ lấy biểu tượng màu."""
-    from pathlib import Path as _P
-    import cv2, numpy as np
-    src = _P(path)
-    out = src.with_name(src.stem + "_glow.png")
-    if out.exists() and out.stat().st_mtime >= src.stat().st_mtime:
-        return str(out)
-    im = cv2.imread(str(src), cv2.IMREAD_UNCHANGED)
-    if im is None:
-        return str(src)
-    if im.ndim == 2:
-        im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
-    if im.shape[2] == 3:                                   # không có lớp trong suốt → tách nền theo màu viền ảnh
-        bd = np.concatenate([im[0], im[-1], im[:, 0], im[:, -1]]).astype(np.float32)
-        d = np.abs(im.astype(np.float32) - np.median(bd, 0)).max(2)
-        al = np.clip((d - 12) / 40, 0, 1) if bd.std(0).max() < 12 else np.ones(im.shape[:2], np.float32)
-        im = np.dstack([im, (al * 255).astype(np.uint8)])
-    rgb = im[..., :3].astype(np.float32) / 255
-    al = im[..., 3].astype(np.float32) / 255
-    hsv = cv2.cvtColor(im[..., :3], cv2.COLOR_BGR2HSV)
-    vis = al > 0.5
-    dark = hsv[..., 2] < 90                                # đen / xám đậm (kể cả đen ánh xanh như chữ Meta)
-    color = (hsv[..., 1] >= 70) & ~dark
-    nv = max(1, int(vis.sum()))
-    mono = (color & vis).sum() / nv < 0.05
-    if mono:                                               # một màu (đen / xám / trắng) → trắng như chữ nhấn trắng
-        rgb[:] = 1.0
-    else:
-        if (dark & vis).sum() / nv > 0.1:                  # màu + chữ đen → bỏ chữ đen, chỉ lấy biểu tượng
-            al = al * ~cv2.dilate(dark.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
-    ys, xs = np.where(al > 0.05)
-    if len(ys):
-        rgb, al = rgb[ys.min():ys.max() + 1, xs.min():xs.max() + 1], al[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
-    S, pad = 640, 80                                       # chừa đủ chỗ cho bóng rộng + quầng (không cắt thành ô vuông)
-    h, w = al.shape
-    k = (S - 2 * pad) / max(h, w)
-    nw, nh = max(1, int(w * k)), max(1, int(h * k))
-    rgb = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_AREA); al = cv2.resize(al, (nw, nh), interpolation=cv2.INTER_AREA)
-    A = np.zeros((S, S), np.float32); C = np.zeros((S, S, 3), np.float32)
-    y0, x0 = (S - nh) // 2, (S - nw) // 2
-    A[y0:y0 + nh, x0:x0 + nw] = al; C[y0:y0 + nh, x0:x0 + nw] = rgb[..., ::-1]          # → RGB
-    # glow kiểu editor (AE: nhân bản lớp logo → Gaussian blur nhiều bán kính → cộng sáng / Screen, màu lấy từ CHÍNH logo):
-    # lõi logo sáng hơn một chút + 3 lớp quầng (gần / vừa / xa) yếu dần; bóng tối rất mỏng để không mất nét trên nền sáng
-    Cp = C * A[..., None]
-    core = Cp + (A[..., None] - Cp) * 0.12
-    g = np.zeros_like(Cp)
-    for r, w in ((0.02, 0.9), (0.05, 0.55), (0.10, 0.4)):
-        g += cv2.GaussianBlur(Cp, (0, 0), max(1.0, nh * r)) * w
-    ga = np.clip(g.max(2), 0, 1)
-    gc = np.where(ga[..., None] > 1e-4, np.clip(g / np.maximum(ga[..., None], 1e-4), 0, 1), 0)
-    sh = cv2.GaussianBlur(A, (0, 0), max(1.0, nh * 0.02)) * 0.3
-    o = np.zeros((S, S, 4), np.float32)                                                   # nhân alpha sẵn
-    o[..., 3] = sh
-    o[..., :3] = o[..., :3] * (1 - ga[..., None]) + gc * ga[..., None]
-    o[..., 3] = o[..., 3] * (1 - ga) + ga
-    o[..., :3] = o[..., :3] * (1 - A[..., None]) + core
-    o[..., 3] = o[..., 3] * (1 - A) + A
-    st = np.where(o[..., 3:] > 1e-4, o[..., :3] / np.maximum(o[..., 3:], 1e-4), 0)[..., ::-1]   # bỏ nhân alpha, RGB → BGR
-    cv2.imwrite(str(out), (np.clip(np.dstack([st, o[..., 3:]]), 0, 1) * 255).astype(np.uint8))
-    return str(out)
+    """logo / biểu tượng thật → ô kính trắng bo góc, giữ nguyên màu, quầng nhẹ màu hãng (brandkit.logo_plate)."""
+    from . import brandkit as BK
+    try:
+        return str(BK.logo_plate(path))
+    except SystemExit:
+        return str(path)
 
 
 def _logo(name) -> bool:

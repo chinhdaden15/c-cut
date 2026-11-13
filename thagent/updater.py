@@ -108,8 +108,14 @@ def _quit_app():
 def _install(path: Path):
     if IS_WIN:
         # chạy qua `start` để bộ cài không là tiến trình con (bộ cài sẽ taskkill cây C-Cut.exe)
-        subprocess.Popen(f'cmd /c start "" "{path}" /SILENT /SUPPRESSMSGBOXES /NORESTART',
-                         creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS)
+        pr = subprocess.Popen(f'cmd /c start "" "{path}" /SILENT /SUPPRESSMSGBOXES /NORESTART',
+                              creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS)
+        from . import ccut_api
+        ccut_api.KEEP_PIDS.add(pr.pid)
+        try:
+            pr.wait(timeout=15)            # `start` trả về ngay sau khi mở bộ cài (bộ cài không là tiến trình con)
+        except Exception:
+            pass
     else:
         exe = Path(sys.executable).resolve()
         app = next((p for p in exe.parents if p.suffix == ".app"), Path("/Applications/C-Cut.app"))
@@ -126,8 +132,10 @@ rm -f "{path}"
 open "{app}"
 """, encoding="utf-8")
         sh.chmod(0o755)
-        subprocess.Popen(["/bin/zsh", str(sh)], start_new_session=True,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        pr = subprocess.Popen(["/bin/zsh", str(sh)], start_new_session=True, cwd=tempfile.gettempdir(),
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        from . import ccut_api
+        ccut_api.KEEP_PIDS.add(pr.pid)     # trình cài chờ app tắt rồi thay bản mới + mở lại — không được dừng nó khi thoát
     _quit_app()
 
 
