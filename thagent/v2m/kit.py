@@ -17,6 +17,7 @@ Mốc thời gian: K.find("cụm từ", after=giây) = giây bắt đầu nói c
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -103,6 +104,19 @@ def _norm(s: str) -> str:
     return re.sub(r"[^\w\s]", "", s).strip()
 
 
+def _dark_bg(bg) -> bool:
+    """nền cảnh tối (cảnh logo / nền giữ nguyên) → phụ đề phải chữ sáng."""
+    if not bg:
+        return False
+    if bg.get("style") in ("charcoal", "spot", "gradient", "dots") and bg.get("keep"):
+        return True
+    c = str(bg.get("color2") or bg.get("color") or "")
+    if c.startswith("#") and len(c) == 7:
+        r, g, b = (int(c[i:i + 2], 16) for i in (1, 3, 5))
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b < 110
+    return bg.get("style") == "charcoal"
+
+
 class Kit:
     def __init__(self, pdir, fmt: str, theme="dark", project_id: str | None = None):
         from .. import fonts as FT
@@ -114,6 +128,14 @@ class Kit:
         tr = json.loads((self.pdir / "transcript.json").read_text(encoding="utf-8"))
         self.tr, self.words, self.T = tr, tr["words"], float(tr["duration_s"])
         self.th = dict(THEMES[theme]) if isinstance(theme, str) else {**THEMES["dark"], **theme}
+        self.look = None
+        if theme == "dark" and not os.environ.get("CCUT_NO_LOOK"):   # bộ nhìn riêng mỗi video (xoay vòng, khác video gần nhất)
+            from . import looks as LK
+            self.look = LK.choose(self.pdir)
+            self.th = LK.apply_theme(self.th, self.look)
+            ff = LK.font_file(self.look)                         # font chữ nhấn riêng của phong cách kênh
+            if ff and not os.environ.get("CCUT_FONT"):
+                os.environ["CCUT_FONT"] = str(ff)
         self.pid = project_id or self.pdir.name
         self.scenes: list[Scene] = []
         self.base: list[dict] = []          # lớp nền xuyên suốt (bản đồ, nguồn…)
@@ -242,6 +264,9 @@ class Kit:
         """transition: "zoom" (mặc định — phóng nhanh qua điểm cắt), "glitch" (cảnh công nghệ), "fade", "bars", "wipe", None."""
         if transition == "auto":
             transition = self.th.get("transition", "zoom")
+        if self.look:                                      # màu nền theo look của video, đổi biến thể theo đoạn
+            from . import looks as LK
+            bg = LK.scene_bg(self.look, bg, len(self.scenes))
         s = Scene(self, float(t0), float(t1), purpose, transition, bg)
         self.scenes.append(s)
         self.cur = s
@@ -295,6 +320,7 @@ class Kit:
     # ---------- xuất ----------
     def timeline(self) -> dict:
         sc = sorted(self.scenes, key=lambda s: s.t0)
+        self._ink_on_media(sc)
         self._captions(sc)
         self._camera_explain(sc)
         self._camera_chain(sc)
@@ -326,6 +352,24 @@ class Kit:
     def music(self, path: str, gain_db: float = -21, duck: bool = True):
         """nhạc nền (assets_web/m_*.mp3, tải bằng `v2m music`): lặp đủ dài, tự hạ dưới giọng nói (duck)."""
         self.bgm = {"path": path, "gain_db": gain_db, "duck": duck}
+
+    def _ink_on_media(self, scenes):
+        """phong cách nền sáng: chữ màu mực trên nền giấy, nhưng cảnh có ảnh/video phủ khung → chữ trắng có bóng."""
+        ink = self.th.get("text")
+        if not self.look or ink in (None, "#FFFFFF"):
+            return
+        from . import looks as LK
+        if not LK.LOOKS[self.look].get("light"):
+            return
+        for s in scenes:
+            if not any(o.get("type") in ("video", "image") and o.get("role") == "backdrop" for o in s.objs):
+                continue
+            for o in s.objs:
+                if o.get("type") == "text" and o.get("color") == ink and not o.get("parent"):   # chữ trên thẻ giữ màu mực
+                    o["color"], o["shadow"] = "#FFFFFF", max(float(o.get("shadow") or 0), 0.6)
+                for k in ("label_color", "value_color"):
+                    if o.get(k) == ink:
+                        o[k] = "#FFFFFF"
 
     def _captions(self, scenes):
         """phụ đề chạy theo lời (từng từ hiện đúng lúc nói) ở vùng dưới — cảnh đã có câu dẫn (s.lead) thì bỏ qua.
@@ -572,11 +616,15 @@ class Kit:
                 if s.captions is False or end <= s.t0 or a >= s.t1:
                     continue
                 t_in, t_out = max(a, s.t0), min(end, s.t1)
-                cid = s.add({"type": "text", "role": "caption", "text": text, "font": "black", "size": size,
-                             "color": "#FFFFFF", "space": "screen", "x": x, "y": (y0 + y1) / 2, "max_w": x1 - x0,
-                             "align": "center", "anchor": "center", "shadow": 0.6, "stroke": max(4, size // 12),
-                             "stroke_color": "#0A0D14", "line_h": 1.12, "layer": 20, "active_times": act,
-                             "active_color": self.th.get("caption_active", self.th.get("accent", "#FFD23F"))},
+                cap = {"type": "text", "role": "caption", "text": text, "font": "black", "size": size,
+                       "color": "#FFFFFF", "space": "screen", "x": x, "y": (y0 + y1) / 2, "max_w": x1 - x0,
+                       "align": "center", "anchor": "center", "shadow": 0.6, "stroke": max(4, size // 12),
+                       "stroke_color": "#0A0D14", "line_h": 1.12, "layer": 20, "active_times": act,
+                       "active_color": self.th.get("caption_active", self.th.get("accent", "#FFD23F"))}
+                cap.update(self.th.get("caption_fx") or {})          # kiểu phụ đề riêng của phong cách kênh
+                if self.th.get("caption_fx_media") and (any(o.get("role") == "backdrop" or "_dim_" in str(o.get("src", "")) for o in s.objs) or _dark_bg(s.bg)):
+                    cap.update(self.th["caption_fx_media"])          # cảnh có ảnh/video phía sau: chữ trắng viền tối
+                cid = s.add(cap,
                             t_in - (0.04 if t_in == a else 0), "pop" if t_in == a else "fade", 0.14 if t_in == a else 0.01)
                 if t_out < s.t1 - 0.05:
                     s.hide(cid, t_out, "fade", 0.08)
@@ -740,6 +788,8 @@ class Scene:
         from .. import mg2 as M
         K = self.K
         t1 = self.t1 if t1 is None else t1
+        if K.th.get("mg_tone") and p.get("tone") in (None, "gold"):   # tông MG theo look của video
+            p["tone"] = K.th["mg_tone"]
         for im in p.get("images") or []:
             if not Path(im["src"]).is_absolute():
                 im["src"] = str(K.pdir / im["src"])
@@ -761,9 +811,24 @@ class Scene:
         from .. import fx as FX
         if kind in FX.FULL:
             p["region"] = None                           # toàn khung, tự vẽ nền
+            if K.look:                                   # nền của cảnh toàn khung theo look của video
+                from . import looks as LK
+                L = LK.LOOKS[K.look]
+                p.setdefault("_base", L["bgs"][0][2] or "#121212")
+                p.setdefault("_glow", L["bgs"][0][1] if L["bgs"][0][0] != "charcoal" else L["accent"])
         has_text = any(o.get("type") == "text" and o.get("role") != "caption" and o.get("space") == "screen" for o in self.objs)
         region = p.pop("region", "main" if has_text else "center")   # cảnh không có tiêu đề → MG căn GIỮA khung (không lệch một bên)
         sc = dict(id=K.uid("mg"), kind=kind, start=0, end=0, bg=p.pop("bg", "none"), **p)
+        if K.look:                                       # phong cách kênh: CSS đè khung thẻ / font / màu chữ của MG
+            from . import looks as LK
+            sc["_skin"] = LK.skin_css(K.look)
+            L = LK.LOOKS[K.look]
+            if L.get("pack"):                            # bộ chuyển động riêng của kênh (thagent/packs.py)
+                sc["_pack"] = L["pack"]
+                sc["_pal"] = {"ink": L.get("ink_text", "#111111"), "acc": L["accent"], "acc2": L["alt"], "paper": L["bgs"][0][1], **(L.get("pal") or {})}
+                sc["_onmedia"] = any(o.get("role") == "backdrop" for o in self.objs)
+            if LK.LOOKS[K.look].get("light"):
+                sc["light"] = True
         if sc["bg"] == "none" and region:
             if region == "center":
                 cap_top = K.zone("caption")[1]        # chừa dải phụ đề phía dưới
@@ -771,7 +836,10 @@ class Scene:
             else:
                 sc["box"] = list(K.zone(region))       # căn + co cả cụm vào vùng minh hoạ của khung (không đè tiêu đề / phụ đề)
         D = round(t1 - t0, 3)
+        ics = [str(it.get("icon")) for it in (p.get("items") or []) if isinstance(it, dict) and it.get("icon")]
+        ics += [str(x) for x in (p.get("icons") or []) if isinstance(x, str)]
         oid = self.add({"type": "hf", "kind": kind, "full": kind in FX.FULL, "space": "screen", "layer": -20,   # trên nền b-roll (-40), dưới chữ
+                        "_icons": ics,
                         "spec": {"layers": [M.layer(sc, K.W, K.H, D)]},
                         "beats": M.beats(sc, D)}, t0, style="fade", d=0.01)
         self.hide(oid, t1, "fade", 0.01)

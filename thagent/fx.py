@@ -95,10 +95,12 @@ def _fit(text, size, width_px, k=0.66):
     return min(size, width_px / (n * k))
 
 
-def _bg(tone, kind="tech"):
+def _bg(tone, kind="tech", base=None, glow=None):
     a = ACC[tone]
-    return f"""<div class=fxbg style="position:absolute;inset:-3%;background:radial-gradient(60% 40% at 50% 42%,{a[0]}33 0%,transparent 70%),
-radial-gradient(130% 90% at 50% 50%,#0B1022 35%,#03050C 100%)"></div>
+    base = base or "#0B1022"                       # màu nền theo look của video (kit truyền vào), mặc định xanh đêm
+    glow = glow or a[0]
+    return f"""<div class=fxbg style="position:absolute;inset:-3%;background:radial-gradient(60% 40% at 50% 42%,{glow}40 0%,transparent 70%),
+radial-gradient(130% 90% at 50% 50%,{base} 35%,#030406 100%)"></div>
 <div class=fxgrid style="position:absolute;inset:0;opacity:.35;background-image:linear-gradient(rgba(120,170,255,.10) 1px,transparent 1px),
 linear-gradient(90deg,rgba(120,170,255,.10) 1px,transparent 1px);background-size:{_px(60)} {_px(60)};
 -webkit-mask-image:radial-gradient(70% 55% at 50% 45%,#000 30%,transparent 80%)"></div>"""
@@ -119,7 +121,7 @@ CSS = """
 def _wrap(sc, inner, tone):
     a = ACC[tone]
     return (f'<style>{CSS}</style><div class=fxroot style="--a:{a[0]};--a2:{a[1]};--a3:{a[2]}">'
-            + _bg(tone) + inner + "</div>")
+            + _bg(tone, base=sc.get("_base"), glow=sc.get("_glow")) + inner + "</div>")
 
 
 # ------------------------------------------------------------------ mapdraw
@@ -516,10 +518,10 @@ def _t_pipeline(sc, V, tone):
     a = ACC[tone]
     I, M, O = sc.get("input") or {}, sc.get("engine") or {}, sc.get("output") or {}
     if V:
-        nodes = [(W / 2, H * 0.18), (W / 2, H * 0.41), (W / 2, H * 0.63)]
+        nodes = [(W / 2, H * 0.15), (W / 2, H * 0.37), (W / 2, H * 0.59)]   # chừa chỗ nhãn dưới mỗi nút + dải phụ đề
     else:
         nodes = [(W * 0.18, H * 0.48), (W * 0.5, H * 0.48), (W * 0.82, H * 0.48)]
-    R = (165 if V else 175) * S
+    R = (130 if V else 175) * S
 
     def node(i, it, x, y, eng=False):
         r = R * (1.25 if eng else 1)
@@ -529,11 +531,14 @@ def _t_pipeline(sc, V, tone):
             ring = "".join(f'<div class="sw sw{k}" style="position:absolute;inset:0;border-radius:50%;border:{_px(4)} solid {a[1]};opacity:0"></div>' for k in range(3))
         elif it.get("image"):
             body = f'<div style="width:100%;height:100%;border-radius:50%;background:url({_img(it["image"])}) center/cover"></div>'
-        else:
-            nm = it.get("logo") or it.get("icon") or "ui:sparkles"
+        elif it.get("logo") or it.get("icon"):
+            nm = it.get("logo") or it.get("icon")
             src = _icon(nm, tone)
             sz = "62%" if str(nm).startswith("ui:") else "70%"
             body = f'<img src="{src}" class=gl style="width:{sz};height:{sz};object-fit:contain">'
+        else:                                             # không có icon đúng nghĩa → số thứ tự bước (không lặp một icon chung)
+            body = (f'<div class=gl style="font-weight:900;font-size:{_px(r * 0.95)};line-height:1;color:#fff;'
+                    f'text-shadow:0 0 {_px(18)} {a[0]}">{i + 1}</div>')
         # viền gradient xoay (conic) + lõi kính tối
         spin = (f'<div class="cr cr{i}" style="position:absolute;inset:0;border-radius:50%;'
                 f'background:conic-gradient(from 0deg,{a[0]},{a[1]},transparent 40%,{a[2]},{a[0]})"></div>')
@@ -600,7 +605,7 @@ def _t_kinetic(sc, V, tone):
         if isinstance(ln, str):
             ln = {"text": ln}
         lines.append(dict(ln, at=float(ln.get("at", 0.1 + i * 0.7))))
-    avail = (W * (0.72 if V else 0.80)) / S             # khối chữ gọn ~70% bề ngang, không tràn mép (chữ quá to khó đọc liền)
+    avail = (W * (0.84 if V else 0.80)) / S             # khối chữ phủ ~85% bề ngang (chữ động toàn khung phải TO, không lọt thỏm)
     rows, sizes = "", []
     NB = "\u00a0"
     for i, ln in enumerate(lines):
@@ -612,7 +617,7 @@ def _t_kinetic(sc, V, tone):
         if len(txt) > (13 if V else 20) and len(ws_) > 1:         # dòng dài → 2 hàng cân nhau
             best = min(range(1, len(ws_)), key=lambda j: abs(len(" ".join(ws_[:j])) - len(" ".join(ws_[j:]))))
             txt = " ".join(ws_[:best]) + "\n" + " ".join(ws_[best:])
-        size = _fit(txt.replace(NB, " "), ln.get("size") or (128 if V else 116), avail, 0.84)
+        size = _fit(txt.replace(NB, " "), ln.get("size") or (172 if V else 132), avail, 0.80)
         words = ""
         for w in txt.replace("\n", " \n ").split(" "):
             if w == "\n":
@@ -645,7 +650,7 @@ let acc=0;const ys=hs.map(h=>{{acc+=h;return (tot-acc)/2;}});
 tl.set(q('.stk'),{{y:ys[0]||0}},0).fromTo(q('.bk'),{{x:0}},{{x:{-900*S:.0f},duration:{D},ease:'none'}},0);
 L.forEach((e,i)=>{{const t=AT[i];
  if(i>0)tl.to(q('.stk'),{{y:ys[i],duration:.45,ease:'power3.out'}},t);
- tl.from(e.querySelectorAll('.w'),{{scale:1.5,opacity:0,filter:'blur(10px)',y:-24,duration:.38,stagger:.06,ease:'expo.out'}},t);
+ tl.from(e.querySelectorAll('.w'),{{scale:1.12,opacity:0,filter:'blur(8px)',y:30,duration:.36,stagger:.06,ease:'expo.out'}},t);
  const hb=e.querySelectorAll('.hb');if(hb.length)tl.from(hb,{{scaleX:0,duration:.35,ease:'power3.out'}},t+.25);
  tl.fromTo(q('.fl'),{{opacity:.9,scale:.6}},{{opacity:0,scale:1.4,duration:.6,ease:'power2.out'}},t)
    .fromTo(q('.stk'),{{scale:1.04}},{{scale:1,duration:.3,ease:'power2.out'}},t+.05);

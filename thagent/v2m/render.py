@@ -292,7 +292,7 @@ def scene_at(tl: Timeline, t: float) -> int:
     return idx
 
 
-BG_STYLES = {"gradient", "charcoal", "dots", "spot", "cream"}
+BG_STYLES = {"gradient", "charcoal", "dots", "spot", "cream", "solid", "diag", "paper"}
 
 
 @lru_cache(maxsize=16)
@@ -315,7 +315,7 @@ def _bg_style(W, H, style, c1, c2) -> np.ndarray:
     vig = lambda k: (1 - k * np.clip(np.hypot((xx - W / 2) / W, (yy - H / 2) / H) * 1.6, 0, 1) ** 2)[..., None]
     m = min(W, H)
     if style == "gradient":
-        bg = rgb(c2 or "#0E1424") + blob(W * 0.2, H * 0.2, m * 0.65, c1 or "#2B3F8F", 0.7) + blob(W * 0.85, H * 0.8, m * 0.75, "#6B3A8F", 0.5)
+        bg = rgb(c2 or "#0E1424") + blob(W * 0.2, H * 0.2, m * 0.65, c1 or "#2B3F8F", 0.7) + blob(W * 0.85, H * 0.8, m * 0.75, c1 or "#6B3A8F", 0.35)
     elif style == "charcoal":
         bg = (rgb("#161618") + blob(W / 2, H * 0.15, m * 0.55, c1 or "#FFB000", 0.12)) * vig(0.6)
     elif style == "dots":
@@ -327,9 +327,19 @@ def _bg_style(W, H, style, c1, c2) -> np.ndarray:
         bg = bg * vig(0.4)
     elif style == "spot":
         bg = (rgb(c2 or "#1A0F2E") + blob(W / 2, H * 0.46, m * 0.48, c1 or "#7B4BFF", 0.55)) * vig(0.5)
+    elif style == "solid":                               # phẳng một màu (phong cách Bản tin)
+        bg = np.broadcast_to(rgb(c1 or "#101826"), (H, W, 3)).copy()
+    elif style == "diag":                                # khối màu cắt chéo (phong cách Pop)
+        bg = np.broadcast_to(rgb(c1 or "#FFC83D"), (H, W, 3)).copy()
+        band = ((yy - H * 0.62 + (xx - W / 2) * 0.42) > 0).astype(np.float32)[..., None]
+        bg = bg * (1 - band) + rgb(c2 or "#FF8A1F") * band
+    elif style == "paper":                               # giấy báo: màu giấy + đường kẻ mảnh
+        bg = np.broadcast_to(rgb(c1 or "#F3ECE0"), (H, W, 3)).copy()
+        rule = ((yy % 64) < 1.5).astype(np.float32)[..., None] * 0.05
+        bg = bg - rule
     else:   # cream
         bg = rgb(c1 or "#F4EDE2") + blob(W * 0.7, H * 0.15, m * 0.8, "#FFFFFF", 0.35)
-    if style != "cream":
+    if style not in ("cream", "solid", "diag", "paper"):
         rng = np.random.default_rng(7)
         bg = bg + rng.normal(0, 0.03, (H, W, 1)).astype(np.float32)          # hạt grain nhẹ
     return np.clip(bg, 0, 1).astype(np.float32)

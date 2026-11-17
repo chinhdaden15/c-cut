@@ -234,6 +234,8 @@ def _t_money(sc, V, tone):
 <div class=card style="left:calc(50% - 420px*var(--s));top:calc(50% + 70px*var(--s));width:{_px(840)};height:{_px(190)}">
 <div style="position:absolute;left:{_px(46)};top:{_px(36)};font-weight:800;font-size:{_px(fit(sc.get('title'), 54, 20 if sc.get('badge') else 26))};white-space:nowrap">{E(sc.get('title', ''))}</div>
 <div class=sub style="position:absolute;left:{_px(46)};top:{_px(108)};font-size:{_px(36)}">{E(sc.get('sub', ''))}</div>{badge}<div class=sweep></div></div>"""
+    if not (sc.get("title") or sc.get("sub") or sc.get("badge")):      # không có chữ → bỏ thẻ trống (trước đây hiện ô rỗng)
+        html = html.split("\n<div class=card")[0]
     h = max(hit_at(sc, 1.55), 0.8)                      # số giữ value_from tới khi người nói chuyển sang số cuối, chạm đúng lúc nói
     dur = min(1.0, h - 0.5)
     if not vf:                                          # bắt đầu từ 0: chạy ngay từ đầu cảnh (không đứng “0,0 tỷ” mấy giây vô nghĩa)
@@ -387,9 +389,9 @@ def _t_compare(sc, V, tone):
         left = f"calc(50% + {(-cw - gap/2) if i == 0 else gap/2}px*var(--s))"
         out += f"""<div class="card k{i}" style="left:{left};top:calc(50% - {ch/2}px*var(--s));width:{_px(cw)};height:{_px(ch)};text-align:center">
 <div style="margin-top:{_px(60)};display:inline-block;padding:{_px(10)} {_px(30)};border-radius:999px;font-weight:900;font-size:{_px(40)};background:{bgc}">{E(it.get('label', 'TRƯỚC' if i == 0 else 'SAU'))}</div>
-<div class="t1 {col}" style="margin-top:{_px(70)};font-size:{_px(fit(it.get('value'), 104, 5 if V else 7))};white-space:nowrap">{E(it.get('value'))}</div><div class=sub style="margin-top:{_px(30)};font-size:{_px(40)}">{E(it.get('sub', ''))}</div></div>"""
-    out += f"""<div class=ar style="position:absolute;left:calc(50% - 50px*var(--s));top:calc(50% - 50px*var(--s));width:{_px(100)};height:{_px(100)};border-radius:50%;background:#FFB000;color:#000;
-font-weight:900;font-size:{_px(64)};display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(255,176,0,.6)">→</div>"""
+<div class="t1 {col}" style="margin-top:{_px(70)};font-size:{_px(min(104, (cw - 56) / (max(1, len(str(it.get('value') or ''))) * 0.66)))};white-space:nowrap">{E(it.get('value'))}</div><div class=sub style="margin-top:{_px(30)};font-size:{_px(40)}">{E(it.get('sub', ''))}</div></div>"""
+    out += f"""<div class=ar style="position:absolute;left:calc(50% - 50px*var(--s));top:calc(50% - 50px*var(--s));width:{_px(100)};height:{_px(100)};border-radius:50%;background:{TONES[tone][1]};color:#000;
+font-weight:900;font-size:{_px(64)};display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px {TONES[tone][1]}99">→</div>"""
     js = """tl.from(q('.k0'),{x:-200,opacity:0,duration:.5,ease:'back.out(1.5)'},.05).from(q('.ar'),{scale:0,duration:.4,ease:'back.out(2.5)'},.45)
 .from(q('.k1'),{x:200,opacity:0,duration:.5,ease:'back.out(1.5)'},.7)"""
     return out, js
@@ -521,6 +523,9 @@ def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dic
                 "w": W, "h": H, "fit": "cover", "in": float(sc.get("in", 0)), "z": 5}
     if sc.get("at"):
         sc = dict(sc, at=at_seconds(sc, fps))
+    from . import packs as PK
+    if PK.has(sc.get("_pack"), sc.get("kind")):        # phong cách kênh có bộ chuyển động riêng cho kind này
+        return PK.layer(sc["_pack"], sc, W, H, D, sc["_pal"])
     V = H > W
     tone = sc.get("tone") if sc.get("tone") in TONES else "gold"
     from . import fx as FX
@@ -546,7 +551,7 @@ def layer(sc: dict, W: int, H: int, D: float, face=None, fps: float = 30) -> dic
     bg = bg_of(sc)
     bgcss = _bgcss(bg, sc.get("colors"))
     light = " light" if bg == "cream" or sc.get("light") else ""
-    root = (f'<div class="root{light}" style="--s:{min(W, H) / 1080}">'
+    root = (sc.get("_skin") or "") + (f'<div class="root{light}" style="--s:{min(W, H) / 1080}">'
             + (f'<div class=bg style="{bgcss}"></div>' if bgcss else "")
             + ('<div class=grain></div><div class=vig></div>' if bgcss and bg != "cream" else "")
             + f'<div class=content style="position:absolute;inset:0">{html}</div></div>')

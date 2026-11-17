@@ -80,6 +80,14 @@ không 3 cảnh liền cùng kiểu, không một nền suốt video, thẻ kế
 - **Nhấn nhá mỗi ý chính:** chữ khoá to bật vào đúng lúc nói (`s.keyword` / `s.title(... size="xl")`) + `s.pulse`, ~4s một lần;
   con số → `s.mg("money"|"chart"…)` hoặc `s.stat`; chuyển cảnh có SFX. Nền đổi theo đoạn ý (2 màu chủ đạo, gradient/bokeh/
   ảnh mờ từ b-roll), không giữ một nền phẳng suốt video.
+- **Bộ màu (look) do APP chọn cho mỗi video** (Đêm vàng, Đại dương, Hoàng hôn, Than cam, Chàm tím, Lục bảo — khác các video gần nhất,
+  ghi ở `look.json`): màu nền, màu nhấn, phụ đề, tông MG đều theo look. KHÔNG tự đặt mã màu nền / `tone` — chỉ chọn kiểu nền
+  (`bg={"style": "gradient"|"spot"|"dots"|"charcoal"}`), app tô màu theo look. Cần giữ màu riêng (nền sáng) → `{"style": "cream"}`.
+- **Đa dạng mẫu MG (check báo LỖI):** một mẫu ≤ 25% số cảnh MG (chữ động `kinetic` ≤ 20%), video > 90s dùng ≥ 6 mẫu khác nhau,
+  không 2 cảnh liền cùng một mẫu. Mỗi video chọn bộ mẫu KHÁC video trước (đừng mặc định kinetic + money + chart + compare):
+  timeline, pipeline, doc, notif, photos, iconrow, chips, question, spring, headline, webpage, paper, mapdraw, devices, custom tự thiết kế.
+- **Icon:** mỗi icon đúng vật được nói, KHÔNG lặp cùng một icon chung (sparkles, star, check…) cho nhiều mục; icon phụ ≤ 160px,
+  không đè chữ / đè thẻ khác; thiếu icon đúng nghĩa thì bỏ icon, dùng chữ hoặc ảnh thật.
 - **Phụ đề:** app tự vẽ kiểu mạng xã hội (cụm 4–6 từ, chữ đậm viền, từ đang đọc đổi màu nhấn); cụm cũ tắt hẳn rồi cụm mới vào;
   cảnh có chữ nhấn trùng lời → `s.captions = False`.
 - **App / sản phẩm của chính người làm video** (C-Cut, thương hiệu kênh): khi nói tới cài / dùng / tải app → hiện ĐÚNG icon / logo thật
@@ -87,6 +95,7 @@ không 3 cảnh liền cùng kiểu, không một nền suốt video, thẻ kế
 - **Số tiền:** viết gọn — “một trăm chín mươi chín nghìn đồng” → `199K` (unit="K"), triệu → `M` hoặc “triệu”, tỷ → “tỷ”; tiền ngoại giữ ký hiệu như lời ($, €). Cả cụm một dòng (app tự co chữ).
 
 ## 5d. Ý tưởng theo lời (từ 11/2026)
+Cảnh GÕ CHỮ (prompt, ô nhập, kịch bản đang gõ) → dùng `s.mg("prompt", text=…, at=[…])`, KHÔNG tự viết custom. Buộc phải custom thì: ký tự chưa gõ để `display:none` (không dùng opacity:0 — chữ ẩn vẫn chiếm chỗ làm con trỏ nhảy xuống cuối trang), con trỏ đứng ngay sau ký tự vừa gõ, ô chữ tự cao theo nội dung, chữ gõ xong trước khi cảnh hết ≥0,8s.
 Cảnh `s.mg("custom")` để `region="main"` (mặc định) — một html dùng cho cả 9:16 lẫn 16:9; mốc trong js tính từ t0 của chính lớp đó.
 Câu khẳng định trừu tượng, con số, thời gian, so sánh, danh sách → ưu tiên MỘT VẬT ẨN DỤ có 3–5 nhịp đổi neo theo từ (`s.mg("custom")`),
 

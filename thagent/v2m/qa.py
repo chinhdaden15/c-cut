@@ -404,6 +404,33 @@ def engagement(tl) -> list[tuple[str, str]]:
         if run == 3:
             out.append(("error", f"3 cảnh liền ({b} và 2 cảnh trước) cùng một kiểu hình {list(kb)} — đổi kiểu: b-roll phủ khung, số lớn, "
                                  "mg (chart/money/compare/checklist…), chữ động toàn khung, ảnh thật"))
+    # 3b) đa dạng Motion Graphics: không để vài mẫu quen (chữ động / số tiền / biểu đồ / so sánh) phủ cả video
+    mgk = []
+    for sc in tl.scenes:
+        ks = [o.get("kind", "") for o in objs if o.get("_scene") == sc["id"] and o["type"] == "hf"]
+        mgk.append((sc["id"], ks[0] if ks else None))
+    used = [k for _, k in mgk if k]
+    if len(used) >= 8:
+        from collections import Counter
+        cnt = Counter(used)
+        for k, n in cnt.most_common():
+            cap = 0.2 if k == "kinetic" else 0.25
+            if n > max(3, cap * len(used) + 0.5):
+                out.append(("error", f"mẫu MG “{k}” dùng {n}/{len(used)} cảnh MG (> {cap:.0%}) — video lặp một kiểu; đổi bớt sang mẫu khác "
+                                     "đúng lời (map/mapdraw, timeline, pipeline, devices, doc, notif, photos, iconrow, chips, question, "
+                                     "spring, headline, webpage, paper, brand, custom tự thiết kế) hoặc b-roll phủ khung"))
+        need_k = 6 if tl.duration > 90 else 4
+        if len(cnt) < need_k:
+            out.append(("error", f"cả video chỉ dùng {len(cnt)} mẫu MG ({', '.join(cnt)}) — cần ≥ {need_k} mẫu khác nhau để không nhàm"))
+    for o in objs:                                       # cùng một icon cho nhiều mục trong một cảnh MG → nhìn rập khuôn
+        ics = [i for i in (o.get("_icons") or []) if i]
+        dup = sorted({i for i in ics if ics.count(i) > 1})
+        if o["type"] == "hf" and dup:
+            out.append(("error", f"{o.get('_scene', o['id'])}: mẫu MG “{o.get('kind')}” dùng lặp icon {', '.join(dup)} cho nhiều mục — "
+                                 "mỗi mục một icon đúng vật được nói (tra: python -m thagent.tools icon3d <từ khoá>), không có thì bỏ icon"))
+    for (a, ka), (b, kb) in zip(mgk, mgk[1:]):
+        if ka and ka == kb:
+            out.append(("error", f"{a} và {b} liền nhau cùng mẫu MG “{ka}” — xen cảnh khác kiểu (b-roll, mẫu MG khác) giữa hai cảnh"))
     # 4) một nền suốt video (không đổi màu/kiểu, không có hình phủ khung)
     if tl.duration > 15:
         bgs = {s for _, _, s in sigs}

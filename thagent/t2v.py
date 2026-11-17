@@ -238,15 +238,30 @@ def _align(script_words: list[str], asr: list[tuple[str, float, float]]) -> tupl
     """mốc thời gian cho từng từ KỊCH BẢN theo bản chép lời; trả (mốc, tỷ lệ khớp).
     Whisper chép số bằng chữ số (“42%”, “2026”) còn kịch bản thường viết bằng chữ (“bốn mươi hai phần trăm”) → đổi số
     của Whisper ra chữ trước khi so; không thì câu nhiều số bị coi là đọc sai và bị đọc lại vô ích."""
-    asr = _asr_words(asr)
-    a = [_norm_word(w) for w in script_words]
-    b = [w for w, _, _ in asr]
+    from .vi_norm import spoken_words
+    # cả hai phía đổi ra LỜI ĐỌC (“1/11/2026”, “VAT”, “25.000đ”…) rồi mới so — đọc đúng thì không bị coi là sai
+    b_tok = []
+    for w, s0, e0 in asr:
+        ws = [_SAME.get(x, x) for x in spoken_words(w)] or [_norm_word(w)]
+        d = (e0 - s0) / len(ws)
+        b_tok += [(x, s0 + k * d, s0 + (k + 1) * d) for k, x in enumerate(ws)]
+    a, own = [], []
+    for i, w in enumerate(script_words):
+        ws = [_SAME.get(x, x) for x in spoken_words(w)] or [_norm_word(w)]
+        a += ws
+        own += [i] * len(ws)
+    b = [w for w, _, _ in b_tok]
     sm = difflib.SequenceMatcher(a=a, b=b, autojunk=False)
-    times: list = [None] * len(a)
+    hit = [None] * len(a)
     for blk in sm.get_matching_blocks():
         for k in range(blk.size):
-            times[blk.a + k] = asr[blk.b + k][1:]
-    ratio = sum(t is not None for t in times) / max(1, len(a))
+            hit[blk.a + k] = b_tok[blk.b + k][1:]
+    times: list = [None] * len(script_words)
+    for j, t in enumerate(hit):
+        if t:
+            i = own[j]
+            times[i] = (min(times[i][0], t[0]), max(times[i][1], t[1])) if times[i] else t
+    ratio = sum(t is not None for t in hit) / max(1, len(a))
     return times, ratio
 
 
@@ -329,7 +344,8 @@ def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print)
 
     def synth(i):
         f = work / f"s{i:03d}.wav"
-        V.say(sents[i]["text"], voice_id, f, 1.0)
+        from .vi_norm import tts_text
+        V.say(tts_text(sents[i]["text"]), voice_id, f, 1.0)   # số / ký hiệu / viết tắt / tên hãng → chữ đọc (phụ đề giữ chữ gốc)
         return f
 
     files = [None] * len(sents)

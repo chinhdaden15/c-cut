@@ -75,6 +75,12 @@ def use_project(pdir) -> str:
     except Exception:
         fid = ""
     fp = font_path(fid)
+    if not fp:                                 # Text to Video / Voice to Motion: font chữ nhấn theo phong cách kênh (look.json)
+        try:
+            from .v2m import looks as LK
+            fp = LK.font_file(json.loads((Path(pdir) / "look.json").read_text(encoding="utf-8")).get("look"))
+        except Exception:
+            fp = None
     if fp:
         os.environ["CCUT_FONT"] = str(fp)
     else:

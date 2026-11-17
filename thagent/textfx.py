@@ -138,7 +138,8 @@ class _B:
             ids.append(wid)
             html += f'<span class="kt-m"><span class="kt-mi {wid}">{_e(clean)}</span></span>'
             t = times[i] if i < len(times) else times[-1] + 0.07 * (i - len(times) + 1)
-            self.js.append(f"gsap.set(q('.{wid}'),{{yPercent:118,rotation:5}});ft('.{wid}',{{yPercent:118,rotation:5}},{{yPercent:0,rotation:0,duration:{rise},ease:OUT}},{_r(t - lead)});")
+            t = min(t, times[0] + 0.07 * i)        # cả dòng lộ trong ~0,5s (đọc chậm không kéo chữ trồi lề mề từng từ)
+            self.js.append(f"gsap.set(q('.{wid}'),{{yPercent:118,rotation:5}});ft('.{wid}',{{yPercent:118,rotation:5}},{{yPercent:0,rotation:0,duration:{min(rise, 0.45)},ease:OUT}},{_r(t - lead)});")
             if in_mark:
                 mark_t = t
             if cl and in_mark:
