@@ -80,6 +80,7 @@ số liệu giữ đủ lâu để đọc 2 lần. Luật cắt / âm / phụ đ
 Đọc `references/style-and-motion.md` trước khi dựng. Đọc `references/timeline-and-qa.md` khi lập timeline, kiểm tra hoặc sửa video. Đọc `references/real-estate-assets.md` nếu nội dung liên quan dự án, địa điểm, bản đồ, mặt bằng hay số liệu. Dùng `references/test-script.md` chỉ khi người dùng yêu cầu bài thử; không thay thế voice thật bằng kịch bản mẫu. Khi được yêu cầu xây app thực thi skill, đọc thêm `references/app-contract.md`.
 
 
+**Nói tới huyện / xã / phường / khu vực / dự án → ZOOM VÀO + KHOANH VÙNG** (bản đồ cả nước/tỉnh chỉ thoáng qua ≤1,5s): `python -m thagent.v2m area {pdir} "<tên vùng>, <tỉnh>" <tên>` (ranh giới OSM, hoặc tự khoanh "lon,lat;lon,lat;…") → `s.street_map(...)`, `s.look(...)`, `s.area("assets_web/area_<tên>.geojson", t, label="Tên")`.
 **Địa danh / vị trí / kết nối → BẢN ĐỒ ĐƯỜNG PHỐ THẬT, không icon** (học từ map-route-video, MIT): nhắc khu vực, phường, nút giao,
 "gần X", "cách Y bao nhiêu phút" → `python -m thagent.v2m geocode "<tên>"` (toạ độ OSM, KHÔNG tự nhớ toạ độ) →
 `python -m thagent.v2m osrm {pdir} <lon,lat> <lon,lat> <tên>` (tuyến + km + phút THẬT) → `python -m thagent.v2m streetmap {pdir}

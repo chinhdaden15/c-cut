@@ -372,3 +372,33 @@ def _box(coords, pad=0.15):
     xs, ys = [c[0] for c in coords], [c[1] for c in coords]
     dx, dy = (max(xs) - min(xs)) * pad + 0.002, (max(ys) - min(ys)) * pad + 0.002
     return [round(min(xs) - dx, 5), round(min(ys) - dy, 5), round(max(xs) + dx, 5), round(max(ys) + dy, 5)]
+
+
+def area(pdir, q: str, name="vung") -> dict:
+    """ranh giới VÙNG thật (phường/xã/huyện/khu dân cư/khu đất dự án đã có trên OSM) qua Nominatim, hoặc tự khoanh:
+    q = "lon,lat;lon,lat;lon,lat;…" (≥3 điểm, theo mặt bằng chủ đầu tư / các tuyến đường bao quanh).
+    → assets_web/area_<tên>.geojson (Polygon/MultiPolygon, ISO_A3 = "AREA") + khung camera + khung bản đồ gợi ý."""
+    if ";" in q:
+        ring = [[float(v) for v in p.split(",")] for p in q.split(";") if p.strip()]
+        if len(ring) < 3:
+            raise SystemExit("cần ≥3 điểm lon,lat")
+        geom, label = {"type": "Polygon", "coordinates": [ring + [ring[0]]]}, name
+    else:
+        time.sleep(1.2)
+        url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode(
+            {"q": q, "format": "jsonv2", "polygon_geojson": 1, "polygon_threshold": 0.00005, "limit": 5, "countrycodes": "vn"})
+        hits = [h for h in json.loads(_get(url)) if (h.get("geojson") or {}).get("type") in ("Polygon", "MultiPolygon")]
+        if not hits:
+            raise SystemExit(f"OSM chưa có ranh giới vùng cho “{q}” → tự khoanh: area <dự-án> \"lon,lat;lon,lat;…\" <tên> "
+                             "(theo mặt bằng chủ đầu tư / các tuyến đường bao quanh; toạ độ lấy bằng geocode)")
+        geom, label = hits[0]["geojson"], hits[0].get("display_name", q)
+    polys = [geom["coordinates"]] if geom["type"] == "Polygon" else geom["coordinates"]
+    pts = [c for poly in polys for c in poly[0]]
+    gj = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {
+        "ISO_A3": "AREA", "name": name, "osm": label, "nguon": "© OpenStreetMap contributors"}, "geometry": geom}]}
+    out = Path(pdir) / "assets_web" / f"area_{name}.geojson"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(gj), encoding="utf-8")
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    c = [round(sum(xs) / len(xs), 6), round(sum(ys) / len(ys), 6)]
+    return {"file": str(out), "label": label, "center": c, "box": _box(pts, 0.25), "map": _box(pts, 1.2)}

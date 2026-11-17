@@ -41,6 +41,13 @@ trạm sạc, người ngoái nhìn), mỗi câu một clip; KHÔNG đặt clip 
 sub="~6,1 km · ~9 phút (ước tính)")`, `s.route("assets_web/route_<tên>.geojson", "<tên>", t, d=2)`. Camera: khu vực → dự án → vẽ tuyến
 tới điểm đến đúng lúc nói. Thời gian luôn ghi "ước tính", nguồn bản đồ tự hiện. Ảnh mặt bằng / bản đồ vị trí của chủ đầu tư vẫn dùng được.
 CẤM: hàng icon (pin / cây cầu / con đường) thay cho địa danh; ảnh vệ tinh ghép từ dịch vụ khác.
+**Nói tới huyện / xã / phường / khu vực / dự án → PHẢI ZOOM VÀO KHU VỰC và KHOANH VÙNG**, không dừng ở bản đồ cả nước/tỉnh với một
+chấm ghim. Bản đồ cả nước/tỉnh chỉ được thoáng qua ≤1,5s (establish) rồi camera lao vào bản đồ đường phố. Cách làm:
+`python -m thagent.v2m area {pdir} "<tên vùng>, <tỉnh/thành>" <tên>` (ranh giới thật OSM; app in luôn khung camera + lệnh streetmap) —
+OSM chưa có vùng (khu đất dự án) → tự khoanh `area {pdir} "lon,lat;lon,lat;…" <tên>` theo mặt bằng chủ đầu tư / các tuyến đường bao
+quanh (toạ độ từ geocode, không tự nhớ). Trong cảnh: `s.street_map(...)`, `s.look(khung khu vực, t0)` → `s.look(khung vùng, t)`,
+`s.area("assets_web/area_<tên>.geojson", t, label="Tên", sub="…")` (viền vẽ dần → tô mờ → ngoài vùng tối đi), thêm `s.callout` cho
+tiện ích quanh đó / `s.route` tới điểm mốc khi lời nhắc.
 **Chữ nhấn (keyword) KHÔNG đè ảnh / bản đồ:** app tự dời viên chữ lên trên / xuống dưới ảnh; đừng đặt ry vào giữa ảnh.
 Ảnh đã nói đủ thì bỏ chữ nhấn. **Icon tiền = XẤP TIỀN** (`3d:f-dollar-banknote`), không bao giờ túi tiền (app tự đổi).
 **Chữ động (kinetic) đọc thành MỘT câu:** 2–3 dòng nối nhau đúng thứ tự lời (vd "LƯU VIDEO / THEO DÕI KÊNH"), mỗi dòng ≤ 3 từ,

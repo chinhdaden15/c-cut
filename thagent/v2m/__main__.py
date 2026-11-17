@@ -6,6 +6,7 @@
   python -m thagent.v2m broll  <dự-án> <url|mixkit:mã> v_ten.mp4 [nguồn]  tải video b-roll (Mixkit, Pexels, Pinterest, link .mp4)
   python -m thagent.v2m geocode "<địa điểm>"                  toạ độ thật (Photon / OSM)
   python -m thagent.v2m osrm <dự-án> <lon,lat> <lon,lat> <tên>  tuyến đường thật + km + phút (OSRM) → assets_web/route_<tên>.geojson
+  python -m thagent.v2m area <dự-án> "<tên vùng>"|"lon,lat;…" <tên>   ranh giới vùng/khu dự án thật (OSM) → s.area(...)
   python -m thagent.v2m streetmap <dự-án> <lon0,lat0,lon1,lat1> [dark|light] [tên]   nền bản đồ ĐƯỜNG PHỐ thật → K.street_map(...)
   python -m thagent.v2m mapclip <dự-án> "<điểm đi>" "<điểm đến>" [giây] [9x16|16x9] [dark|light] [tên]
                                                                  clip bản đồ dựng sẵn → assets_web/v_map_<tên>.mp4 (TH / Review chèn như b-roll)
@@ -597,6 +598,16 @@ def osrm(pdir, a, b, name="tuyen"):
           f"khung camera gợi ý: {r['box']}\n→ s.route(\"assets_web/route_{name}.geojson\", \"{name}\", t, d=…)")
 
 
+def area(pdir, q, name="vung"):
+    """area <dự-án> "<tên vùng>"|"lon,lat;lon,lat;…" <tên> — ranh giới vùng thật (OSM) hoặc tự khoanh → assets_web/area_<tên>.geojson."""
+    from . import streetmap as SM
+    r = SM.area(pdir, q, name)
+    b = ",".join(map(str, r["map"]))
+    print(f"{r['file']}\nOSM: {r['label']}\ntâm: {r['center'][0]},{r['center'][1]}\nkhung camera (s.look): {r['box']}\n"
+          f"nền bản đồ: python -m thagent.v2m streetmap <dự-án> {b} dark {name}\n"
+          f"→ s.street_map(\"assets_web/map_{name}.png\"); s.look(...); s.area(\"assets_web/area_{name}.geojson\", t, label=\"Tên\")")
+
+
 def streetmap(pdir, bbox, style="dark", name="khuvuc"):
     """streetmap <dự-án> <lon0,lat0,lon1,lat1> [dark|light] [tên] — nền bản đồ đường phố thật (OpenFreeMap)."""
     from . import streetmap as SM
@@ -609,7 +620,7 @@ def mapclip(pdir, a, b, dur="6", fmt="9x16", style="dark", name="tuyen"):
     MC(pdir, a, b, float(dur), fmt, style, name)
 
 
-CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "_scan_part": Q.scan_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "streetmap": streetmap, "mapclip": mapclip}
+CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "_scan_part": Q.scan_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "area": area, "streetmap": streetmap, "mapclip": mapclip}
 
 
 def main():
