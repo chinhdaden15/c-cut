@@ -48,7 +48,7 @@ CSS = """
 .kt-m{display:inline-block;overflow:hidden;vertical-align:bottom;padding:.28em .16em .22em;margin:-.28em -.16em -.22em}
 .kt-mi{display:inline-block;transform-origin:0% 100%}
 .kt-mk{position:relative;display:inline-block;isolation:isolate}
-.kt-mkw{position:absolute;pointer-events:none;z-index:-1}.kt-mkw svg{display:block;width:100%;height:100%;overflow:visible}
+.kt-mkw{position:absolute;pointer-events:none;z-index:-1;clip-path:inset(-60% 100% -60% 0%)}.kt-mkw svg{display:block;width:100%;height:100%;overflow:visible}
 .kt-mk.pill{margin:0 .1em}.kt-mk.pill .kt-mkw{left:-.18em;right:-.18em;top:-.16em;bottom:-.12em;border-radius:.24em;
  background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 .08em .3em rgba(0,0,0,.35)}
 .kt-mk{white-space:nowrap}
@@ -183,6 +183,9 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
         mark = {"marker": "pill"}.get(sc.get("mark"), sc.get("mark")) or ("pill" if any("*" in l for l in lines) else None)
         n_tok = sum(len(l.split()) for l in lines)
         times = _times(n_tok, sc.get("at"))
+        if times:      # cả khối (mọi dòng) lộ trong ~0,6s từ từ đầu, và xong trước khi chuyển cảnh ≥0,8s
+            t0 = min(times[0], max(0.05, D - 0.8 - 0.07 * n_tok - 0.45))
+            times = [_r(min(t, t0 + 0.07 * i)) for i, t in enumerate(times)]
         main_start = times[0] if times else 0.25
         swap_html, ids_all = "", []
         if sc.get("swap"):
@@ -210,7 +213,7 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
             html += h_
             j += n
         if mk_main and last_mark is not None:
-            ma = _r(last_mark + 0.32)
+            ma = _r(last_mark + 0.45)       # vệt nhấn quét SAU khi chữ của nó đã trồi xong
             B.wipe(mk_main, ma)
             if mark == "pill":                 # chữ trong viên: trắng tới lúc viên quét tới → đổi tối (không có lúc chữ tối trên kính tối)
                 B.js.append(f"qa('.kt-mk.pill .kt-mi').forEach(e=>tl.fromTo(e,{{color:'#FFFFFF',textShadow:'0 2px 10px rgba(0,0,0,.35)'}},"
