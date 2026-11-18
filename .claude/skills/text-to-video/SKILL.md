@@ -40,7 +40,13 @@ trạm sạc, người ngoái nhìn), mỗi câu một clip; KHÔNG đặt clip 
 <lon0,lat0,lon1,lat1> dark <tên>` → trong cảnh: `s.street_map("assets_web/map_<tên>.png")`, `s.look(box, t)`, `s.callout(lonlat, "Tên", t,
 sub="~6,1 km · ~9 phút (ước tính)")`, `s.route("assets_web/route_<tên>.geojson", "<tên>", t, d=2)`. Camera: khu vực → dự án → vẽ tuyến
 tới điểm đến đúng lúc nói. Thời gian luôn ghi "ước tính", nguồn bản đồ tự hiện. Ảnh mặt bằng / bản đồ vị trí của chủ đầu tư vẫn dùng được.
-CẤM: hàng icon (pin / cây cầu / con đường) thay cho địa danh; ảnh vệ tinh ghép từ dịch vụ khác.
+CẤM: hàng icon (pin / cây cầu / con đường) thay cho địa danh; ảnh vệ tinh tự ghép từ dịch vụ khác (vệ tinh Google CHỈ qua lệnh streetmap khi người dùng đã nhập Google Maps API key trong Cài đặt — app tự dùng, ghi nguồn © Google).
+**Nói tên nơi nào → khoanh ĐÚNG nơi đó** (`area` + `s.area`, ngoài vùng tối đi): nói TP.HCM → khoanh cả TP.HCM, nói Đồng Nai → khoanh
+Đồng Nai (tỉnh/thành dùng ranh giới đất liền có sẵn, app tự lấy). **Nói riêng một DỰ ÁN → khoanh đúng khu đất dự án** (`area {pdir}
+"<tên dự án>" <tên>`; OSM chưa có → tự khoanh "lon,lat;…" theo mặt bằng chủ đầu tư / các đường bao quanh), TUYỆT ĐỐI không khoanh cả
+xã/huyện/tỉnh thay cho dự án. **Đường đi (`s.route`) CHỈ khi lời nói về đi từ A tới B / cách bao xa / mất bao lâu**; nhắc hai nơi không
+nói chuyện đi lại → không vẽ đường (mapdraw: bỏ `routes`).
+**`mapdraw` CHỈ cho nhiều quốc gia / vùng rộng (>2,5°).** Địa điểm trong một tỉnh/thành (TP.HCM, Bình Dương, quận, xã, dự án) → bản đồ đường phố + `s.area` (app cũng tự đổi mapdraw có ghim gần nhau sang bản đồ đường phố).
 **Nói tới huyện / xã / phường / khu vực / dự án → PHẢI ZOOM VÀO KHU VỰC và KHOANH VÙNG**, không dừng ở bản đồ cả nước/tỉnh với một
 chấm ghim. Bản đồ cả nước/tỉnh chỉ được thoáng qua ≤1,5s (establish) rồi camera lao vào bản đồ đường phố. Cách làm:
 `python -m thagent.v2m area {pdir} "<tên vùng>, <tỉnh/thành>" <tên>` (ranh giới thật OSM; app in luôn khung camera + lệnh streetmap) —

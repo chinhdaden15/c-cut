@@ -18,6 +18,9 @@ from __future__ import annotations
 import json
 import math
 import time
+import os
+import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -209,7 +212,7 @@ def render(bbox, style="dark", px_w=2600, z=None) -> tuple[np.ndarray, list[tupl
     """bbox (lon0, lat0, lon1, lat1) → ảnh BGR + nhãn địa danh [(tên, px, py, cấp)]."""
     lon0, lat0, lon1, lat1 = bbox
     span = max(lon1 - lon0, 1e-4)
-    z = z or max(10, min(14, int(math.log2(360 / span * px_w / 512 / 1.5))))
+    z = z or max(7, min(14, int(math.log2(360 / span * px_w / 512 / 1.5))))   # cấp tỉnh/thành cũng vẽ được (z thấp)
     fx0, fy0 = _tile_xy(lon0, lat1, z)
     fx1, fy1 = _tile_xy(lon1, lat0, z)
     sc = px_w / (fx1 - fx0)                         # px / tile
@@ -310,20 +313,94 @@ def _portrait(bbox, ratio=2.1):
     return [lon0, round(lat(cy + need / 2), 6), lon1, round(lat(cy - need / 2), 6)]
 
 
+GCREDIT = "Ảnh vệ tinh / bản đồ © Google"
+
+
+def google_key() -> str:
+    """Google Maps API key người dùng nhập trong Cài đặt (Map Tiles API) — trống → dùng bản đồ OpenStreetMap."""
+    k = os.environ.get("CCUT_GMAP_KEY", "").strip()
+    if k:
+        return k
+    try:
+        from ..paths import ROOT
+        return str(json.loads((ROOT / "ccut_settings.json").read_text(encoding="utf-8")).get("google_maps_key") or "").strip()
+    except Exception:
+        return ""
+
+
+def _gsession(key: str) -> str:
+    f = _cache_dir() / "gsession.json"
+    try:
+        d = json.loads(f.read_text(encoding="utf-8"))
+        if d.get("k") == key[-6:] and float(d["expiry"]) - time.time() > 3600:
+            return d["session"]
+    except Exception:
+        pass
+    body = json.dumps({"mapType": "satellite", "language": "vi-VN", "region": "VN", "layerTypes": ["layerRoadmap"]}).encode()
+    req = urllib.request.Request(f"https://tile.googleapis.com/v1/createSession?key={key}", data=body,
+                                 headers={"Content-Type": "application/json"})
+    try:
+        r = json.loads(urllib.request.urlopen(req, timeout=30).read())
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"Google Map Tiles API từ chối ({e.code}) — kiểm tra key và đã bật Map Tiles API + thanh toán trong Google Cloud: "
+                         f"{e.read()[:300].decode('utf-8', 'ignore')}")
+    f.write_text(json.dumps({"k": key[-6:], "session": r["session"], "expiry": r.get("expiry", time.time() + 86400)}))
+    return r["session"]
+
+
+def render_google(bbox, key: str, px_w=2600) -> np.ndarray:
+    """nền VỆ TINH Google (kèm tên đường / địa danh tiếng Việt) cắt đúng bbox → ảnh BGR rộng px_w."""
+    lon0, lat0, lon1, lat1 = bbox
+    span = max(lon1 - lon0, 1e-4)
+    z = max(5, min(19, int(round(math.log2(360 / span * px_w / 256 / 1.3)))))
+    fx0, fy0 = _tile_xy(lon0, lat1, z)
+    fx1, fy1 = _tile_xy(lon1, lat0, z)
+    while (int(fx1) - int(fx0) + 1) * (int(fy1) - int(fy0) + 1) > 160 and z > 5:
+        z -= 1
+        fx0, fy0 = _tile_xy(lon0, lat1, z)
+        fx1, fy1 = _tile_xy(lon1, lat0, z)
+    ses = _gsession(key)
+    tx0, ty0, tx1, ty1 = int(fx0), int(fy0), int(fx1), int(fy1)
+    big = np.zeros(((ty1 - ty0 + 1) * 256, (tx1 - tx0 + 1) * 256, 3), np.uint8)
+    cd = _cache_dir() / "gsat"
+    cd.mkdir(exist_ok=True)
+    for x in range(tx0, tx1 + 1):
+        for y in range(ty0, ty1 + 1):
+            f = cd / f"{z}_{x}_{y}.jpg"
+            if not f.exists():
+                f.write_bytes(_get(f"https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session={ses}&key={key}"))
+            t = cv2.imdecode(np.frombuffer(f.read_bytes(), np.uint8), cv2.IMREAD_COLOR)
+            if t is not None:
+                big[(y - ty0) * 256:(y - ty0 + 1) * 256, (x - tx0) * 256:(x - tx0 + 1) * 256] = cv2.resize(t, (256, 256))
+    crop = big[int((fy0 - ty0) * 256):int((fy1 - ty0) * 256), int((fx0 - tx0) * 256):int((fx1 - tx0) * 256)]
+    h = int(round(crop.shape[0] * px_w / max(1, crop.shape[1])))
+    return cv2.resize(crop, (px_w, h), interpolation=cv2.INTER_CUBIC if crop.shape[1] < px_w else cv2.INTER_AREA)
+
+
 def streetmap(pdir, bbox, style="dark", name="khuvuc", px_w=2600, portrait=True) -> Path:
+    """style dark|light (OpenStreetMap) — có Google Maps API key trong Cài đặt thì tự dùng VỆ TINH Google (style "osm" ép dùng OSM)."""
     pdir = Path(pdir)
     if portrait:
         bbox = _portrait(bbox)
-    img, places = render(bbox, style, px_w)
-    img = _labels(img, places, style, px_w)
+    key = google_key() if style != "osm" else ""
+    if key:
+        try:
+            img, credit = render_google(bbox, key, px_w), GCREDIT
+        except BaseException as e:            # key sai / chưa bật API / hết hạn mức → vẫn ra bản đồ (OSM), báo rõ lý do
+            print(f"⚠ Không lấy được ảnh vệ tinh Google → dùng bản đồ OpenStreetMap. Lý do: {e}", file=sys.stderr)
+            key = ""
+    if not key:
+        style = "dark" if style == "osm" else style
+        img, places = render(bbox, style, px_w)
+        img, credit = _labels(img, places, style, px_w), CREDIT
     out = pdir / "assets_web" / f"map_{name}.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(out), img)
-    meta = {"bbox": list(bbox), "style": style, "w": img.shape[1], "h": img.shape[0], "credit": CREDIT}
+    meta = {"bbox": list(bbox), "style": "google_satellite" if key else style, "w": img.shape[1], "h": img.shape[0], "credit": credit}
     out.with_suffix(".json").write_text(json.dumps(meta, ensure_ascii=False))
     src = pdir / "assets_web" / "illus_sources.json"
     d = json.loads(src.read_text(encoding="utf-8")) if src.exists() else {}
-    d[out.name] = "https://openfreemap.org — © OpenStreetMap contributors"
+    d[out.name] = "Google Maps (Map Tiles API) — © Google" if key else "https://openfreemap.org — © OpenStreetMap contributors"
     src.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
     return out
 
@@ -374,6 +451,27 @@ def _box(coords, pad=0.15):
     return [round(min(xs) - dx, 5), round(min(ys) - dy, 5), round(max(xs) + dx, 5), round(max(ys) + dy, 5)]
 
 
+_ALIAS = {"tphcm": "ho_chi_minh", "hcm": "ho_chi_minh", "saigon": "ho_chi_minh", "thanhphohochiminh": "ho_chi_minh",
+          "hochiminh": "ho_chi_minh", "tpho chi minh": "ho_chi_minh"}
+
+
+def _vn34(q: str):
+    """tên tỉnh/thành (TP.HCM, Đồng Nai…) → file ranh giới assets/geo/vn34 nếu có."""
+    import unicodedata
+    from . import draw as _D
+    head = q.split(",")[0].strip().lower().replace("đ", "d")
+    a = unicodedata.normalize("NFKD", head).encode("ascii", "ignore").decode()
+    key = "".join(ch for ch in a if ch.isalnum())
+    for pre in ("tinh", "thanhpho", "tp"):
+        if key.startswith(pre) and len(key) > len(pre) + 2 and key not in _ALIAS:
+            key = key[len(pre):]
+    code = _ALIAS.get(key, key)
+    for f in (Path(_D.ROOT) / "assets" / "geo" / "vn34").glob("*.geojson"):
+        if f.stem.split("_", 1)[1].replace("_", "") == code.replace("_", ""):
+            return f
+    return None
+
+
 def area(pdir, q: str, name="vung") -> dict:
     """ranh giới VÙNG thật (phường/xã/huyện/khu dân cư/khu đất dự án đã có trên OSM) qua Nominatim, hoặc tự khoanh:
     q = "lon,lat;lon,lat;lon,lat;…" (≥3 điểm, theo mặt bằng chủ đầu tư / các tuyến đường bao quanh).
@@ -383,6 +481,10 @@ def area(pdir, q: str, name="vung") -> dict:
         if len(ring) < 3:
             raise SystemExit("cần ≥3 điểm lon,lat")
         geom, label = {"type": "Polygon", "coordinates": [ring + [ring[0]]]}, name
+    elif _vn34(q):                         # tỉnh/thành: ranh giới TRÊN ĐẤT LIỀN (OSM admin của tỉnh ven biển gồm cả vùng biển)
+        f = _vn34(q)
+        g0 = json.loads(f.read_text(encoding="utf-8"))["features"][0]
+        geom, label = g0["geometry"], g0["properties"].get("fullName", q)
     else:
         time.sleep(1.2)
         url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode(
@@ -393,7 +495,7 @@ def area(pdir, q: str, name="vung") -> dict:
                              "(theo mặt bằng chủ đầu tư / các tuyến đường bao quanh; toạ độ lấy bằng geocode)")
         geom, label = hits[0]["geojson"], hits[0].get("display_name", q)
     polys = [geom["coordinates"]] if geom["type"] == "Polygon" else geom["coordinates"]
-    pts = [c for poly in polys for c in poly[0]]
+    pts = max((poly[0] for poly in polys), key=len)     # khung/tâm theo mảnh chính (bỏ đảo xa như Côn Đảo)
     gj = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {
         "ISO_A3": "AREA", "name": name, "osm": label, "nguon": "© OpenStreetMap contributors"}, "geometry": geom}]}
     out = Path(pdir) / "assets_web" / f"area_{name}.geojson"
@@ -401,4 +503,4 @@ def area(pdir, q: str, name="vung") -> dict:
     out.write_text(json.dumps(gj), encoding="utf-8")
     xs, ys = [p[0] for p in pts], [p[1] for p in pts]
     c = [round(sum(xs) / len(xs), 6), round(sum(ys) / len(ys), 6)]
-    return {"file": str(out), "label": label, "center": c, "box": _box(pts, 0.25), "map": _box(pts, 1.2)}
+    return {"file": str(out), "label": label, "center": c, "box": _box(pts, 0.06), "map": _box(pts, 1.2)}   # box sát vùng → vùng gần kín khung

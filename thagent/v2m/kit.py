@@ -788,6 +788,8 @@ class Scene:
         from .. import mg2 as M
         K = self.K
         t1 = self.t1 if t1 is None else t1
+        if kind == "mapdraw" and self._local_map(t0, t1, p):
+            return "localmap"
         if K.th.get("mg_tone") and p.get("tone") in (None, "gold"):   # tông MG theo look của video
             p["tone"] = K.th["mg_tone"]
         for im in p.get("images") or []:
@@ -1330,8 +1332,9 @@ class Scene:
         p = Path(src) if Path(src).is_absolute() else (K.pdir / src)
         gj = json.loads(p.read_text(encoding="utf-8"))
         d = d or max(0.8, min(1.4, (self.t1 - t) * 0.3))
-        rid = self.add({"type": "region", "iso": "AREA", "geo": str(p.resolve()), "fill": color or K.th["accent"], "fill_op": opacity,
-                        "stroke": color or K.th["accent"], "stroke_w": 5, "glow": 0.3, "dim": dim, "islands": False, "copies": (0,),
+        color = color or K.color("AREA:" + p.stem)      # mỗi vùng MỘT MÀU RIÊNG, giữ nguyên màu đó suốt video (như tô quốc gia)
+        rid = self.add({"type": "region", "iso": "AREA", "geo": str(p.resolve()), "fill": color, "fill_op": opacity,
+                        "stroke": color, "stroke_w": 5, "glow": 0.3, "dim": dim, "islands": False, "copies": (0,),
                         "layer": 1, "progress": 0, **k}, t, "fade", 0.15)
         self.draw(rid, t, d)
         if label:
@@ -1350,6 +1353,81 @@ class Scene:
     def focus(self, oid, t, dim=0.45, d=0.5):
         """dồn chú ý vào region `oid` (giảm nhấn phần còn lại) từ lúc t."""
         self.animate(oid, t, d, {"dim": dim})
+
+    def _local_map(self, t0, t1, p) -> bool:
+        """mapdraw mà mọi ghim nằm trong một khu vực (≤2,5°, vd TP.HCM ↔ Bình Dương) → KHÔNG vẽ bản đồ cả nước với chấm ghim:
+        đổi sang bản đồ đường phố thật quanh các ghim, camera khu vực → điểm đầu, callout tên, tuyến OSRM nếu có routes."""
+        from . import streetmap as SM
+        from . import looks as LK
+        K = self.K
+        pins = []
+        for i, x in enumerate(p.get("pins") or []):
+            x = x if isinstance(x, dict) else {"name": str(x)}
+            ll = x.get("lonlat")
+            if not ll and x.get("name"):
+                try:
+                    r = SM.geocode(f'{x["name"]}, Việt Nam')
+                    ll = r[0]["lonlat"] if r else None
+                except Exception:
+                    ll = None
+            if not ll:
+                return False
+            pins.append({"name": x.get("name") or "", "lonlat": [float(ll[0]), float(ll[1])], "at": float(x["at"]) if "at" in x else t0 + 0.4 + 0.6 * i})
+        if not pins:
+            return False
+        xs, ys = [q["lonlat"][0] for q in pins], [q["lonlat"][1] for q in pins]
+        if max(xs) - min(xs) > 2.5 or max(ys) - min(ys) > 2.5:
+            return False
+        import re, unicodedata
+        areas = {}                       # ghim có tên (TP.HCM, Đồng Nai, Hóc Môn…) → ranh giới THẬT của cả vùng đó để khoanh
+        for q in pins:
+            if not q["name"] or q["name"] in areas:
+                continue
+            slug = re.sub(r"[^a-z0-9]+", "", unicodedata.normalize("NFKD", q["name"].lower().replace("đ", "d")).encode("ascii", "ignore").decode())
+            try:
+                areas[q["name"]] = SM.area(K.pdir, f'{q["name"]}, Việt Nam', slug or "vung")
+            except BaseException:
+                pass
+        bx = [min(xs), min(ys), max(xs), max(ys)]
+        for r in areas.values():
+            bx = [min(bx[0], r["box"][0]), min(bx[1], r["box"][1]), max(bx[2], r["box"][2]), max(bx[3], r["box"][3])]
+        cx, cy = (bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2
+        hw, hh = max(0.05, (bx[2] - bx[0]) * 0.6), max(0.07, (bx[3] - bx[1]) * 0.6)
+        mw, mh = max(hw * 1.6, hh * 0.95), hh * 1.6       # nền rộng hơn khung camera mọi phía (không lộ mép trắng ở khung dọc)
+        mbox = [round(cx - mw, 5), round(cy - mh, 5), round(cx + mw, 5), round(cy + mh, 5)]
+        name = f"md{int(t0 * 10)}"
+        try:
+            SM.streetmap(K.pdir, mbox, "light" if LK.LOOKS[K.look].get("light") else "dark", name)
+        except BaseException:
+            return False
+        self.street_map(f"assets_web/map_{name}.png", dim=0.1)
+        self.look([cx - hw * 1.4, cy - hh * 1.4, cx + hw * 1.4, cy + hh * 1.4], t0, 0.1)
+        if not areas:
+            self.look([cx - hw, cy - hh, cx + hw, cy + hh], t0 + 0.3, 1.4)
+        first = True
+        for q in pins:
+            r = areas.get(q["name"])
+            if r:                        # nói tới đâu → camera vào vùng đó, khoanh cả vùng, ngoài vùng tối đi, nhãn tên giữa vùng
+                self.look(r["box"], max(t0 + 0.2, q["at"] - 0.5), 1.0)
+                self.area(r["file"], q["at"], label=q["name"], dim=0.45 if first else 0.0)
+                first = False
+            else:
+                self.halo(q["lonlat"], q["at"])
+                if q["name"]:
+                    self.callout(q["lonlat"], q["name"], q["at"] + 0.1)
+                else:
+                    self.pin(q["lonlat"], q["at"])
+        for r in p.get("routes") or []:        # đường đi CHỈ giữa hai ĐIỂM (đi từ A tới B / cách bao xa) — giữa hai vùng khoanh thì không
+            if pins[int(r[0])]["name"] in areas or pins[int(r[1])]["name"] in areas:
+                continue
+            a, b = pins[int(r[0])]["lonlat"], pins[int(r[1])]["lonlat"]
+            t = float(r[2]) if len(r) > 2 else pins[int(r[1])]["at"]
+            try:
+                SM.osrm(K.pdir, a, b, f"{name}_{r[0]}{r[1]}")
+                self.route(f"assets_web/route_{name}_{r[0]}{r[1]}.geojson", f"{name}_{r[0]}{r[1]}", t, d=1.2)
+            except Exception:
+                pass
+        return True
 
     def halo(self, lonlat, t, r=70, color=None, **k) -> str:
         """vòng gợn dẫn mắt tới một điểm — chỉ là tín hiệu chú ý, KHÔNG phải ranh giới."""
