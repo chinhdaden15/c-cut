@@ -159,6 +159,9 @@ def _num_token(tok: str, prev: str) -> str | None:
     return None
 
 
+CASE_ONLY = {"ai"}    # viết tắt trùng một từ tiếng Việt: chỉ đọc kiểu viết tắt khi viết HOA
+
+
 def _has_vi(w: str) -> bool:
     return any(ord(c) > 127 for c in w)
 
@@ -166,6 +169,8 @@ def _has_vi(w: str) -> bool:
 def _word(w: str) -> str | None:
     """từ chữ (không số) → cách đọc; None = giữ nguyên."""
     k = w.lower().replace(".", "") if w.count(".") and not w.lower().startswith("tp.") else w.lower()
+    if k in CASE_ONLY and not w.replace(".", "").isupper():   # "ai"/"Ai" là từ tiếng Việt — chỉ "AI" viết hoa mới đọc "a i"
+        return None
     if k in WORDS:
         return WORDS[k]
     if len(k) >= 2 and k in UNIT and not k.isalpha() or k in ("kwh", "kw", "km", "km²", "km2", "m²", "m³", "kg", "cm", "mm", "ml", "usd", "vnd", "vnđ"):

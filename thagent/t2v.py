@@ -91,6 +91,9 @@ _NOTE = re.compile(r"^\s*(?:[-•>]\s*)?(?:\*{1,2}|_)?\s*(?:hình ảnh(?: gợi
                    r"âm thanh|am thanh|sfx|nhạc(?: nền)?|nhac(?: nen)?|music|ghi chú|ghi chu|lưu ý|luu y|chú thích|chu thich|"
                    r"nguồn|nguon|source|tham khảo|tham khao|text trên màn hình|chữ trên màn hình|on-?screen(?: text)?|ctas?|hashtag)\s*:", re.I)
 _TIME = re.compile(r"(?:\d{1,2}:\d{2}|\d+\s*[–—-]\s*\d+\s*(?:giây|giay|s\b|sec)|\d+\s*(?:giây|giay)\b)", re.I)
+_SHOT = re.compile(r"^(?:cảnh|canh|scene|shot)\s*\d+\b.*(?:[·|•:]|\(\s*\d)", re.I)
+_SHOT_KV = re.compile(r"[·|•]\s*(?:hình|chữ trên hình|kiểu|âm thanh|sfx|visual|camera|chuyển cảnh)\s*:", re.I)
+_SHOT_END = re.compile(r"(?:kiểu|âm thanh|sfx)\s*:", re.I)
 _QUOTE = re.compile(r"[“\"]([^”\"]{8,})[”\"]")
 
 
@@ -98,13 +101,24 @@ def spoken(text: str) -> str:
     """CHỈ lời đọc trong kịch bản: bỏ dòng ghi chú (*…*), tiêu đề mốc giờ (**0–8 giây · Mở đầu**), hướng dẫn hình / âm,
     link nguồn [..](url) + url trần, dấu markdown. Kịch bản đặt lời trong ngoặc kép “…” → chỉ đọc phần trong ngoặc.
     (Kịch bản từ CN.AI / ChatGPT hay kèm các phần này — đọc thành tiếng làm giọng dài, phụ đề chứa link, bộ kiểm chặn.)"""
-    out = []
+    out, in_shot = [], False
     for raw in text.replace("\r", "").split("\n"):
         ln = _URL.sub("", _LINK.sub("", raw)).strip()
         if not ln:
             out.append("")
             continue
         core = ln.strip("*_ ").strip()
+        # ghi chú dựng cảnh của CN.AI: "Cảnh 5 (20-26s) · Hình: … · Chữ trên hình: Vay 1,5 tỷ⏎Gửi 500 triệu · Kiểu: money · Âm thanh: …"
+        # (có thể xuống dòng giữa chừng) → bỏ từ dòng "Cảnh N" tới hết dòng có "Kiểu:" / "Âm thanh:"
+        if _SHOT.match(core) or _SHOT_KV.search(ln):
+            in_shot = not _SHOT_END.search(ln)
+            continue
+        if in_shot:
+            in_shot = not _SHOT_END.search(ln) and len(ln.split()) <= 14
+            if not in_shot and not _SHOT_END.search(ln):
+                pass                      # dòng dài, không có dấu kết → là lời đọc, rơi xuống xử lý bình thường
+            else:
+                continue
         if _NOTE.match(ln) or _NOTE.match(core):
             continue
         if re.fullmatch(r"\*[^*].*[^*]\*|_[^_].*[^_]_", ln) and not core.startswith(("“", '"')):   # cả dòng in nghiêng = ghi chú
