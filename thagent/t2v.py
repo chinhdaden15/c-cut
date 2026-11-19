@@ -91,6 +91,7 @@ _NOTE = re.compile(r"^\s*(?:[-•>]\s*)?(?:\*{1,2}|_)?\s*(?:hình ảnh(?: gợi
                    r"âm thanh|am thanh|sfx|nhạc(?: nền)?|nhac(?: nen)?|music|ghi chú|ghi chu|lưu ý|luu y|chú thích|chu thich|"
                    r"nguồn|nguon|source|tham khảo|tham khao|text trên màn hình|chữ trên màn hình|on-?screen(?: text)?|ctas?|hashtag)\s*:", re.I)
 _TIME = re.compile(r"(?:\d{1,2}:\d{2}|\d+\s*[–—-]\s*\d+\s*(?:giây|giay|s\b|sec)|\d+\s*(?:giây|giay)\b)", re.I)
+_NOTES_HDR = re.compile(r"^\s*={2,}\s*(?:ghi chú dựng|ghi chu dung|ghi chú|storyboard|gợi ý hình)\s*={2,}\s*$", re.I | re.M)
 _SHOT = re.compile(r"^(?:cảnh|canh|scene|shot)\s*\d+\b.*(?:[·|•:]|\(\s*\d)", re.I)
 _SHOT_KV = re.compile(r"[·|•]\s*(?:hình|chữ trên hình|kiểu|âm thanh|sfx|visual|camera|chuyển cảnh)\s*:", re.I)
 _SHOT_END = re.compile(r"(?:kiểu|âm thanh|sfx)\s*:", re.I)
@@ -102,7 +103,8 @@ def spoken(text: str) -> str:
     link nguồn [..](url) + url trần, dấu markdown. Kịch bản đặt lời trong ngoặc kép “…” → chỉ đọc phần trong ngoặc.
     (Kịch bản từ CN.AI / ChatGPT hay kèm các phần này — đọc thành tiếng làm giọng dài, phụ đề chứa link, bộ kiểm chặn.)"""
     out, in_shot = [], False
-    for raw in text.replace("\r", "").split("\n"):
+    text = _NOTES_HDR.split(text.replace("\r", ""), 1)[0]     # từ "=== GHI CHÚ DỰNG ===" trở xuống: gợi ý hình, không đọc
+    for raw in text.split("\n"):
         ln = _URL.sub("", _LINK.sub("", raw)).strip()
         if not ln:
             out.append("")

@@ -34,6 +34,7 @@ MỖI Ý CỤ THỂ MỘT CLIP RIÊNG (vd son: “đầu cọ”, “chất son 
 Không có clip của ĐÚNG mẫu (thường gặp: xe, điện thoại đời cụ thể) → tìm clip CHUNG khớp ý câu (xe chạy nhanh, đồng hồ tốc độ, khoang máy, mâm xe,
 trạm sạc, người ngoái nhìn), mỗi câu một clip; KHÔNG đặt clip mẫu / hãng khác đúng lúc đang gọi tên chủ thể (dễ hiểu nhầm là chính nó).
 Đổi nền giữa câu trong cùng cảnh: `s.photo_bg(src, t, dim=…)` (ảnh thật nhận diện → clip ý tiếp theo).
+**Có `kich_ban_goc.txt`** (kịch bản gốc kèm ghi chú dựng cảnh: "Cảnh N (…) · Hình: … · Chữ trên hình: … · Kiểu: … · Âm thanh: …") → đọc trước khi chia cảnh, dùng làm GỢI Ý hình / chữ / kiểu MG cho đúng câu tương ứng (mốc giây trong ghi chú chỉ ước lượng — luôn theo mốc giọng thật). Lời đọc = script.txt (ghi chú đã bỏ).
 **Địa danh / vị trí / kết nối → BẢN ĐỒ ĐƯỜNG PHỐ THẬT, không icon** (học từ map-route-video, MIT): nhắc khu vực, phường, nút giao,
 "gần X", "cách Y bao nhiêu phút" → `python -m thagent.v2m geocode "<tên>"` (toạ độ OSM, KHÔNG tự nhớ toạ độ) →
 `python -m thagent.v2m osrm {pdir} <lon,lat> <lon,lat> <tên>` (tuyến + km + phút THẬT) → `python -m thagent.v2m streetmap {pdir}

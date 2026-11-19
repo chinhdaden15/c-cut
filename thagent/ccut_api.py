@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.22"
+APP_VERSION = "2.5.23"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1406,6 +1406,8 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
     script = pdir / "script.txt"
     if item.get("script"):
         script.write_text(item["script"], encoding="utf-8")
+    if item.get("script_raw"):                        # kịch bản gốc kèm ghi chú dựng cảnh (CN.AI…): KHÔNG đọc, chỉ là gợi ý hình cho Claude
+        (pdir / "kich_ban_goc.txt").write_text(item["script_raw"], encoding="utf-8")
     if item.get("article") and not script.exists():   # link bài báo → tư liệu bài + Claude tóm thành lời bản tin
         if not (pdir / "article.json").exists():
             ART.prepare(pdir, a=item["article"], log=log)
