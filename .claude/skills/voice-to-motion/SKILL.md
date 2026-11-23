@@ -85,6 +85,7 @@ số liệu giữ đủ lâu để đọc 2 lần. Luật cắt / âm / phụ đ
 "<tên dự án>" <tên>`; OSM chưa có → tự khoanh "lon,lat;…" theo mặt bằng chủ đầu tư / các đường bao quanh), TUYỆT ĐỐI không khoanh cả
 xã/huyện/tỉnh thay cho dự án. **Đường đi (`s.route`) CHỈ khi lời nói về đi từ A tới B / cách bao xa / mất bao lâu**; nhắc hai nơi không
 nói chuyện đi lại → không vẽ đường (mapdraw: bỏ `routes`).
+**Vùng khoanh phải NỔI BẬT suốt lúc đang nói về nó:** `s.area` tự đẩy camera ôm vùng; KHÔNG `s.look` lùi ra khung rộng khi lời còn nói về vùng đó (vùng thành một chấm, người xem không thấy hình dạng). Muốn so với khu vực lớn hơn → cảnh sau, hoặc khoanh thêm vùng lớn bằng `s.area` thứ hai.
 **`mapdraw` CHỈ cho nhiều quốc gia / vùng rộng (>2,5°).** Địa điểm trong một tỉnh/thành (TP.HCM, Bình Dương, quận, xã, dự án) → bản đồ đường phố + `s.area` (app cũng tự đổi mapdraw có ghim gần nhau sang bản đồ đường phố).
 **Nói tới huyện / xã / phường / khu vực / dự án → ZOOM VÀO + KHOANH VÙNG** (bản đồ cả nước/tỉnh chỉ thoáng qua ≤1,5s): `python -m thagent.v2m area {pdir} "<tên vùng>, <tỉnh>" <tên>` (ranh giới OSM, hoặc tự khoanh "lon,lat;lon,lat;…") → `s.street_map(...)`, `s.look(...)`, `s.area("assets_web/area_<tên>.geojson", t, label="Tên")`.
 **Địa danh / vị trí / kết nối → BẢN ĐỒ ĐƯỜNG PHỐ THẬT, không icon** (học từ map-route-video, MIT): nhắc khu vực, phường, nút giao,

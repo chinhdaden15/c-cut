@@ -1325,23 +1325,30 @@ class Scene:
         self.draw(rid, t, d)
         return rid
 
-    def area(self, src, t, label=None, color=None, opacity=0.22, d=None, dim=0.35, sub=None, **k) -> str:
-        """khoanh VÙNG thật trên bản đồ đường phố (assets_web/area_<tên>.geojson từ lệnh area): viền sáng vẽ dần quanh ranh giới
-        → màu lan bên trong (mờ, vẫn thấy đường phố) → phần ngoài vùng tối đi. label → nhãn tên neo ở tâm vùng."""
+    def area(self, src, t, label=None, color=None, opacity=0.5, d=None, dim=0.62, sub=None, focus=True, **k) -> str:
+        """khoanh VÙNG thật (assets_web/area_<tên>.geojson từ lệnh area) cho NỔI BẬT: camera đẩy vào vùng (focus) → viền dày phát sáng vẽ dần
+        quanh ranh giới → màu tươi lan kín bên trong (vẫn thấy đường) → mọi thứ ngoài vùng tối hẳn đi → tên vùng chữ lớn giữa vùng.
+        Giữ camera ở vùng suốt lúc đang nói về nó (đừng lùi ra xa làm vùng thành một chấm)."""
         K = self.K
         p = Path(src) if Path(src).is_absolute() else (K.pdir / src)
         gj = json.loads(p.read_text(encoding="utf-8"))
         d = d or max(0.8, min(1.4, (self.t1 - t) * 0.3))
         color = color or K.color("AREA:" + p.stem)      # mỗi vùng MỘT MÀU RIÊNG, giữ nguyên màu đó suốt video (như tô quốc gia)
+        g = gj["features"][0]["geometry"]
+        ring = g["coordinates"][0] if g["type"] == "Polygon" else max(g["coordinates"], key=lambda x: len(x[0]))[0]
+        xs, ys = [x[0] for x in ring], [x[1] for x in ring]
+        if focus:                                         # vùng chiếm phần lớn khung (khung ôm vùng + lề 12%)
+            px_, py_ = (max(xs) - min(xs)) * 0.12 + 0.002, (max(ys) - min(ys)) * 0.12 + 0.002
+            self.look([min(xs) - px_, min(ys) - py_, max(xs) + px_, max(ys) + py_], max(self.t0 + 0.05, t - 0.6), 0.9)
         rid = self.add({"type": "region", "iso": "AREA", "geo": str(p.resolve()), "fill": color, "fill_op": opacity,
-                        "stroke": color, "stroke_w": 5, "glow": 0.3, "dim": dim, "islands": False, "copies": (0,),
+                        "stroke": color, "stroke_w": 9, "glow": 0.9, "dim": dim, "islands": False, "copies": (0,),
                         "layer": 1, "progress": 0, **k}, t, "fade", 0.15)
         self.draw(rid, t, d)
         if label:
-            g = gj["features"][0]["geometry"]
-            ring = g["coordinates"][0] if g["type"] == "Polygon" else max(g["coordinates"], key=lambda x: len(x[0]))[0]
-            c = (sum(x[0] for x in ring) / len(ring), sum(x[1] for x in ring) / len(ring))
-            self.callout(c, label, t + d * 0.7, sub=sub, color=color)
+            c = (sum(xs) / len(xs), sum(ys) / len(ys))
+            self.place(c, label.upper(), t + d * 0.6, size=66 if K.V else 58, color="#FFFFFF", lod=None)
+            if sub:
+                self.place((c[0], c[1] - (max(ys) - min(ys)) * 0.11), sub, t + d * 0.75, size=28, color="#FFFFFF", lod=None)
         return rid
 
     def backdrop(self, t=None, opacity=0.94, d=0.4) -> str:
@@ -1409,7 +1416,7 @@ class Scene:
             r = areas.get(q["name"])
             if r:                        # nói tới đâu → camera vào vùng đó, khoanh cả vùng, ngoài vùng tối đi, nhãn tên giữa vùng
                 self.look(r["box"], max(t0 + 0.2, q["at"] - 0.5), 1.0)
-                self.area(r["file"], q["at"], label=q["name"], dim=0.45 if first else 0.0)
+                self.area(r["file"], q["at"], label=q["name"])
                 first = False
             else:
                 self.halo(q["lonlat"], q["at"])

@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.25"
+APP_VERSION = "2.5.26"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -137,6 +137,7 @@ class SettingsIn(BaseModel):
     style: str | None = None
     build_model: str | None = None
     th_formats: list[str] | None = None     # Talking Head: ["9x16"], ["16x9"] hoặc cả hai
+    ui_lang: str | None = None            # ngôn ngữ giao diện: vi | en (Claude trao đổi bằng ngôn ngữ này)
     google_maps_key: str | None = None    # Map Tiles API — nền vệ tinh cho cảnh bản đồ
     asr_language: str | None = None        # ngôn ngữ nói trong clip: "auto" (Whisper tự nhận) hoặc mã ngôn ngữ
     notify_sound: bool | None = None

@@ -47,6 +47,7 @@ CẤM: hàng icon (pin / cây cầu / con đường) thay cho địa danh; ảnh
 "<tên dự án>" <tên>`; OSM chưa có → tự khoanh "lon,lat;…" theo mặt bằng chủ đầu tư / các đường bao quanh), TUYỆT ĐỐI không khoanh cả
 xã/huyện/tỉnh thay cho dự án. **Đường đi (`s.route`) CHỈ khi lời nói về đi từ A tới B / cách bao xa / mất bao lâu**; nhắc hai nơi không
 nói chuyện đi lại → không vẽ đường (mapdraw: bỏ `routes`).
+**Vùng khoanh phải NỔI BẬT suốt lúc đang nói về nó:** `s.area` tự đẩy camera ôm vùng; KHÔNG `s.look` lùi ra khung rộng khi lời còn nói về vùng đó (vùng thành một chấm, người xem không thấy hình dạng). Muốn so với khu vực lớn hơn → cảnh sau, hoặc khoanh thêm vùng lớn bằng `s.area` thứ hai.
 **`mapdraw` CHỈ cho nhiều quốc gia / vùng rộng (>2,5°).** Địa điểm trong một tỉnh/thành (TP.HCM, Bình Dương, quận, xã, dự án) → bản đồ đường phố + `s.area` (app cũng tự đổi mapdraw có ghim gần nhau sang bản đồ đường phố).
 **Nói tới huyện / xã / phường / khu vực / dự án → PHẢI ZOOM VÀO KHU VỰC và KHOANH VÙNG**, không dừng ở bản đồ cả nước/tỉnh với một
 chấm ghim. Bản đồ cả nước/tỉnh chỉ được thoáng qua ≤1,5s (establish) rồi camera lao vào bản đồ đường phố. Cách làm:

@@ -328,7 +328,7 @@ KHÔNG trả lời chỉ để báo “vẫn đang chạy”. Lệnh xong thì �
 """
 
 
-def system_prompt(style: str, pid: str, pdir: str) -> str:
+def _system_prompt(style: str, pid: str, pdir: str) -> str:
     """prompt riêng của style (nếu có) — skill mới chưa có prompt riêng dùng SYSTEM_GENERIC (đọc SKILL.md của chính nó);
     + khối CÔNG CỤ DỰNG DÙNG CHUNG (thagent.capabilities) cho MỌI skill video → skill thêm sau tự kế thừa, không sửa từng skill."""
     from .capabilities import prompt_block
@@ -554,6 +554,21 @@ class Session:
                 continue
         return None
 
+
+
+def system_prompt(style: str, pid: str, pdir: str) -> str:
+    """+ ngôn ngữ giao diện: người dùng chọn English → Claude trao đổi trong khung chat bằng tiếng Anh
+    (nội dung video — lời, phụ đề, chữ trên hình — vẫn theo ngôn ngữ của kịch bản / lời nói)."""
+    p = _system_prompt(style, pid, pdir)
+    try:
+        lang = json.loads((ROOT / "ccut_settings.json").read_text(encoding="utf-8")).get("ui_lang")
+    except Exception:
+        lang = None
+    if lang == "en":
+        p += ("\n\nUSER INTERFACE LANGUAGE: ENGLISH. Write every chat message to the user (progress notes, questions, reports) in clear, "
+              "simple English, overriding any instruction above to reply in Vietnamese. Video content (voice, subtitles, on-screen text) "
+              "still follows the language of the script / speech.")
+    return p
 
 def _is_limit(txt: str) -> bool:
     t = txt.lower()
