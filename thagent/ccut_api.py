@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.23"
+APP_VERSION = "2.5.24"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -2273,7 +2273,11 @@ def _voice_call(fn, *a, **k):
 
 @router.get("/voices")
 def voices_get():
-    return _voice_call(lambda V: {**V.status(), "voices": V.voices()})
+    def f(V):
+        if V.ready() and not V.full_ready():     # máy đang dùng bản nén → tự tải bản đầy đủ nền (giọng hay hơn), vẫn đọc được trong lúc tải
+            V.download_bg()
+        return {**V.status(), "voices": V.voices()}
+    return _voice_call(f)
 
 
 @router.post("/voices/download")
@@ -2296,7 +2300,8 @@ class SayIn(BaseModel):
 def voices_say(b: SayIn):
     import hashlib
     from . import voice as V
-    key = hashlib.sha1(f"{b.voice}|{b.speed}|{b.text}".encode()).hexdigest()[:16]
+    vd = V.PRESETS.get(b.voice, {})
+    key = hashlib.sha1(f"{b.voice}|{b.speed}|{b.text}|{vd.get('name')}|{V._onnx_dir()}".encode()).hexdigest()[:16]
     out = V.VOICES / "_cache" / f"say_{key}.wav"
     if not out.exists():
         _voice_call(lambda V: V.say(b.text[:2000], b.voice, out, b.speed))

@@ -14,6 +14,7 @@ không cần card đồ hoạ, chạy được cả Mac Intel. Đọc được t
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -33,7 +34,7 @@ CODEC, CODEC_REV = "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX", "ceff0d0749bf
 MODEL_DIR = ROOT / "models" / "vieneu"
 VOICES = ROOT / "voices"
 SR = 48_000
-SIZE_MB = 320
+SIZE_MB = 800
 
 # giọng có sẵn của app = giọng chủ app tự chọn, đóng gói ở assets/voices/<id>.json
 #   {"name", "gender", "speaker_emb", "codes", "temperature", "eq": [[Hz, dB], …]}  (eq: cân âm sắc sau khi đọc, cho giống giọng gốc)
@@ -52,6 +53,7 @@ def _builtin() -> dict:
 
 
 PRESETS = _builtin()
+SAMPLE_EN = "Hello! This is one of the built-in voices of C-Cut. Just paste your script, and the app turns it into a finished video for you."
 SAMPLE_TEXT = "Xin chào, đây là giọng đọc có sẵn của See Cut. Bạn chỉ cần dán kịch bản vào, app sẽ tự tạo thành video hoàn chỉnh cho bạn!"
 
 _LOCK = threading.Lock()
@@ -68,20 +70,37 @@ def _model_paths() -> tuple[Path, Path]:
     return MODEL_DIR / REV[:12], MODEL_DIR / ("codec_" + CODEC_REV[:12])
 
 
+FULL = "onnx_update"        # bản ĐẦY ĐỦ (fp32, ~475 MB) — giọng mượt, tự nhiên hơn bản nén int8; máy cũ chỉ có int8 vẫn đọc được trong lúc tải
+
+
+def _onnx_dir() -> Path | None:
+    m, _ = _model_paths()
+    for sub in (FULL, "onnx_int8"):
+        if all((m / sub / f).exists() for f in ("vieneu_prefill.onnx", "vieneu_decode_step.onnx", "vieneu_acoustic_cached.onnx", "vieneu_backbone_shared.data", "vieneu_v3_heads.npz", "config.json")):
+            return m / sub
+    return None
+
+
+def full_ready() -> bool:
+    m, _ = _model_paths()
+    return (m / FULL / "vieneu_backbone_shared.data").exists() and (m / FULL / "vieneu_v3_heads.npz").exists()
+
+
 def ready() -> bool:
     m, c = _model_paths()
-    return (m / "onnx_int8" / "vieneu_prefill.onnx").exists() and (m / "speaker_encoder.onnx").exists() \
+    return _onnx_dir() is not None and (m / "speaker_encoder.onnx").exists() \
         and (c / "moss_audio_tokenizer_encode.onnx").exists()
 
 
 def download(progress=None) -> None:
     """tải model đúng phiên bản đã ghim (bỏ bản fp32 onnx_update cho nhẹ)."""
+    global _ENGINE
     from huggingface_hub import snapshot_download
     m, c = _model_paths()
     _DL.update(busy=True, error=None)
     try:
         snapshot_download(REPO, revision=REV, local_dir=str(m),
-                          allow_patterns=["config.json", "speaker_encoder.onnx", "denoiser.onnx", "onnx_int8/*"])
+                          allow_patterns=["config.json", "speaker_encoder.onnx", "denoiser.onnx", FULL + "/*"])
         if progress:
             progress(0.8)
         snapshot_download(CODEC, revision=CODEC_REV, local_dir=str(c))
@@ -92,10 +111,11 @@ def download(progress=None) -> None:
         raise VoiceError(_DL["error"]) from e
     finally:
         _DL["busy"] = False
+        _ENGINE = None                       # lần đọc sau nạp lại → dùng bản đầy đủ vừa tải
 
 
 def download_bg() -> dict:
-    if not _DL["busy"] and not ready():
+    if not _DL["busy"] and not (ready() and full_ready()):     # máy đang có bản nén → tự tải bản đầy đủ (vẫn đọc bằng bản nén trong lúc chờ)
         threading.Thread(target=lambda: _safe(download), daemon=True).start()
         _DL["busy"] = True
     return status()
@@ -109,7 +129,7 @@ def _safe(fn):
 
 
 def status() -> dict:
-    return {"ready": ready(), "downloading": _DL["busy"], "error": _DL["error"], "size_mb": SIZE_MB}
+    return {"ready": ready(), "full": full_ready(), "downloading": _DL["busy"], "error": _DL["error"], "size_mb": SIZE_MB}
 
 
 class _NpSpeakerEncoder:
@@ -154,7 +174,8 @@ def engine():
     from vieneu.v3turbo import V3TurboVieNeuTTS
     from vieneu._v3_turbo_engine.onnx_runtime_lite import OnnxV3LiteEngine
     m, c = _model_paths()
-    eng = OnnxV3LiteEngine(checkpoint_path=str(m), onnx_dir=str(m / "onnx_int8"), codec_dir=str(c))
+    import os
+    eng = OnnxV3LiteEngine(checkpoint_path=str(m), onnx_dir=os.environ.get("CCUT_VIENEU_ONNX") or str(_onnx_dir()), codec_dir=str(c))
     eng.speaker_encoder = _NpSpeakerEncoder(str(m / "speaker_encoder.onnx"))
     from vieneu.base import BaseVieneuTTS
     tts = V3TurboVieNeuTTS.__new__(V3TurboVieNeuTTS)          # bỏ qua __init__ riêng (tự tải model mới nhất từ mạng)
@@ -214,10 +235,28 @@ def say(text: str, voice_id: str, out: Path | str, speed: float = 1.0) -> Path:
     if not text:
         raise VoiceError("chưa có chữ để đọc")
     d = _voice_data(voice_id)
-    ref = {"speaker_emb": np.asarray(d["speaker_emb"], dtype=np.float32), "codes": np.asarray(d["codes"], dtype=np.int64)}
-    with _LOCK:
-        tts = engine()
-        wav = np.asarray(tts.infer(text, voice=ref, temperature=float(d.get("temperature", 0.7))), dtype=np.float32)
+    wav = None
+    if d.get("engine") == "kokoro":                    # giọng bản xứ tiếng Anh
+        from . import voice_en as EN
+        try:
+            wav = EN.resample(EN.kokoro(text, d["kokoro_voice"]), EN.KSR, SR)
+        except Exception as e:
+            raise VoiceError(f"giọng tiếng Anh lỗi ({type(e).__name__}: {str(e)[:120]}) — kiểm tra mạng (lần đầu tải ~350 MB)") from e
+    elif not _NO_EN[0]:
+        from . import voice_en as EN
+        if EN.is_english(text):                        # câu TOÀN tiếng Anh + giọng Việt → phát âm bản xứ, chất giọng Việt
+            try:
+                r = _en_ref(voice_id)
+                import soundfile as sf
+                ra, rsr = sf.read(str(r), dtype="float32")
+                wav = EN.resample(EN.say_vi_voice(text, d.get("gender", "nam"), ra, rsr), EN.CSR, SR)
+            except Exception:
+                wav = None                              # không được (chưa tải được model…) → VieNeu đọc như cũ
+    if wav is None:
+        ref = {"speaker_emb": np.asarray(d["speaker_emb"], dtype=np.float32), "codes": np.asarray(d["codes"], dtype=np.int64)}
+        with _LOCK:
+            tts = engine()
+            wav = np.asarray(tts.infer(text, voice=ref, temperature=float(d.get("temperature", 0.7))), dtype=np.float32)
     if d.get("eq"):
         wav = _eq(wav, d["eq"])
     pk = float(np.abs(wav).max()) if len(wav) else 0.0
@@ -234,11 +273,33 @@ def say(text: str, voice_id: str, out: Path | str, speed: float = 1.0) -> Path:
     return out
 
 
+_NO_EN = [False]
+EN_REF_TEXT = ("Xin chào các bạn, hôm nay mình sẽ cùng nhau tìm hiểu về thị trường bất động sản "
+               "và những điều cần biết trước khi xuống tiền mua nhà.")
+
+
+def _en_ref(voice_id: str) -> Path:
+    """mẫu chất giọng (~10 s, VieNeu đọc tiếng Việt) để chuyển giọng bản xứ → giọng này. Đệm theo giọng + bản model."""
+    d = _voice_data(voice_id)
+    h = hashlib.md5((json.dumps(d.get("codes"))[:4000] + str(d.get("name")) + str(_onnx_dir())).encode()).hexdigest()[:8]
+    f = VOICES / "_cache" / f"enref_{voice_id}_{h}.wav"
+    if not f.exists():
+        _NO_EN[0] = True
+        try:
+            say(EN_REF_TEXT, voice_id, f)
+        finally:
+            _NO_EN[0] = False
+    return f
+
+
 def sample(voice_id: str) -> Path:
     """câu nghe thử (đệm sẵn)."""
-    f = VOICES / "_cache" / f"sample_{voice_id}.wav"
+    import hashlib
+    d = _voice_data(voice_id)
+    h = hashlib.md5((json.dumps(d.get("codes"))[:4000] + str(d.get("name")) + str(_onnx_dir())).encode()).hexdigest()[:8]
+    f = VOICES / "_cache" / f"sample_{voice_id}_{h}.wav"          # đổi giọng / đổi bản model → nghe thử dựng lại, không phát bản cũ
     if not f.exists():
-        say(SAMPLE_TEXT, voice_id, f)
+        say(SAMPLE_EN if d.get("engine") == "kokoro" else SAMPLE_TEXT, voice_id, f)
     return f
 
 

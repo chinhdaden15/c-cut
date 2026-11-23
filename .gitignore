@@ -23,3 +23,5 @@ tools/
 /assets/icons3d/*/
 /api_keys.json
 cache/
+/models/kokoro/
+/models/chatterbox_vc/

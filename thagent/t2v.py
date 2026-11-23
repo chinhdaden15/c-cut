@@ -361,7 +361,9 @@ def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print)
     def synth(i):
         f = work / f"s{i:03d}.wav"
         from .vi_norm import tts_text
-        V.say(tts_text(sents[i]["text"]), voice_id, f, 1.0)   # số / ký hiệu / viết tắt / tên hãng → chữ đọc (phụ đề giữ chữ gốc)
+        from . import voice_en as EN
+        t = sents[i]["text"]
+        V.say(t if EN.is_english(t) else tts_text(t), voice_id, f, 1.0)   # câu toàn tiếng Anh: giữ nguyên chữ (bộ đọc tiếng Anh tự đọc số…)   # số / ký hiệu / viết tắt / tên hãng → chữ đọc (phụ đề giữ chữ gốc)
         return f
 
     files = [None] * len(sents)
