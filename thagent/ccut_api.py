@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.24"
+APP_VERSION = "2.5.25"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -2301,7 +2301,7 @@ def voices_say(b: SayIn):
     import hashlib
     from . import voice as V
     vd = V.PRESETS.get(b.voice, {})
-    key = hashlib.sha1(f"{b.voice}|{b.speed}|{b.text}|{vd.get('name')}|{V._onnx_dir()}".encode()).hexdigest()[:16]
+    key = hashlib.sha1(f"{b.voice}|{b.speed}|{b.text}|{vd.get('name')}|{V._onnx_dir()}|{V.ENGINE_TAG}".encode()).hexdigest()[:16]
     out = V.VOICES / "_cache" / f"say_{key}.wav"
     if not out.exists():
         _voice_call(lambda V: V.say(b.text[:2000], b.voice, out, b.speed))

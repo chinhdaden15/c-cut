@@ -251,7 +251,14 @@ def say(text: str, voice_id: str, out: Path | str, speed: float = 1.0) -> Path:
                 ra, rsr = sf.read(str(r), dtype="float32")
                 wav = EN.resample(EN.say_vi_voice(text, d.get("gender", "nam"), ra, rsr), EN.CSR, SR)
             except Exception:
-                wav = None                              # không được (chưa tải được model…) → VieNeu đọc như cũ
+                wav = None                              # không được (chưa tải được model…) → VieNeu đọc như cũ, ghi lý do
+                try:
+                    import traceback
+                    with open(ROOT / "error.log", "a", encoding="utf-8") as fh:
+                        fh.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} · tiếng Anh bản xứ ({voice_id}) → đọc bằng VieNeu\n"
+                                 f"{traceback.format_exc()}")
+                except Exception:
+                    pass
     if wav is None:
         ref = {"speaker_emb": np.asarray(d["speaker_emb"], dtype=np.float32), "codes": np.asarray(d["codes"], dtype=np.int64)}
         with _LOCK:
@@ -274,6 +281,7 @@ def say(text: str, voice_id: str, out: Path | str, speed: float = 1.0) -> Path:
 
 
 _NO_EN = [False]
+ENGINE_TAG = "en-vc-1"      # đổi cách đọc (vd thêm tiếng Anh bản xứ) → bộ đệm “đọc thử” cũ bỏ, không phát lại bản cũ
 EN_REF_TEXT = ("Xin chào các bạn, hôm nay mình sẽ cùng nhau tìm hiểu về thị trường bất động sản "
                "và những điều cần biết trước khi xuống tiền mua nhà.")
 
@@ -296,7 +304,7 @@ def sample(voice_id: str) -> Path:
     """câu nghe thử (đệm sẵn)."""
     import hashlib
     d = _voice_data(voice_id)
-    h = hashlib.md5((json.dumps(d.get("codes"))[:4000] + str(d.get("name")) + str(_onnx_dir())).encode()).hexdigest()[:8]
+    h = hashlib.md5((json.dumps(d.get("codes"))[:4000] + str(d.get("name")) + str(_onnx_dir()) + ENGINE_TAG).encode()).hexdigest()[:8]
     f = VOICES / "_cache" / f"sample_{voice_id}_{h}.wav"          # đổi giọng / đổi bản model → nghe thử dựng lại, không phát bản cũ
     if not f.exists():
         say(SAMPLE_EN if d.get("engine") == "kokoro" else SAMPLE_TEXT, voice_id, f)
