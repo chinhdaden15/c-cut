@@ -117,6 +117,20 @@ def _dark_bg(bg) -> bool:
     return bg.get("style") == "charcoal"
 
 
+
+def _lum(c) -> float:
+    try:
+        c = str(c).lstrip("#")
+        r, g, b = (int(c[i:i + 2], 16) / 255 for i in (0, 2, 4))
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    except Exception:
+        return 0.5
+
+
+def _vis(col, bg, ink="#111111"):
+    """màu icon/viền phải NỔI trên nền ô: trắng trên ô trắng (vd phong cách nền sáng) → đổi sang màu mực."""
+    return ink if abs(_lum(col) - _lum(bg)) < 0.25 else col
+
 class Kit:
     def __init__(self, pdir, fmt: str, theme="dark", project_id: str | None = None):
         from .. import fonts as FT
@@ -370,6 +384,10 @@ class Kit:
                 for k in ("label_color", "value_color"):
                     if o.get(k) == ink:
                         o[k] = "#FFFFFF"
+                if o.get("type") in ("bars", "meter"):            # cột / thanh đo trên video tối: màu nhấn sáng, chữ trắng (không còn cột đen chìm)
+                    acc = (LK.LOOKS[self.look].get("pal") or {}).get("acc") or "#FFD54A"
+                    o.setdefault("color", acc)
+                    o["label_color"], o["value_color"], o["label_shadow"] = "#FFFFFF", "#FFFFFF", 0.6
 
     def _captions(self, scenes):
         """phụ đề chạy theo lời (từng từ hiện đúng lúc nói) ở vùng dưới — cảnh đã có câu dẫn (s.lead) thì bỏ qua.
@@ -763,7 +781,7 @@ class Scene:
         pos, cw = K.grid(len(items), region)
         sz = size or ((300 if K.V else 200) if len(items) <= 2 else (220 if K.V else 150) if len(items) <= 3 else (160 if K.V else 110))
         sz = min(sz, cw * 0.8) if not size and cw else sz      # không để icon chạm nhau (ô nền = 1.15 × cỡ icon)
-        col = color or K.th["accent"]
+        col = _vis(color or K.th["accent"], K.th["panel"], K.th["text"] if _lum(K.th["text"]) < 0.5 else "#111111")
         ids = []
         for (name, label, t), (x, y) in zip(items, pos):
             name = to3d(name)
@@ -911,7 +929,7 @@ class Scene:
             x1, x2 = K.W * 0.27, K.W * 0.73
         ids = []
         for (it, t, x, c0) in ((a, t_a, x1, K.th["good"]), (b, t_b, x2, K.th["alt"])):
-            col = it[2] if len(it) > 2 else c0
+            col = _vis(it[2] if len(it) > 2 else c0, K.th["panel"], K.th["text"] if _lum(K.th["text"]) < 0.5 else "#111111")
             sz = 150 if K.V else 120                  # vòng ≈ 300px, hai vòng cách nhau ≥ 190px cho chữ VS — không to, không đè nhau
             nm = to3d(it[0])
             g3 = {"tile": "glass", "bg": None} if nm.startswith("3d:") else {}

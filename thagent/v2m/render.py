@@ -1248,11 +1248,11 @@ class Renderer:
             bar = {"w": bw, "h": bh, "r": min(14, bw / 4), "fill": d.get("color", p.get("color", th["accent"])), "scale": 1, "rot": 0}
             self.d_rect(dst, bar, cx, base_y - bh / 2 * scale, scale, 0, op, bv, None, t, cam)
             lab = {"type": "text", "text": d.get("label", ""), "font": "semi", "size": p.get("label_size", 30),
-                   "color": th["muted"], "scale": 1, "rot": 0, "shadow": 0, "max_w": slot * 0.95}
+                   "color": p.get("label_color", th["muted"]), "scale": 1, "rot": 0, "shadow": p.get("label_shadow", 0), "max_w": slot * 0.95}
             self.d_text(dst, lab, cx, base_y + 40 * scale, scale, 0, op, bv, None, t, cam)
             if kk > 0.05:
                 num = {"type": "text", "text": _fmt_num(val, int(p.get("decimals", 0))) + p.get("unit", ""), "font": "display",
-                       "size": p.get("value_size", 40), "color": th["text"], "scale": 1, "rot": 0, "shadow": 0.3}
+                       "size": p.get("value_size", 40), "color": p.get("value_color", th["text"]), "scale": 1, "rot": 0, "shadow": 0.3}
                 self.d_text(dst, num, cx, base_y - (bh + 34) * scale, scale, 0, op * clamp01(kk * 2), bv, None, t, cam)
 
     def d_quote(self, dst, p, sx, sy, scale, rot, op, bv, clip, t, cam):

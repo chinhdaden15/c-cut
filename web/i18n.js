@@ -139,7 +139,7 @@
     'Chọn file thu âm hoặc video có tiếng (10–30 giây nói tự nhiên, nơi yên tĩnh là tốt nhất).': 'Choose a recording or a video with speech (10–30 seconds of natural speech, ideally in a quiet place).',
     'Đây là giọng của tôi, hoặc tôi được người có giọng này cho phép dùng. Tôi không dùng giọng nhân bản để mạo danh hay lừa dối người khác.': 'This is my voice, or I have permission from its owner. I will not use the cloned voice to impersonate or deceive anyone.',
     'Nhập câu bất kỳ, tiếng Việt hoặc tiếng Anh…': 'Type any sentence, in Vietnamese or English…', 'Tên giọng (vd: Giọng của tôi)': 'Voice name (e.g. My voice)',
-    'Giọng của bạn': 'Your voice', '▶ Nghe thử': '▶ Preview', 'Nghe thử': 'Preview', 'Đang tạo…': 'Generating…', 'Đang nhân bản…': 'Cloning…', 'Xoá giọng này?': 'Delete this voice?',
+    'Hàng chờ trống — thêm video, kịch bản hoặc file giọng trước': 'The queue is empty — add a video, script or voice file first', 'Giọng của bạn': 'Your voice', '▶ Nghe thử': '▶ Preview', 'Nghe thử': 'Preview', 'Đang tạo…': 'Generating…', 'Đang nhân bản…': 'Cloning…', 'Xoá giọng này?': 'Delete this voice?',
     'Nhập câu cần đọc': 'Type a sentence to read', 'Chọn file thu âm': 'Choose a recording', 'Đặt tên cho giọng': 'Name the voice',
     'Cần xác nhận quyền dùng giọng': 'Please confirm you have the right to use this voice',
     'Công cụ đủ': 'Tools ready', 'Chưa kiểm tra công cụ': 'Tools not checked yet', 'Đã đăng nhập': 'Signed in', 'Đổi tài khoản': 'Switch account',

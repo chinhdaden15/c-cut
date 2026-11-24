@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.26"
+APP_VERSION = "2.5.27"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1540,6 +1540,19 @@ def t2v_add(b: T2VIn):
         for v in TV.split(raw):
             sp = TV.spoken(v["text"])                    # số từ / thời lượng tính theo LỜI ĐỌC (không tính ghi chú, link)
             items.append({"name": v["title"][:60], "script": sp, **({"script_raw": v["text"]} if sp != v["text"].strip() else {})})
+    added, reused = [], []
+    for it in items:
+        key = (it.get("name"), it.get("script") or it.get("request") or ((it.get("article") or {}).get("url")))
+        old = next((q for q in STATE["queue"] if q.get("kind") == "t2v" and q.get("status") != "done"
+                    and (q.get("name"), q.get("script") or q.get("request") or ((q.get("article") or {}).get("url"))) == key), None)
+        if old:        # gửi lại ĐÚNG việc cũ (cùng tên + cùng kịch bản) → dựng tiếp trong dự án cũ, giữ giọng + kế hoạch đã làm
+            if old.get("status") in ("cancelled", "failed"):
+                old["status"] = "wait"
+                old["voice"], old["speed"] = b.voice, b.speed
+            reused.append(old["name"])
+            continue
+        added.append(it)
+    items = added
     for it in items:
         words = len((it.get("script") or "").split())
         if it.get("article"):
@@ -1552,7 +1565,7 @@ def t2v_add(b: T2VIn):
                   next(v["name"] for v in V.voices() if v["id"] == b.voice))
         STATE["queue"].append(it)
     save_queue()
-    return {"added": [i["name"] for i in items], "queue": STATE["queue"]}
+    return {"added": [i["name"] for i in items], "resumed": reused, "queue": STATE["queue"]}
 
 
 def _v2m_render(item: dict, pid: str, job: dict, settings: dict, log, sess):
@@ -1818,7 +1831,12 @@ def start():
         if not WS:
             raise HTTPException(400, "Tạo dự án trước")
         if not any(q["status"] in ("wait", "failed") for q in STATE["queue"]):
-            raise HTTPException(400, "Thêm video gốc trước")
+            stopped = [q for q in STATE["queue"] if q["status"] == "cancelled"]
+            if not stopped:                      # việc đã dừng (bấm Dừng / hết giới hạn / đổi tài khoản) → bấm Bắt đầu = dựng tiếp từ chỗ dở
+                raise HTTPException(400, "Hàng chờ trống — thêm video, kịch bản hoặc file giọng trước")
+            for q in stopped:
+                q["status"] = "wait"
+            save_queue()
         s = load_settings()
         STATE["job"] = {"state": "running", "stage": "", "done": [], "log": [], "cancel": False, "percent": 0,
                         "eta_s": None, "t0": time.time(), "confirm": []}

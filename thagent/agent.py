@@ -556,10 +556,19 @@ class Session:
 
 
 
+NO_APP_DEBUG = """
+
+KHÔNG DÒ LỖI MÃ NGUỒN CỦA APP (tốn rất nhiều giới hạn Claude của người dùng): KHÔNG đọc / grep / sửa các file trong thư mục thagent/,
+web/, packaging/ hay mã của bộ dựng. Một mẫu đồ hoạ (s.mg kind, s.cards, s.compare, s.bars…) hiện trống, thiếu nửa, đè nhau hay sai màu
+trong stills → ĐỔI sang mẫu / kiểu khác làm được cùng ý (headline ↔ kinetic, compare ↔ cards, chart ↔ money, ảnh thật…), dựng tiếp,
+và ghi một dòng vào confirm.json: "mẫu <kind> hiển thị lỗi ở cảnh <n> — đã thay bằng <kind khác>" để người phát triển sửa sau.
+Lệnh check báo lỗi thì sửa NỘI DUNG cảnh (build_timeline.py), không sửa app. Tối đa 3 vòng check→sửa; vòng 4 vẫn lỗi → đơn giản hoá cảnh lỗi."""
+
+
 def system_prompt(style: str, pid: str, pdir: str) -> str:
     """+ ngôn ngữ giao diện: người dùng chọn English → Claude trao đổi trong khung chat bằng tiếng Anh
     (nội dung video — lời, phụ đề, chữ trên hình — vẫn theo ngôn ngữ của kịch bản / lời nói)."""
-    p = _system_prompt(style, pid, pdir)
+    p = _system_prompt(style, pid, pdir) + NO_APP_DEBUG
     try:
         lang = json.loads((ROOT / "ccut_settings.json").read_text(encoding="utf-8")).get("ui_lang")
     except Exception:

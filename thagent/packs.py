@@ -625,19 +625,20 @@ def pp_money(sc, V, P, panel=None):
 def pp_chart(sc, V, P, panel=None):
     vf, vt = float(sc.get("value_from", 0)), float(sc.get("value_to", 0))
     h = max(float(sc.get("hit_at", 2.0)), 1.0)
-    W, H = (900, 600) if V else (1200, 500)
-    x0, y0 = (90, 560) if V else (360, 260)
-    hs = [0.3, 0.55, 0.95] if vt >= vf else [0.95, 0.6, 0.3]
+    W, H = (900, 420) if V else (1200, 380)          # cột thấp hơn → cột cao nhất không đè lên ô số
+    x0, y0 = (90, 620) if V else (360, 300)
+    hs = [0.3, 0.55, 0.9] if vt >= vf else [0.9, 0.6, 0.3]
     bw = W / 3 * 0.7
+    dec = int(sc.get("decimals", 0 if float(vt).is_integer() and float(vf).is_integer() else 1))
     sfx = str(sc.get("suffix", "%"))
     bars = "".join(f'<div class="stk pb pb{k}" style="bottom:0;left:{px(k * W / 3)};width:{px(bw)};height:{px(H * v)};{"background:var(--acc)" if k == 2 else ""}"></div>' for k, v in enumerate(hs))
     html = _pp(P, f'<div style="position:absolute;left:{px(x0)};top:{px(y0)};width:{px(W)}">'
-                  f'<div style="text-align:center;margin-bottom:{px(40)}"><span class="tag pt" style="font-size:{px(120)};line-height:1"><span class=pv>{E(vf)}{E(sfx)}</span></span>'
+                  f'<div style="text-align:center;margin-bottom:{px(40)}"><span class="tag pt" style="font-size:{px(120)};line-height:1"><span class=pv>{E(f"{vf:,.{dec}f}".replace(",", "X").replace(".", ",").replace("X", "."))}{E(sfx)}</span></span>'
                   f'<div class="out pl" style="font-size:{px(52)};margin-top:{px(20)}">{E(sc.get("label", ""))}</div></div>'
                   f'<div style="position:relative;height:{px(H)}">{bars}</div></div>', panel)
     js = (_slam(".pt", .1, -10) + _slam(".pl", .3, 6)
           + f"tl.from(q('.pb'),{{y:-1600,duration:.6,ease:'bounce.out',stagger:{max(.15, (h - .9) / 3):.2f}}},.3);"
-          f"const o={{v:{vf}}};tl.to(o,{{v:{vt},duration:{h - .3:.2f},ease:'power2.inOut',onUpdate:()=>q('.pv').textContent=Math.round(o.v)+{json.dumps(sfx)}}},.3);")
+          f"const o={{v:{vf}}};tl.to(o,{{v:{vt},duration:{h - .3:.2f},ease:'power2.inOut',onUpdate:()=>q('.pv').textContent=o.v.toLocaleString('vi-VN',{{minimumFractionDigits:{dec},maximumFractionDigits:{dec}}})+{json.dumps(sfx)}}},.3);")
     return html, js, POP_CSS
 
 

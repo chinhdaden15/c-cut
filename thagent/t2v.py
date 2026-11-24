@@ -98,12 +98,56 @@ _SHOT_END = re.compile(r"(?:kiểu|âm thanh|sfx)\s*:", re.I)
 _QUOTE = re.compile(r"[“\"]([^”\"]{8,})[”\"]")
 
 
+_TIMECELL = re.compile(r"^\s*\d+(?:[.,]\d+)?\s*(?:[–—-]\s*\d+(?:[.,]\d+)?)?\s*(?:giây|giay|s|sec)?\s*$", re.I)
+_SPEAK_COL = re.compile(r"^(?:lời|lời đọc|loi|loi doc|voice ?over|vo|thoại|lời thoại|script|narration)$", re.I)
+
+
+def table_speech(text: str) -> str | None:
+    """kịch bản dạng BẢNG (| Thời gian | Lời | Hình | Chữ | Nguồn |, kể cả bảng bị dồn dòng) → CHỈ nội dung cột Lời.
+    Mọi thứ ngoài bảng (mốc thông tin, thông điệp, danh sách nguồn, ghi chú) bỏ hết. Không phải bảng → None."""
+    if text.count("|") < 8:
+        return None
+    cells = [c.strip() for c in text.split("|")]
+    k = next((i for i, c in enumerate(cells) if _SPEAK_COL.match(c.strip("*_ "))), None)
+    if k is None:
+        return None
+    h0 = k
+    short = lambda c: bool(c) and "\n" not in c and len(c) <= 30 and not c.startswith(("-", ":"))   # ô tiêu đề cột: ngắn, một dòng
+    while h0 > 0 and short(cells[h0 - 1]):
+        h0 -= 1
+    h1 = k
+    while h1 + 1 < len(cells) and short(cells[h1 + 1]) and not _TIMECELL.match(cells[h1 + 1]):
+        h1 += 1
+    off = k - h0
+    out = []
+    body = [c for c in cells[h1 + 1:] if not re.fullmatch(r":?-{2,}:?", c)]
+    if _TIMECELL.match("0–3 giây") and re.search(r"thời gian|thoi gian|time|mốc", cells[h0], re.I):
+        for i, c in enumerate(body):                  # mỗi hàng bắt đầu bằng ô thời gian
+            if _TIMECELL.match(c) and i + off < len(body):
+                out.append(body[i + off])
+    else:                                             # không có cột thời gian: hàng = các ô liền nhau giữa hai ô trống
+        row = []
+        for c in body + [""]:
+            if c:
+                row.append(c)
+            elif row:
+                if len(row) > off:
+                    out.append(row[off])
+                row = []
+    out = [o for o in out if o and not _TIMECELL.match(o)]
+    return "\n\n".join(out) if out else None
+
+
+
 def spoken(text: str) -> str:
     """CHỈ lời đọc trong kịch bản: bỏ dòng ghi chú (*…*), tiêu đề mốc giờ (**0–8 giây · Mở đầu**), hướng dẫn hình / âm,
     link nguồn [..](url) + url trần, dấu markdown. Kịch bản đặt lời trong ngoặc kép “…” → chỉ đọc phần trong ngoặc.
     (Kịch bản từ CN.AI / ChatGPT hay kèm các phần này — đọc thành tiếng làm giọng dài, phụ đề chứa link, bộ kiểm chặn.)"""
     out, in_shot = [], False
     text = _NOTES_HDR.split(text.replace("\r", ""), 1)[0]     # từ "=== GHI CHÚ DỰNG ===" trở xuống: gợi ý hình, không đọc
+    tb = table_speech(text)
+    if tb:                                                     # kịch bản dạng bảng → chỉ cột Lời
+        text = tb
     for raw in text.split("\n"):
         ln = _URL.sub("", _LINK.sub("", raw)).strip()
         if not ln:
