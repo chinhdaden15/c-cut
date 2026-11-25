@@ -105,6 +105,13 @@ def scene_bg(name: str, bg: dict | None, idx: int) -> dict | None:
     return out
 
 
+# skill Giá Trị (video câu ngẫm): nền tối dịu, phụ đề trắng bóng nhẹ — không khung, không motion graphic
+LOOKS["gia_tri"] = dict(name="Giá Trị", tone="gold", accent="#FFE2A8", alt="#9FB7D6", ink="#14110D",
+                        bgs=[("solid", "#0D1117", None), ("solid", "#0F141B", None), ("solid", "#0B1015", None)],
+                        panel="#141B24", border="#FFE2A8", glow="#0D1117",
+                        caption=dict(font="body_bold", color="#FFFFFF", stroke=0, shadow=0.7, active_color="#FFE2A8"),
+                        caption_media=dict(font="body_bold", color="#FFFFFF", stroke=0, shadow=0.7, active_color="#FFE2A8"))
+
 # ---------------- PHONG CÁCH KÊNH (skin): đổi tận gốc font, phụ đề, nền, khung thẻ MG — không chỉ đổi màu ----------------
 # look có "skin" ≠ neon → font chữ nhấn riêng, phụ đề riêng, CSS đè lên mọi Motion Graphics (mg2 + fx).
 LOOKS.update({

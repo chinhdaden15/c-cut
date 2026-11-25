@@ -1,0 +1,10 @@
+{
+  "name": "Giá Trị",
+  "version": "1.0.0",
+  "kind": "text",
+  "hidden": true,
+  "summary": "Video câu ngẫm về sự đời: giọng đọc chậm, mỗi câu một cảnh ảnh / video thật (Ken Burns chậm), phụ đề cả câu chạy theo giọng, nhạc piano C-Cut tự sáng tác theo nhạc mẫu; xuất dọc 9:16",
+  "output": {"formats": ["9x16"], "fps": 30},
+  "input": {"text": ["txt", "md", "docx"]},
+  "video": true
+}

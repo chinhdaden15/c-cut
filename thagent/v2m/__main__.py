@@ -343,6 +343,12 @@ def verify(pdir, fmt="9x16", *ts):
     print(out)
 
 
+def giatri(pdir):
+    """giatri <dự-án> — skill Giá Trị: giatri_picks.json (hình cho từng câu) → build_timeline.py + dựng + kiểm tra + ảnh tĩnh."""
+    from . import giatri as G
+    G.run(pdir)
+
+
 def stills(pdir, *ts):
     from .. import fonts as _FT
     _FT.use_project(pdir)
@@ -652,7 +658,7 @@ def mapclip(pdir, a, b, dur="6", fmt="9x16", style="dark", name="tuyen"):
     MC(pdir, a, b, float(dur), fmt, style, name)
 
 
-CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "_scan_part": Q.scan_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "verify": verify, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "area": area, "streetmap": streetmap, "mapclip": mapclip}
+CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "_scan_part": Q.scan_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "verify": verify, "giatri": giatri, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "area": area, "streetmap": streetmap, "mapclip": mapclip}
 
 
 def main():

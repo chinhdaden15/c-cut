@@ -1,0 +1,455 @@
+{
+ "version": 2,
+ "source": "Mixkit (mixkit.co/free-stock-music)",
+ "note": "Chỉ PIANO SOLO, nhẹ. kieu A = đúng kiểu mixkit:688 (piano thuần, buồn nhẹ / suy tư / tình cảm, không đàn dây, không hy vọng) — mặc định chỉ chọn nhóm A. kieu B = piano solo nhưng tông hy vọng / lãng mạn (không đàn dây) — chỉ dùng khi chọn tay. Đã LOẠI các bài có đàn dây, synth, guitar, trống, hợp tấu (vd mixkit:545). Số liệu do máy phân tích.",
+ "featured": {
+  "kieu_688_piano_thuan_buon_nhe": {
+   "mo_ta": "Nhóm A — đúng kiểu bài 688 người dùng đã duyệt",
+   "tracks": [
+    "mixkit:688",
+    "mixkit:714",
+    "mixkit:681",
+    "mixkit:1081",
+    "mixkit:172",
+    "mixkit:956"
+   ]
+  }
+ },
+ "tracks": [
+  {
+   "id": "mixkit:688",
+   "name": "Classical vibes 5",
+   "dur_s": 123,
+   "tags": [
+    "Film Score",
+    "Melancholic",
+    "Melodic",
+    "Piano",
+    "Reflective",
+    "Wedding"
+   ],
+   "key": "La thứ",
+   "mode": "minor",
+   "bpm": 58.7,
+   "brightness": 595.2,
+   "dynamic": 0.38,
+   "onset_per_s": 1.98,
+   "piano": true,
+   "mood": "buồn nhẹ, suy tư",
+   "soft_score": 0.669,
+   "kieu": "A",
+   "giong_688": 0.0,
+   "suit": [
+    "pho-dem",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:714",
+   "name": "Classical 7",
+   "dur_s": 156,
+   "tags": [
+    "Film Score",
+    "Human Drama",
+    "Melancholic",
+    "Piano",
+    "Reflective",
+    "Soft"
+   ],
+   "key": "Mi thứ",
+   "mode": "minor",
+   "bpm": 80.7,
+   "brightness": 670.2,
+   "dynamic": 0.55,
+   "onset_per_s": 1.38,
+   "piano": true,
+   "mood": "man mác",
+   "soft_score": 0.664,
+   "kieu": "A",
+   "giong_688": 1.42,
+   "suit": [
+    "pho-dem",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:681",
+   "name": "Classical vibes 1",
+   "dur_s": 110,
+   "tags": [
+    "Drama",
+    "Film Score",
+    "Human Drama",
+    "Melancholic",
+    "Piano",
+    "Reflective"
+   ],
+   "key": "Rê trưởng",
+   "mode": "major",
+   "bpm": 58.7,
+   "brightness": 422.6,
+   "dynamic": 0.49,
+   "onset_per_s": 1.47,
+   "piano": true,
+   "mood": "ấm áp, nhẹ nhàng",
+   "soft_score": 0.721,
+   "kieu": "A",
+   "giong_688": 1.79,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:1081",
+   "name": "We'll Be Okay",
+   "dur_s": 104,
+   "tags": [
+    "Emotional",
+    "Film Score",
+    "Love",
+    "Piano",
+    "Reflective",
+    "Relaxation"
+   ],
+   "key": "Rê trưởng",
+   "mode": "major",
+   "bpm": 71.8,
+   "brightness": 778.1,
+   "dynamic": 0.29,
+   "onset_per_s": 1.74,
+   "piano": true,
+   "mood": "ấm áp, nhẹ nhàng",
+   "soft_score": 0.682,
+   "kieu": "A",
+   "giong_688": 1.57,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:172",
+   "name": "Amu Dabi",
+   "dur_s": 168,
+   "tags": [
+    "Emotional",
+    "Film Score",
+    "Piano",
+    "Reflective",
+    "Relaxation",
+    "Wedding"
+   ],
+   "key": "Fa thứ",
+   "mode": "minor",
+   "bpm": 64.6,
+   "brightness": 1020.3,
+   "dynamic": 0.3,
+   "onset_per_s": 1.91,
+   "piano": true,
+   "mood": "buồn nhẹ, suy tư",
+   "soft_score": 0.615,
+   "kieu": "A",
+   "giong_688": 2.06,
+   "suit": [
+    "pho-dem",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:956",
+   "name": "I Wanna Know",
+   "dur_s": 163,
+   "tags": [
+    "Drama",
+    "Emotional",
+    "Film Score",
+    "Piano",
+    "Reflective",
+    "Wedding"
+   ],
+   "key": "Đô trưởng",
+   "mode": "major",
+   "bpm": 80.7,
+   "brightness": 995.5,
+   "dynamic": 0.81,
+   "onset_per_s": 1.83,
+   "piano": true,
+   "mood": "tươi sáng, nhẹ",
+   "soft_score": 0.477,
+   "kieu": "A",
+   "giong_688": 3.75,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:717",
+   "name": "Classical 10",
+   "dur_s": 212,
+   "tags": [
+    "Film Score",
+    "Hopeful",
+    "Human Drama",
+    "Melodic",
+    "Piano",
+    "Reflective"
+   ],
+   "key": "Si thứ",
+   "mode": "minor",
+   "bpm": 53.8,
+   "brightness": 772.6,
+   "dynamic": 0.44,
+   "onset_per_s": 1.63,
+   "piano": true,
+   "mood": "buồn nhẹ, suy tư",
+   "soft_score": 0.649,
+   "kieu": "B",
+   "giong_688": 1.38,
+   "suit": [
+    "pho-dem",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:713",
+   "name": "Classical 6",
+   "dur_s": 110,
+   "tags": [
+    "Documentary",
+    "Film Score",
+    "Hopeful",
+    "Piano",
+    "Reflective",
+    "Relaxation"
+   ],
+   "key": "Si trưởng",
+   "mode": "major",
+   "bpm": 58.7,
+   "brightness": 645.5,
+   "dynamic": 0.57,
+   "onset_per_s": 2.17,
+   "piano": true,
+   "mood": "ấm áp, nhẹ nhàng",
+   "soft_score": 0.584,
+   "kieu": "B",
+   "giong_688": 1.39,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:709",
+   "name": "Classical 2",
+   "dur_s": 124,
+   "tags": [
+    "Film Score",
+    "Hopeful",
+    "Melodic",
+    "Piano",
+    "Reflective",
+    "Wedding"
+   ],
+   "key": "La thứ",
+   "mode": "minor",
+   "bpm": 53.8,
+   "brightness": 686.2,
+   "dynamic": 0.61,
+   "onset_per_s": 1.73,
+   "piano": true,
+   "mood": "buồn nhẹ, suy tư",
+   "soft_score": 0.608,
+   "kieu": "B",
+   "giong_688": 1.42,
+   "suit": [
+    "pho-dem",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:711",
+   "name": "Classical 4",
+   "dur_s": 189,
+   "tags": [
+    "Film Score",
+    "Hopeful",
+    "Human Drama",
+    "Piano",
+    "Romantic",
+    "Soft"
+   ],
+   "key": "Fa♯ trưởng",
+   "mode": "major",
+   "bpm": 92.3,
+   "brightness": 583.2,
+   "dynamic": 0.46,
+   "onset_per_s": 1.09,
+   "piano": true,
+   "mood": "tươi sáng, nhẹ",
+   "soft_score": 0.738,
+   "kieu": "B",
+   "giong_688": 1.46,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:710",
+   "name": "Classical 3",
+   "dur_s": 108,
+   "tags": [
+    "Film Score",
+    "Hopeful",
+    "Piano",
+    "Reflective",
+    "Soft",
+    "Wedding"
+   ],
+   "key": "Đô trưởng",
+   "mode": "major",
+   "bpm": 64.6,
+   "brightness": 654.5,
+   "dynamic": 0.52,
+   "onset_per_s": 2.4,
+   "piano": true,
+   "mood": "ấm áp, nhẹ nhàng",
+   "soft_score": 0.573,
+   "kieu": "B",
+   "giong_688": 1.49,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:716",
+   "name": "Classical 9",
+   "dur_s": 172,
+   "tags": [
+    "Film Score",
+    "Hopeful",
+    "Human Drama",
+    "Love",
+    "Piano",
+    "Reflective"
+   ],
+   "key": "Rê trưởng",
+   "mode": "major",
+   "bpm": 80.7,
+   "brightness": 625.3,
+   "dynamic": 0.44,
+   "onset_per_s": 1.47,
+   "piano": true,
+   "mood": "tươi sáng, nhẹ",
+   "soft_score": 0.695,
+   "kieu": "B",
+   "giong_688": 1.86,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:715",
+   "name": "Classical 8",
+   "dur_s": 135,
+   "tags": [
+    "Film Score",
+    "Hopeful",
+    "Human Drama",
+    "Melodic",
+    "Piano",
+    "Reflective"
+   ],
+   "key": "Si thứ",
+   "mode": "minor",
+   "bpm": 80.7,
+   "brightness": 908.1,
+   "dynamic": 0.6,
+   "onset_per_s": 1.66,
+   "piano": true,
+   "mood": "man mác",
+   "soft_score": 0.571,
+   "kieu": "B",
+   "giong_688": 2.14,
+   "suit": [
+    "pho-dem",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:712",
+   "name": "Classical 5",
+   "dur_s": 216,
+   "tags": [
+    "Documentary",
+    "Film Score",
+    "Hopeful",
+    "Human Drama",
+    "Piano",
+    "Reflective"
+   ],
+   "key": "La♯ trưởng",
+   "mode": "major",
+   "bpm": 64.6,
+   "brightness": 910.6,
+   "dynamic": 0.5,
+   "onset_per_s": 1.35,
+   "piano": true,
+   "mood": "ấm áp, nhẹ nhàng",
+   "soft_score": 0.632,
+   "kieu": "B",
+   "giong_688": 2.89,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  },
+  {
+   "id": "mixkit:310",
+   "name": "Alignment",
+   "dur_s": 95,
+   "tags": [
+    "Film Score",
+    "Hopeful",
+    "Human Drama",
+    "Piano",
+    "Reflective",
+    "Relaxation"
+   ],
+   "key": "Sol♯ trưởng",
+   "mode": "major",
+   "bpm": 92.3,
+   "brightness": 879.4,
+   "dynamic": 0.41,
+   "onset_per_s": 1.73,
+   "piano": true,
+   "mood": "tươi sáng, nhẹ",
+   "soft_score": 0.628,
+   "kieu": "B",
+   "giong_688": 2.03,
+   "suit": [
+    "thien-nhien",
+    "doi-thuong-am"
+   ],
+   "license": "Mixkit License (dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn) — https://mixkit.co/license/"
+  }
+ ]
+}

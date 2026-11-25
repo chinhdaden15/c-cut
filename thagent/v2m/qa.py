@@ -44,6 +44,8 @@ def static(tl: R.Timeline, transcript: dict | None = None) -> list[tuple[str, st
                 out.append(("error" if "giữ liền" in m else "warn", f"{oid}: {m}"))
     # 3) câu kết: hoàn tất sớm, đủ thời gian đọc
     last = tl.scenes[-1]
+    if tl.theme.get("calm"):             # skill Giá Trị: phụ đề cả câu chạy theo giọng tới sát cuối, đuôi nhạc nhỏ dần — không áp luật dồn dập
+        last = {"objects": []}
     keys = [o for o in last.get("objects", []) if o["type"] == "text" and float(o.get("size", 0)) >= 56]
     for o in keys:
         ev = [e for e in tl.events.get(o["id"], []) if e["action"] == "reveal"]
@@ -81,9 +83,10 @@ def static(tl: R.Timeline, transcript: dict | None = None) -> list[tuple[str, st
     # 6) camera: vận tốc không đổi đột ngột ngoài chủ đích
     out += camera_jerk(tl)
     # 8) nhịp hình theo lời: không đứng im quá 3s, không khung trống
-    out += rhythm(tl)
-    # 9) độ thu hút: hook, cảnh không quá dài, có điểm nhấn lớn, không lặp kiểu cảnh, không một nền suốt video
-    out += engagement(tl)
+    if not tl.theme.get("calm"):         # video câu ngẫm (Giá Trị): cảnh tĩnh, dài vừa, một kiểu hình là CHỦ ĐÍCH → bỏ luật nhịp / thu hút dồn dập
+        out += rhythm(tl)
+        # 9) độ thu hút: hook, cảnh không quá dài, có điểm nhấn lớn, không lặp kiểu cảnh, không một nền suốt video
+        out += engagement(tl)
     # 7) nhãn bản đồ cỡ cố định nên có mức chi tiết (lod) để không tụ lại khi zoom xa
     has_map = any(o["type"] in ("map", "geo", "region") for o in tl.objs.values())
     if has_map:

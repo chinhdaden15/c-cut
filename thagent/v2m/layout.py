@@ -60,7 +60,13 @@ class Frame:
         self.safe = SAFE[fmt]
 
     def zone(self, name: str) -> tuple:
-        return ZONES[self.fmt][name]
+        return getattr(self, "_zone_override", {}).get(name) or ZONES[self.fmt][name]
+
+    def set_zone(self, name: str, box: tuple) -> None:
+        """đổi vùng cho RIÊNG video này (vd skill Giá Trị đặt phụ đề giữa khung)."""
+        if not hasattr(self, "_zone_override"):
+            self._zone_override = {}
+        self._zone_override[name] = tuple(box)
 
     def center(self, name: str) -> tuple[float, float]:
         x0, y0, x1, y1 = self.zone(name)

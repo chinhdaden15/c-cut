@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.28"
+APP_VERSION = "2.5.29"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -39,6 +39,7 @@ STAGES = [("ingest", "Nhập", 8), ("transcribe", "Chép lời", 22), ("matting"
 # Voice to Motion: voice (âm thanh, hoặc tiếng tách từ video) → motion graphic, xuất cả dọc lẫn ngang
 STAGES_REVIEW = [("analyze", "Phân tích", 22), ("select", "Chọn cảnh", 28), ("build", "Dựng", 22), ("finish", "Hoàn thiện", 20),
                  ("check", "Kiểm tra", 4), ("export", "Xuất", 4)]
+STAGES_GT = [("script", "Kịch bản", 8), ("voice", "Giọng + nhạc", 25), ("plan", "Chọn hình", 25), ("render", "Xuất dọc", 42)]
 STAGES_T2V = [("script", "Kịch bản", 8), ("voice", "Giọng đọc", 15), ("plan", "Kế hoạch", 32), ("render", "Xuất dọc + ngang", 45)]
 STAGES_V2M = [("ingest", "Nhập", 3), ("transcribe", "Chép lời", 20), ("clean", "Làm sạch voice", 5),
               ("plan", "Kế hoạch", 25), ("render", "Xuất dọc + ngang", 47)]
@@ -1169,15 +1170,41 @@ def _on_idle(sess, job, item, st: dict):
            "Claude dừng nhiều lần chưa xong kế hoạch — xem khung chat")
 
 
+def _tool_count(sess) -> int:
+    try:
+        return sum(1 for m in sess.messages if m.get("kind") == "tool")
+    except Exception:
+        return 0
+
+
+TOOL_SOFT, TOOL_HARD = 60, 90        # lượt gọi công cụ cho MỘT bước Kế hoạch: mỗi lượt tính lại cả cuộc trò chuyện = tốn giới hạn Claude
+
+
+def _budget(sess, st: dict, job: dict):
+    """ngân sách lượt gọi công cụ: > 60 → nhắc CHỐT; > 90 → ra lệnh dừng sửa, ghi plan_ready.json ngay. Mỗi mức nhắc đúng một lần."""
+    n = _tool_count(sess) - st.get("tool0", 0)
+    if n >= TOOL_HARD and not st.get("hard"):
+        st["hard"] = True
+        job["log"].append(f"Claude đã dùng {n} lượt công cụ — ra lệnh chốt ngay")
+        sess.send(f"ĐÃ DÙNG {n} LƯỢT CÔNG CỤ — QUÁ NHIỀU (tốn giới hạn của người dùng). DỪNG sửa mọi thứ phụ NGAY: cảnh nào còn [error] thì ĐƠN GIẢN HOÁ "
+                  "(bỏ khối lỗi, dùng ảnh nền + chữ), chạy verify đúng MỘT lần nữa rồi ghi plan_ready.json bằng bản hiện tại — kể cả còn cảnh báo.", show=False)
+    elif n >= TOOL_SOFT and not st.get("soft"):
+        st["soft"] = True
+        job["log"].append(f"Claude đã dùng {n} lượt công cụ — nhắc chốt")
+        sess.send(f"Đã dùng {n} lượt công cụ (mục tiêu ≤ 40). CHỐT: sửa nốt các [error] còn lại trong MỘT lần, chạy verify một lần, rồi ghi plan_ready.json. "
+                  "Không thêm cảnh / hiệu ứng mới, không xem thêm ảnh.", show=False)
+
+
 def _wait_plan(sess, item, job):
     """chờ Claude ghi plan_ready.json (Claude dừng giữa chừng → _on_idle)."""
     item["status"] = "claude"
-    st = {"mark": _plan_mark(sess.dir)}
+    st = {"mark": _plan_mark(sess.dir), "tool0": _tool_count(sess)}
     while not sess.plan_ready():
         _pause_wait(job)
         if job["cancel"]:
             sess.stop(); raise RuntimeError("cancelled")
         job["activity"] = sess.activity
+        _budget(sess, st, job)
         if not sess.busy and not sess.plan_ready():
             time.sleep(5)
             if not sess.busy and not sess.plan_ready():
@@ -1398,7 +1425,8 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
     L.can_start(T2V, pid)
     pdir = P.PROJECTS / pid
     pdir.mkdir(parents=True, exist_ok=True)
-    sess = A.get(pid, T2V)
+    gt = item.get("variant") == "gia-tri"
+    sess = A.get(pid, "gia-tri" if gt else T2V)
     try:
         sess.warm()
     except Exception as e:
@@ -1466,15 +1494,46 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
         item["status"] = "running"
     job["done"].append("script"); job["stage"] = "voice"
     if not (pdir / "transcript.json").exists() or not (pdir / "script.json").exists():
-        TV.prepare(pdir, str(script), item.get("voice") or "nam_huong_dan", float(item.get("speed") or TV.SPEED), progress=log)
+        if gt:        # Giá Trị: đọc chậm, nghỉ ~0,75s sau câu / ~1,25s giữa đoạn, đuôi lặng 2s cho nhạc nhỏ dần
+            TV.prepare(pdir, str(script), item.get("voice") or "nam_huong_dan", float(item.get("speed") or 0.93), progress=log,
+                       gap_sent=0.55, gap_para=1.0, by_blank=True, tail_s=2.0)
+        else:
+            TV.prepare(pdir, str(script), item.get("voice") or "nam_huong_dan", float(item.get("speed") or TV.SPEED), progress=log)
     meta = json.loads((pdir / "script.json").read_text(encoding="utf-8"))
     job["done"].append("voice"); job["stage"] = "plan"
-    if not sess.plan_ready():
+    if gt and not (pdir / "assets_web" / "m_giatri.mp3").exists():
+        from . import music_gen as MG
+        try:
+            mid = item.get("music_id")
+            if not mid:               # mặc định: NHẠC THƯ VIỆN (danh mục assets/music_catalog.json) — có nhạc mẫu thì chọn bài gần nhất về giọng / nhịp / cảm xúc
+                info = MG.analyze(item["music_ref"]) if item.get("music_ref") else None
+                mid = MG.pick_from_catalog(item.get("tone"), item.get("music_seed"), info)
+            if mid:
+                log(f"Đang tải nhạc thư viện {mid}…")
+                try:
+                    MG.fit_library(pdir, mid, float(meta["duration_s"]), log=log)
+                except Exception as e:                       # tải lỗi → tự sáng tác làm phương án dự phòng
+                    log(f"Không tải được nhạc thư viện ({type(e).__name__}) — tự sáng tác nhạc piano")
+                    MG.make(pdir, float(meta["duration_s"]), item.get("music_ref"), item.get("tone"), item.get("music_seed"), log=log)
+            else:
+                log("Đang sáng tác nhạc nền piano…")
+                MG.make(pdir, float(meta["duration_s"]), item.get("music_ref"), item.get("tone"), item.get("music_seed"), log=log)
+        except Exception as e:         # nhạc lỗi không chặn video: dựng không nhạc, báo rõ
+            log(f"Không sáng tác được nhạc nền ({type(e).__name__}: {str(e)[:120]}) — dựng không nhạc")
+            notify("warn", f"{item['name']}: không tạo được nhạc nền — {str(e)[:120]}")
+    if gt and not sess.plan_ready():
+        sess.send(f"Dựng video GIÁ TRỊ cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill gia-tri. "
+                  f"Giọng đọc + nhạc đã xong: voice.wav {meta['duration_s']:.1f}s, {len(meta['sentences'])} câu (script.json). "
+                  "Chỉ việc chọn hình cho từng câu rồi chạy lệnh giatri — làm theo quy trình rồi ghi plan_ready.json.", show=False)
+        _wait_plan(sess, item, job)
+    elif not sess.plan_ready():
         weak = [m["i"] + 1 for m in meta["sentences"] if m.get("match", 1) < 0.6 and len(m["text"].split()) >= 3]
         sess.send(f"Dựng video Text to Video cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill text-to-video. "
                   f"Giọng đọc đã xong: voice.wav {meta['duration_s']:.1f}s, {len(meta['sentences'])} câu (script.json, transcript.json). "
                   + (NEWS_PLAN if (pdir / "article.json").exists() else "")
                   + (f"Câu {weak} khớp kém — nghe lại trước khi dựng. " if weak else "")
+                  + (f"VIDEO DÀI ({meta['duration_s']:.0f}s): TỐI ĐA ~25 CẢNH, mỗi cảnh ≥ 6s (gộp các câu liền ý vào một cảnh; một cảnh có thể dùng nhiều hình nền "
+                     "đổi theo lời). Ít cảnh = ít lượt chỉnh sửa = đỡ tốn giới hạn Claude của người dùng. " if meta["duration_s"] > 150 else "")
                   + f"Khổ cần xuất: {', '.join(item.get('formats') or ['9x16', '16x9'])} (plan_ready.json → \"formats\"). "
                   + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
         _wait_plan(sess, item, job)
@@ -1490,9 +1549,23 @@ class T2VIn(BaseModel):
     request: str | None = None       # yêu cầu sơ sài
     mode: str | None = None          # "article" = link bài báo / nội dung bài dán vào (ô kịch bản chỉ có link cũng tự hiểu)
     seconds: int = 60
-    voice: str = "nam_huong_dan"
+    voice: str | None = None         # Text to Video thường: mặc định nam_huong_dan · skill Giá Trị: PHẢI chọn giọng (không có mặc định)
     speed: float = 1.1
     formats: list[str] = ["9x16", "16x9"]
+    style: str | None = None         # "gia-tri" = skill Giá Trị (video câu ngẫm: giọng chậm, mỗi câu một cảnh, nhạc piano tự sáng tác)
+    music_ref: str | None = None     # gia-tri: nhạc mẫu (đường dẫn) — C-Cut chỉ lấy giọng / nhịp / cảm xúc rồi tự sáng tác bản mới
+    tone: str | None = None          # gia-tri: tông kênh khi không có nhạc mẫu: thien-nhien | pho-dem | doi-thuong-am
+    music_seed: int | None = None    # gia-tri: cùng seed = cùng chủ đề nhạc (kênh nghe quen tai)
+    music_id: str | None = None      # gia-tri: nhạc thư viện miễn phí "mixkit:<mã>" (ưu tiên hơn nhạc tự sáng tác; tra bằng `v2m musicsearch piano`)
+
+
+def _gt_speed(voice_id: str, asked: float) -> float:
+    """tốc độ đọc của skill Giá Trị: giọng thường 0.93 (≤ 0.95); giọng vốn đã chậm (vd ông già ngộ đạo, native_slow) → 1.07 (đo thật: ở 1.0 chậm hơn giọng nữ 0.93 khoảng 5% và nghe vẫn chậm; 1.07 ≈ nhỉnh hơn giọng nữ ~2%)."""
+    from . import voice as V
+    slow = bool(V.PRESETS.get(voice_id, {}).get("native_slow"))
+    if asked == 1.1:                       # mặc định của API
+        return 1.07 if slow else 0.93
+    return min(asked, 1.07 if slow else 0.95)
 
 
 def _article_item(text: str, forced: bool) -> dict | None:
@@ -1521,10 +1594,24 @@ def t2v_add(b: T2VIn):
     """thêm việc Text to Video: kịch bản (1 hoặc nhiều video) hoặc yêu cầu + số giây."""
     from . import t2v as TV
     from . import voice as V
+    gt0 = (b.style or "").strip().lower() in ("gia-tri", "gia_tri", "giá trị")
+    if not b.voice and gt0:
+        raise HTTPException(400, "Giá Trị: chọn giọng đọc (trường voice) — skill này không có giọng mặc định; xem GET /api/ccut/voices")
+    b.voice = b.voice or "nam_huong_dan"
     if b.voice not in [v["id"] for v in V.voices()]:
         raise HTTPException(400, "chọn giọng đọc")
+    gt = (b.style or "").strip().lower() in ("gia-tri", "gia_tri", "giá trị")
+    if b.style and not gt and b.style.strip().lower() not in ("text-to-video", "t2v"):
+        raise HTTPException(400, f"style “{b.style}” không có trong Text to Video (dùng \"gia-tri\" hoặc bỏ trống)")
+    if gt:
+        if b.music_ref and not Path(b.music_ref).expanduser().is_file():
+            raise HTTPException(400, f"music_ref không có file: {b.music_ref}")
+        if b.music_id and not re.fullmatch(r"(mixkit:)?\d{1,5}", b.music_id.strip()):
+            raise HTTPException(400, "music_id phải dạng mixkit:<mã số>, vd mixkit:714")
+        if b.tone and b.tone not in ("thien-nhien", "pho-dem", "doi-thuong-am"):
+            raise HTTPException(400, "tone phải là thien-nhien | pho-dem | doi-thuong-am")
     items = []
-    art = _article_item((b.request or b.text or "") if not b.path else "", b.mode == "article")
+    art = _article_item((b.request or b.text or "") if not b.path else "", b.mode == "article") if not gt else None
     if art:
         items.append(art)
     elif b.request and b.request.strip() and not (b.text or b.path):
@@ -1558,8 +1645,12 @@ def t2v_add(b: T2VIn):
         if it.get("article"):
             a = it["article"]
             meta0 = f"bài báo {a.get('source') or ''} · {len(ART.body_text(a).split())} từ · tự tóm ~40–90s"
+        if gt:
+            it.update(style="gia-tri", variant="gia-tri", music_ref=str(Path(b.music_ref).expanduser()) if b.music_ref else None,
+                      tone=b.tone, music_seed=b.music_seed, music_id=(b.music_id.strip() if b.music_id else None))
         it.update(kind="t2v", path=f"t2v:{int(time.time() * 1000)}:{len(STATE['queue'])}", status="wait", project=None,
-                  voice=b.voice, speed=b.speed, formats=[f for f in b.formats if f in ("9x16", "16x9")] or ["9x16", "16x9"],
+                  voice=b.voice, speed=(_gt_speed(b.voice, b.speed) if gt else b.speed),
+                  formats=(["9x16"] if gt else ([f for f in b.formats if f in ("9x16", "16x9")] or ["9x16", "16x9"])),
                   meta=(meta0 if it.get("article") else f"kịch bản {words} từ · ~{words / TV.WPS:.0f}s" if words
                         else f"yêu cầu · ~{it.get('seconds')}s") + " · giọng " +
                   next(v["name"] for v in V.voices() if v["id"] == b.voice))
@@ -1695,7 +1786,7 @@ def _run_queue(settings: dict):
                     break
             continue
         if item.get("kind") == "t2v":
-            job["stages"] = STAGES_T2V
+            job["stages"] = STAGES_GT if item.get("variant") == "gia-tri" else STAGES_T2V
             try:
                 _run_t2v(item, pid, job, settings, log)
             except Exception as e:
@@ -2290,6 +2381,34 @@ def _voice_call(fn, *a, **k):
         except Exception:
             pass
         raise HTTPException(500, f"Giọng đọc gặp lỗi ({type(e).__name__}: {str(e)[:160]}) — đã ghi vào error.log")
+
+
+@router.get("/music")
+def music_catalog():
+    """danh mục nhạc thư viện miễn phí (Mixkit) đi kèm app — chọn `music_id` cho skill Giá Trị. soft_score cao = nhẹ, hợp nhạc nền dưới giọng."""
+    from . import music_gen as MG
+    rows = [{**{k: r[k] for k in ("id", "name", "dur_s", "key", "bpm", "mood", "piano", "soft_score", "suit")}, "stored": MG.stored(r["id"])}
+            for r in MG.catalog()]
+    import json as _j
+    try:
+        feat = _j.loads((P.ROOT / "assets" / "music_catalog.json").read_text(encoding="utf-8")).get("featured", {})
+    except Exception:
+        feat = {}
+    return {"count": len(rows), "stored_count": sum(1 for r in rows if r["stored"]), "sync": dict(MG.SYNC), "featured": feat, "tracks": rows, "license": "Mixkit License — dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn"}
+
+
+class MusicSyncIn(BaseModel):
+    n: int = 60
+
+
+@router.post("/music/sync")
+def music_sync(b: MusicSyncIn):
+    """tải ~n bài nhạc nhẹ nhất về KHO trên máy (music_lib/mixkit/, ngoại tuyến sau đó) — chạy nền, theo dõi ở GET /music → sync."""
+    from . import music_gen as MG
+    if not MG.SYNC["busy"]:
+        threading.Thread(target=lambda: MG.sync(max(1, min(100, b.n))), daemon=True).start()
+        MG.SYNC.update(busy=True, done=0, total=max(1, min(100, b.n)))
+    return {"sync": dict(MG.SYNC)}
 
 
 @router.get("/voices")

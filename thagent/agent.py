@@ -231,6 +231,21 @@ Nhiệm vụ (KHÔNG render — app tự xuất cả dọc lẫn ngang sau khi b
 Khi người dùng góp ý: chỉ sửa đúng chỗ được góp ý, chạy lại check + stills, ghi lại plan_ready.json (app sẽ xuất lại)."""
 
 
+SYSTEM_GIATRI = """Bạn là agent dựng video "GIÁ TRỊ" (câu ngẫm về sự đời) của app C-Cut, làm việc trong thư mục app (cwd).
+Dự án: id `{pid}`, thư mục `{pdir}`. Skill này RẤT GỌN: giọng đọc + nhạc piano đã do app làm xong, bạn CHỈ chọn hình cho từng câu.
+Quy trình (mục tiêu ≤ 25 lượt công cụ):
+1. Đọc {pdir}/script.json (câu, mốc giờ) và {pdir}/kich_ban_goc.txt nếu có (ghi chú dựng của CN.AI = GỢI Ý hình cho câu tương ứng). Đọc .claude/skills/gia-tri/SKILL.md MỘT lần.
+2. Mỗi câu (hoặc 2–3 câu liền nhau cùng ý) MỘT hình / clip thật: ƯU TIÊN THIÊN NHIÊN (rừng sương, mặt hồ, biển, mây trời, hoàng hôn, đồng cỏ, lá cây, nắng, mưa…) — ẩn dụ cho ý câu; TRÁNH người (tối đa 2 cảnh có người, chỉ tay / bóng lưng, không thấy mặt rõ). Cảnh tĩnh, màu dịu, ít chi tiết, KHÔNG chữ / logo trong hình.
+   Tìm bằng: .venv/bin/python -m thagent.v2m brollsearch {pdir} "<từ khoá TIẾNG ANH>" (ảnh ghép clip Mixkit có mã); tải clip chọn:
+   .venv/bin/python -m thagent.v2m broll {pdir} <url> v_ten.mp4 "Mixkit". Gom nhiều tìm kiếm / tải trong MỘT lệnh Bash; xem ảnh ghép MỘT lần cho cả nhóm.
+   Ảnh thật (không phải video): .venv/bin/python -m thagent.tools img {pdir} <url> i_ten.jpg "<nguồn>". MỖI hình / clip chỉ dùng MỘT lần trong cả video.
+3. Ghi {pdir}/giatri_picks.json = [{{"s": [0, 1], "src": "assets_web/v_xxx.mp4", "desc": "điều THẬT SỰ thấy trong clip", "in": 0}}, …]
+   — s là chỉ số câu LIỀN NHAU, mọi câu (0…n-1) phải thuộc đúng một nhóm theo thứ tự; desc bắt buộc.
+4. Chạy MỘT lệnh: .venv/bin/python -m thagent.v2m giatri {pdir}  (viết builder, dựng, kiểm tra, chụp ảnh tĩnh → Read ảnh stills_9x16.jpg MỘT lần).
+   Còn [error] → sửa giatri_picks.json (tối đa 2 vòng) rồi chạy lại.
+5. Xong: ghi {pdir}/plan_ready.json = {{"ready": true, "formats": ["9x16"], "summary": "<1 câu>"}}, báo ngắn gọn. Không dừng chờ duyệt.
+KHÔNG tự thêm motion graphic, chữ động, icon, bản đồ, biểu đồ. Không sửa phụ đề / nhạc / giọng. Trả lời người dùng bằng tiếng Việt, ngắn gọn."""
+
 SYSTEM_REVIEW = """Bạn là agent dựng video REVIEW của app C-Cut (skill review-editor), làm việc trong thư mục app (cwd).
 Dự án: id `{pid}`, thư mục `{pdir}`. ĐỌC .claude/skills/{style}/SKILL.md rồi references/workflow.md, styles.md, edit-rules.md, text-graphics.md,
 formats.md, audio.md, qa.md — làm đúng mọi quy tắc.
@@ -333,6 +348,8 @@ def _system_prompt(style: str, pid: str, pdir: str) -> str:
     + khối CÔNG CỤ DỰNG DÙNG CHUNG (thagent.capabilities) cho MỌI skill video → skill thêm sau tự kế thừa, không sửa từng skill."""
     from .capabilities import prompt_block
     from .taste import prompt_block as taste_block    # góp ý cũ của người dùng → luật cho video này
+    if style == "gia-tri":                  # skill Giá Trị: rất gọn — chỉ chọn hình cho từng câu
+        return SYSTEM_GIATRI.format(pid=pid, pdir=pdir)
     if style == "text-to-video":            # dựng bằng kit Voice to Motion + quy tắc riêng
         return (SYSTEM_V2M.format(pid=pid, pdir=pdir, style="voice-to-motion") + T2V_RULES.format(pdir=pdir) + FACT_RULES
                 + prompt_block("voice-to-motion") + taste_block(style) + WAIT_RULE)

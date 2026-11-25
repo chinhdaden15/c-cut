@@ -195,10 +195,14 @@ def spoken(text: str) -> str:
     return "\n".join(l.strip() for l in body.split("\n")).strip()
 
 
-def sentences(text: str) -> list[dict]:
-    """[{"text", "para"}] — câu kết bằng . ! ? … hoặc xuống dòng; câu quá dài (>36 từ) cắt ở dấu phẩy."""
+def sentences(text: str, by_blank: bool = False) -> list[dict]:
+    """[{"text", "para"}] — câu kết bằng . ! ? … hoặc xuống dòng; câu quá dài (>36 từ) cắt ở dấu phẩy.
+    by_blank=True (skill Giá Trị): ĐOẠN = các dòng liền nhau giữa hai dòng trống (dòng xuống hàng vẫn là câu riêng) → nghỉ dài giữa đoạn."""
     out = []
-    for pi, para in enumerate(x for x in re.split(r"\n\s*\n|\n", text) if x.strip()):
+    blocks = re.split(r"\n\s*\n", text) if by_blank else re.split(r"\n\s*\n|\n", text)
+    for pi, para in enumerate(x for x in blocks if x.strip()):
+        if by_blank:
+            para = " ".join(l.strip() for l in para.strip().split("\n") if l.strip())
         para = re.sub(r"^\s*(?:[-•*]|\d+[.)])\s+", "", para.strip())
         for s in re.split(r"(?<=[.!?…])\s+(?=\S)", para):
             s = s.strip()
@@ -385,7 +389,7 @@ def retext(pdir, script: str, min_ratio: float = 0.5, log=print) -> float:
 
 
 # ---------------- dựng giọng ----------------
-def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print) -> dict:
+def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print, gap_sent: float | None = None, gap_para: float | None = None, by_blank: bool = False, tail_s: float = 0.0) -> dict:
     import soundfile as sf
     from . import voice as V
     from .transcribe import transcribe
@@ -396,7 +400,7 @@ def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print)
     text = spoken(raw)                                   # chỉ lời đọc — bỏ ghi chú, mốc giờ, link nguồn
     if text != raw.strip():
         (pdir / "script_goc.txt").write_text(raw, encoding="utf-8")   # bản gốc (có link nguồn) để ghi nguồn
-    sents = sentences(text)
+    sents = sentences(text, by_blank)
     if not sents:
         raise T2VError("kịch bản trống")
     (pdir / "script.txt").write_text(text, encoding="utf-8")
@@ -407,7 +411,15 @@ def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print)
         from .vi_norm import tts_text
         from . import voice_en as EN
         t = sents[i]["text"]
-        V.say(t if EN.is_english(t) else tts_text(t), voice_id, f, 1.0)   # câu toàn tiếng Anh: giữ nguyên chữ (bộ đọc tiếng Anh tự đọc số…)   # số / ký hiệu / viết tắt / tên hãng → chữ đọc (phụ đề giữ chữ gốc)
+        V.say(t if EN.is_english(t) else tts_text(t), voice_id, f, 1.0)
+        if by_blank:                                       # skill Giá Trị: cắt im lặng thừa đầu / cuối câu → nhịp nghỉ đúng như đặt (không phụ thuộc đuôi im của model)
+            x, sr_ = sf.read(str(f), dtype="float32")
+            amp = np.abs(x if x.ndim == 1 else x.mean(1))
+            idx = np.nonzero(amp > 0.012)[0]
+            if len(idx):
+                a = max(0, idx[0] - int(0.05 * sr_))
+                b = min(len(amp), idx[-1] + int(0.14 * sr_))
+                sf.write(str(f), x[a:b], sr_)   # câu toàn tiếng Anh: giữ nguyên chữ (bộ đọc tiếng Anh tự đọc số…)   # số / ký hiệu / viết tắt / tên hãng → chữ đọc (phụ đề giữ chữ gốc)
         return f
 
     files = [None] * len(sents)
@@ -426,10 +438,12 @@ def prepare(pdir, src: str, voice_id: str, speed: float = SPEED, progress=print)
             parts.append(x)
             t += len(x) / sr
             if i + 1 < len(files):
-                g = GAP_PARA if sents[i + 1]["para"] != sents[i]["para"] else GAP_SENT
+                g = (gap_para if gap_para is not None else GAP_PARA) if sents[i + 1]["para"] != sents[i]["para"] else (gap_sent if gap_sent is not None else GAP_SENT)
                 parts.append(np.zeros(int(g * sr), dtype=np.float32))
                 t += g
         raw = work / "voice_raw.wav"
+        if tail_s:                                         # đuôi lặng cuối video (nhạc nhỏ dần) — sau mốc câu cuối, không ảnh hưởng chép lời
+            parts = parts + [np.zeros(int(tail_s * sr), dtype=np.float32)]
         sf.write(str(raw), np.concatenate(parts), sr)
         out = pdir / "voice.wav"
         k = max(0.8, min(1.3, float(speed)))
