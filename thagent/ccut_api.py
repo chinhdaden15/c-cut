@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.27"
+APP_VERSION = "2.5.28"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -110,7 +110,7 @@ def load_queue():
     try:
         STATE["queue"] = json.loads(_qfile().read_text(encoding="utf-8"))
         for q in STATE["queue"]:
-            if q["status"] in ("running", "limit"):
+            if q["status"] in ("running", "limit", "claude", "waiting_claude"):
                 q["status"] = "wait"        # app bị tắt giữa chừng → chạy lại từ checkpoint
     except Exception:
         STATE["queue"] = []
@@ -1831,8 +1831,10 @@ def start():
         if not WS:
             raise HTTPException(400, "Tạo dự án trước")
         if not any(q["status"] in ("wait", "failed") for q in STATE["queue"]):
-            stopped = [q for q in STATE["queue"] if q["status"] == "cancelled"]
-            if not stopped:                      # việc đã dừng (bấm Dừng / hết giới hạn / đổi tài khoản) → bấm Bắt đầu = dựng tiếp từ chỗ dở
+            # không có job nào đang chạy mà việc vẫn ở trạng thái dở (đã dừng / đang dựng / chờ Claude / chờ giới hạn — thường do app tắt hoặc
+            # mất kết nối giữa chừng) → bấm Bắt đầu = dựng tiếp từ chỗ dở (checkpoint: giọng, kế hoạch, plan_ready.json đã có thì giữ)
+            stopped = [q for q in STATE["queue"] if q["status"] in ("cancelled", "running", "claude", "waiting_claude", "limit")]
+            if not stopped:
                 raise HTTPException(400, "Hàng chờ trống — thêm video, kịch bản hoặc file giọng trước")
             for q in stopped:
                 q["status"] = "wait"

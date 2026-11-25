@@ -565,10 +565,22 @@ và ghi một dòng vào confirm.json: "mẫu <kind> hiển thị lỗi ở cả
 Lệnh check báo lỗi thì sửa NỘI DUNG cảnh (build_timeline.py), không sửa app. Tối đa 3 vòng check→sửa; vòng 4 vẫn lỗi → đơn giản hoá cảnh lỗi."""
 
 
+TIET_KIEM = """
+
+TIẾT KIỆM GIỚI HẠN CLAUDE (mỗi lượt gọi công cụ đều tính lại cả cuộc trò chuyện — ÍT LƯỢT = ÍT TỐN; mục tiêu: xong trong ≤ 40 lượt công cụ):
+- Viết build_timeline.py ĐỦ CẢ VIDEO trong MỘT lần ghi (không viết từng phần rồi sửa dần).
+- Kiểm tra bằng MỘT lệnh duy nhất: .venv/bin/python -m thagent.v2m verify {pdir} 9x16   (= dựng builder + check --deep + chụp ~12 ảnh tĩnh đều nhau;
+  thêm giây cụ thể nếu cần: ... verify {pdir} 9x16 12 40 88). Thay cho build → check → stills riêng. Chỉ chạy lẻ check/stills khi cần soi sâu.
+- Check báo NHIỀU lỗi → đọc hết rồi sửa TẤT CẢ trong MỘT lần (một Edit lớn hoặc một script python), rồi verify lại. Cấm sửa từng lỗi một lượt.
+- Tải / tìm b-roll: gom nhiều clip trong MỘT lệnh (vòng lặp), xem ảnh ghép MỘT lần cho cả nhóm. Mỗi ảnh Read là tốn — chỉ xem ảnh ghép.
+- Không đọc lại file đã đọc; không đọc tài liệu skill / references thứ hai nếu chưa cần cho việc đang làm.
+- Video dài (> 2 phút) → gộp các ý gần nhau thành một cảnh dài thay vì nhiều cảnh ngắn; mỗi cảnh thêm là thêm chỉnh sửa."""
+
+
 def system_prompt(style: str, pid: str, pdir: str) -> str:
     """+ ngôn ngữ giao diện: người dùng chọn English → Claude trao đổi trong khung chat bằng tiếng Anh
     (nội dung video — lời, phụ đề, chữ trên hình — vẫn theo ngôn ngữ của kịch bản / lời nói)."""
-    p = _system_prompt(style, pid, pdir) + NO_APP_DEBUG
+    p = _system_prompt(style, pid, pdir) + NO_APP_DEBUG + TIET_KIEM.format(pdir=pdir)
     try:
         lang = json.loads((ROOT / "ccut_settings.json").read_text(encoding="utf-8")).get("ui_lang")
     except Exception:

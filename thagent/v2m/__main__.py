@@ -311,6 +311,38 @@ def sheet(tl: R.Timeline, times: list[float], out: Path, cols=6):
     return out
 
 
+def verify(pdir, fmt="9x16", *ts):
+    """verify <dự-án> [9x16|16x9] [giây…] — MỘT lệnh thay cho build → check --deep → stills (ít lượt gọi = ít tốn giới hạn Claude):
+    chạy build_timeline.py, kiểm check --deep; còn LỖI thì in lỗi rồi dừng (chưa chụp); hết lỗi thì chụp ảnh tĩnh
+    (không truyền giây → ~12 mốc đều nhau trong video) và in đường dẫn ảnh để Read."""
+    import subprocess
+    pdir = Path(pdir)
+    r = subprocess.run([sys.executable, str(pdir / "build_timeline.py"), fmt], cwd=str(pdir), capture_output=True, text=True,
+                       env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[2])})
+    print((r.stdout + r.stderr).strip()[-1500:])
+    if r.returncode:
+        print("builder lỗi — sửa build_timeline.py rồi chạy lại verify")
+        return
+    FMT["value"] = fmt
+    issues = validate(pdir)
+    if not any(s == "error" for s, _ in issues):
+        tl = _timeline(pdir)
+        issues += Q.static(tl) + Q.frames(tl, Q.scan(tl, 0.2, lambda *a: None)) + Q.determinism(tl) + R.check_hf(tl, lambda *a: None)
+    for sv, m in issues:
+        print(f"[{sv}] {m}")
+    ne = sum(s == "error" for s, _ in issues)
+    print(f"{ne} lỗi, {sum(s == 'warn' for s, _ in issues)} cảnh báo")
+    if ne:
+        return
+    tl = _timeline(pdir)
+    dur = max((sc["end_s"] for sc in tl.scenes), default=0)
+    pts = [float(t) for t in ts] or [round(dur * (i + 0.5) / 12, 1) for i in range(12)]
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):   # bỏ dòng tiến độ (đỡ tốn chữ trả về cho Claude)
+        out = sheet(tl, pts, pdir / f"stills_{fmt}.jpg")
+    print(out)
+
+
 def stills(pdir, *ts):
     from .. import fonts as _FT
     _FT.use_project(pdir)
@@ -620,7 +652,7 @@ def mapclip(pdir, a, b, dur="6", fmt="9x16", style="dark", name="tuyen"):
     MC(pdir, a, b, float(dur), fmt, style, name)
 
 
-CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "_scan_part": Q.scan_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "area": area, "streetmap": streetmap, "mapclip": mapclip}
+CMDS = {"musicsearch": musicsearch, "music": music, "brollsearch": brollsearch, "broll": broll, "icons": icons, "_render_one": _render_one_cli, "_render_part": _render_part_cli, "_scan_part": Q.scan_part_cli, "init": init, "clean": clean, "restore": restore, "speed": speed, "words": words, "check": check, "stills": stills, "verify": verify, "render": render, "revise": revise, "geocode": geocode, "osrm": osrm, "area": area, "streetmap": streetmap, "mapclip": mapclip}
 
 
 def main():
