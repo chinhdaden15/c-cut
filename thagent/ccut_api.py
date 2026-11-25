@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.29"
+APP_VERSION = "2.5.30"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1524,7 +1524,7 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
     if gt and not sess.plan_ready():
         sess.send(f"Dựng video GIÁ TRỊ cho `{item['name']}` (dự án `{pid}`, thư mục {pdir}) theo skill gia-tri. "
                   f"Giọng đọc + nhạc đã xong: voice.wav {meta['duration_s']:.1f}s, {len(meta['sentences'])} câu (script.json). "
-                  "Chỉ việc chọn hình cho từng câu rồi chạy lệnh giatri — làm theo quy trình rồi ghi plan_ready.json.", show=False)
+                  + _pending_notes(pdir) + "Chỉ việc chọn hình cho từng câu rồi chạy lệnh giatri — làm theo quy trình rồi ghi plan_ready.json.", show=False)
         _wait_plan(sess, item, job)
     elif not sess.plan_ready():
         weak = [m["i"] + 1 for m in meta["sentences"] if m.get("match", 1) < 0.6 and len(m["text"].split()) >= 3]
@@ -1535,7 +1535,7 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
                   + (f"VIDEO DÀI ({meta['duration_s']:.0f}s): TỐI ĐA ~25 CẢNH, mỗi cảnh ≥ 6s (gộp các câu liền ý vào một cảnh; một cảnh có thể dùng nhiều hình nền "
                      "đổi theo lời). Ít cảnh = ít lượt chỉnh sửa = đỡ tốn giới hạn Claude của người dùng. " if meta["duration_s"] > 150 else "")
                   + f"Khổ cần xuất: {', '.join(item.get('formats') or ['9x16', '16x9'])} (plan_ready.json → \"formats\"). "
-                  + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
+                  + _pending_notes(pdir) + "Làm theo quy trình rồi ghi plan_ready.json.", show=False)
         _wait_plan(sess, item, job)
     _v2m_render(item, pid, job, settings, log, sess)
 
@@ -2280,12 +2280,40 @@ def chat_get(project: str):
 def chat_post(body: ChatIn):
     from . import agent as A
     s = load_settings()
+    j = STATE.get("job") or {}
+    if j.get("state") == "running" and j.get("project") == body.project and j.get("stage") in ("script", "voice"):
+        # đang tạo kịch bản / giọng đọc: Claude CHƯA có việc. Gửi lời dặn lúc này làm Claude chạy tool chờ giọng xong (vòng thăm dò tốn giới hạn)
+        # → giữ lời dặn, gộp vào lời giao việc ngay khi giọng xong
+        pdir = P.PROJECTS / body.project
+        pend = pdir / "chat_pending.json"
+        try:
+            items = json.loads(pend.read_text(encoding="utf-8")) if pend.exists() else []
+        except Exception:
+            items = []
+        items.append(body.text)
+        pend.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+        try:
+            A.get(body.project, s["style"])._add("user", body.text + "  ⏳ (giữ lại — gửi cho Claude khi giọng đọc xong, để khỏi tốn giới hạn chờ)")
+        except Exception:
+            pass
+        return {"ok": True, "held": True}
     try:
         A.get(body.project, s["style"]).send(body.text)
     except Exception as e:
         raise HTTPException(400, str(e))
     _ensure_watcher()
     return {"ok": True}
+
+
+def _pending_notes(pdir: Path) -> str:
+    """lời dặn đã giữ lại lúc chờ giọng đọc → câu chèn vào lời giao việc bước Kế hoạch (rồi xoá)."""
+    f = pdir / "chat_pending.json"
+    try:
+        items = json.loads(f.read_text(encoding="utf-8"))
+        f.unlink()
+    except Exception:
+        return ""
+    return ("LỜI DẶN CỦA NGƯỜI DÙNG gửi trong lúc chờ giọng đọc (làm theo): " + " | ".join(str(x) for x in items) + ". ") if items else ""
 
 
 class ConfirmIn(BaseModel):
