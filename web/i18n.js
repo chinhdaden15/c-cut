@@ -150,12 +150,17 @@
     'Dựng video review từ bộ footage của bạn (bất động sản, sản phẩm): chọn take, ghép lời với B-roll, phụ đề + chữ thông tin, xuất dọc và/hoặc ngang': 'Builds review videos from your footage (real estate, products): picks takes, matches speech with B-roll, subtitles + info text, exports vertical and/or horizontal',
     'Mọi lĩnh vực · chữ neon 3 màu · Motion Graphics nền xanh mỗi ~15s': 'Any topic · 3-colour neon text · Motion Graphics every ~15s',
     'Motion graphic 100% từ voice (file âm thanh, hoặc lấy tiếng từ video): bản đồ, sơ đồ, typography; xuất cả dọc 9:16 lẫn ngang 16:9': '100% motion graphics from a voice-over (audio file, or audio from a video): maps, diagrams, typography; exports both vertical 9:16 and horizontal 16:9',
+    'Kiểu video: Thường (motion graphic)': 'Video type: Standard (motion graphics)', 'Kiểu video: Giá Trị (câu ngẫm, hình thiên nhiên, nhạc piano)': 'Video type: Giá Trị (reflective quotes, nature footage, piano music)',
+    'Tông nhạc: tự chọn': 'Music tone: auto', 'Tông nhạc: thiên nhiên (bình yên)': 'Music tone: nature (peaceful)', 'Tông nhạc: phố đêm (buồn nhẹ)': 'Music tone: night city (gently sad)', 'Tông nhạc: đời thường ấm': 'Music tone: warm everyday',
+    'Nhạc: tự chọn (nhóm piano buồn nhẹ)': 'Music: auto (soft sad piano group)', 'Piano buồn nhẹ — kiểu mặc định': 'Soft sad piano — default style', 'Piano tông hy vọng — chọn tay': 'Hopeful piano — manual pick',
+    'Tải nhạc về máy': 'Download music to this computer', 'Đang tải nhạc về máy…': 'Downloading music to this computer…',
     // ---- tên giọng
     'Nam · giọng hướng dẫn': 'Male · guide voice', 'Nam · giọng 2': 'Male · voice 2', 'Nam · giọng 3': 'Male · voice 3', 'Nam · ông già ngộ đạo': 'Male · wise old man',
     'Nữ · Ngọc Huyền (Bắc, tự nhiên)': 'Female · Ngọc Huyền (Northern, natural)', 'Nữ · giọng 2': 'Female · voice 2', 'Nữ · Quỳnh Anh (Bắc, kể chuyện)': 'Female · Quỳnh Anh (Northern, storytelling)',
     'English · Adam (nam, Mỹ)': 'English · Adam (male, US)', 'English · Heart (nữ, Mỹ)': 'English · Heart (female, US)', 'English · Bella (nữ, Mỹ)': 'English · Bella (female, US)',
   };
   const RX = [
+    [/^(\d+)\/(\d+) bài đã có trên máy \(✓ = dựng không cần mạng\)$/, '$1/$2 tracks on this computer (✓ = renders offline)'], [/^Đang tải nhạc về máy… (\d+)\/(\d+)$/, 'Downloading music to this computer… $1/$2'],
     [/^Thiếu (\d+) công cụ$/, '$1 tools missing'], [/^(\d+) mục cần chú ý$/, '$1 items need attention'],
     [/^Claude sẵn sàng · (.+)$/, 'Claude ready · $1'], [/^Đang làm · (.+)$/, 'Working · $1'], [/^số liệu (.+)$/, 'data $1'],
     [/^Làm mới sau (.+) \((\d+:\d+) T(\d)\)$/, 'Resets in $1 ($2)'], [/^Làm mới sau (.+)$/, 'Resets in $1'],
@@ -200,7 +205,7 @@
   window.tr = tr;
   if (lang !== 'en') return;
   document.documentElement.lang = 'en';
-  const ATTR = ['placeholder', 'title', 'aria-label'];
+  const ATTR = ['placeholder', 'title', 'aria-label', 'label'];
   const walk = root => {
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let n;
@@ -210,7 +215,7 @@
       const v = tr(n.nodeValue);
       if (v !== n.nodeValue) n.nodeValue = v;
     }
-    (root.querySelectorAll ? root.querySelectorAll('[placeholder],[title],[aria-label],option') : []).forEach(e => {
+    (root.querySelectorAll ? root.querySelectorAll('[placeholder],[title],[aria-label],option,optgroup') : []).forEach(e => {
       ATTR.forEach(a => { const v = e.getAttribute(a); if (v) { const t = tr(v); if (t !== v) e.setAttribute(a, t); } });
     });
   };

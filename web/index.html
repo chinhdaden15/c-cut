@@ -207,6 +207,13 @@ main{position:relative;flex:1;display:grid;grid-template-columns:270px minmax(0,
         <div class="row" style="gap:8px;margin-top:6px" id="tvFileRow"><button id="tvFile" class="small">Chọn file kịch bản</button><span class="small dim" id="tvFileName"></span></div>
         <div class="row" style="gap:8px;margin-top:6px" id="tvSecRow" hidden><label class="small" style="flex:1">Độ dài video (giây)</label><input id="tvSec" type="number" min="15" max="600" value="60" style="width:90px"></div>
         <div class="row" style="gap:6px;margin-top:8px"><select id="tvFmt" style="flex:1"><option value="both">Cả dọc lẫn ngang</option><option value="9x16">Dọc 9:16</option><option value="16x9">Ngang 16:9</option></select></div>
+        <div class="row" style="gap:6px;margin-top:6px"><select id="tvKind" style="flex:1"><option value="">Kiểu video: Thường (motion graphic)</option><option value="gia-tri">Kiểu video: Giá Trị (câu ngẫm, hình thiên nhiên, nhạc piano)</option></select></div>
+        <div id="tvGtBox" hidden>
+          <div class="row" style="gap:6px;margin-top:6px"><select id="tvTone" style="flex:1"><option value="">Tông nhạc: tự chọn</option><option value="thien-nhien">Tông nhạc: thiên nhiên (bình yên)</option><option value="pho-dem">Tông nhạc: phố đêm (buồn nhẹ)</option><option value="doi-thuong-am">Tông nhạc: đời thường ấm</option></select></div>
+          <div class="row" style="gap:6px;margin-top:6px"><select id="tvMusic" style="flex:1"><option value="">Nhạc: tự chọn (nhóm piano buồn nhẹ)</option></select></div>
+          <div class="row" style="gap:6px;margin-top:6px"><button class="small" id="tvMusicSync" style="flex:1">Tải nhạc về máy</button></div>
+          <div class="small dim" id="tvMusicNote" style="margin-top:4px"></div>
+        </div>
         <div class="row" style="gap:6px;margin-top:6px"><select id="tvVoice" style="flex:1"></select><button class="small" id="tvPlay" title="Nghe thử giọng">▶</button><button class="small" id="tvClone">Nhân bản giọng</button></div>
         <button class="primary" id="tvAdd" style="margin-top:8px;width:100%">Thêm vào hàng chờ</button>
       </div>
@@ -520,9 +527,24 @@ document.querySelectorAll('.tvm').forEach(b=>b.onclick=()=>{tvMode=b.dataset.m;d
 $('#tvFile').onclick=async()=>{const r=await post('/api/ccut/pick',{kind:'script'});if(r.path){tvPath=r.path;$('#tvFileName').textContent=r.path.split(/[\\/]/).pop();$('#tvText').value=''}};
 $('#tvPlay').onclick=()=>{const v=$('#tvVoice').value;if(!v){openVoice();return}vPlay('/api/ccut/voices/sample/'+v,$('#tvPlay'))};
 $('#tvClone').onclick=()=>openVoice();
+let tvMusicPoll=null;
+function tvKindApply(){const gt=$('#tvKind').value==='gia-tri';$('#tvGtBox').hidden=!gt;$('#tvFmt').hidden=gt;
+  document.querySelector('.tvm[data-m="article"]').hidden=gt;if(gt&&tvMode==='article')document.querySelector('.tvm[data-m="script"]').click();
+  if(gt)tvMusicLoad()}
+async function tvMusicLoad(){try{const m=await api('/api/ccut/music');const cur=$('#tvMusic').value;
+  const opt=t=>`<option value="${t.id}">${t.stored?'✓ ':''}${esc(t.name)} · ${esc(t.key)} · ${Math.floor(t.dur_s/60)}:${String(t.dur_s%60).padStart(2,'0')}</option>`;
+  const A=m.tracks.filter(t=>t.kieu==='A'),B=m.tracks.filter(t=>t.kieu!=='A');
+  $('#tvMusic').innerHTML='<option value="">Nhạc: tự chọn (nhóm piano buồn nhẹ)</option>'+(A.length?'<optgroup label="Piano buồn nhẹ — kiểu mặc định">'+A.map(opt).join('')+'</optgroup>':'')+(B.length?'<optgroup label="Piano tông hy vọng — chọn tay">'+B.map(opt).join('')+'</optgroup>':'');
+  if(cur)$('#tvMusic').value=cur;
+  const sy=m.sync||{};if(!sy.busy&&m.stored_count===0&&!window._tvAutoSync){window._tvAutoSync=1;post('/api/ccut/music/sync',{n:100}).then(()=>setTimeout(tvMusicLoad,1500)).catch(()=>{})}$('#tvMusicNote').textContent=sy.busy?`Đang tải nhạc về máy… ${sy.done}/${sy.total}`:`${m.stored_count}/${m.count} bài đã có trên máy (✓ = dựng không cần mạng)`;
+  clearTimeout(tvMusicPoll);if(sy.busy)tvMusicPoll=setTimeout(tvMusicLoad,2500)}catch(e){$('#tvMusicNote').textContent=e.message}}
+$('#tvKind').onchange=tvKindApply;
+$('#tvMusicSync').onclick=async()=>{try{await post('/api/ccut/music/sync',{n:100});toast('Đang tải nhạc về máy…');tvMusicLoad()}catch(e){toast(e.message)}};
 $('#tvAdd').onclick=async()=>{const voice=$('#tvVoice').value,t=$('#tvText').value.trim();if(!voice){openVoice();toast('Tải bộ giọng đọc trước');return}
   const fm=$('#tvFmt').value,formats=fm==='both'?['9x16','16x9']:[fm];
-  const b=tvMode==='request'?{request:t,seconds:Number($('#tvSec').value)||60,voice,formats}:tvMode==='article'?{text:t,mode:'article',voice,formats}:{text:tvPath?null:t,path:tvPath,voice,formats};
+  const gt=$('#tvKind').value==='gia-tri';
+  let b=tvMode==='request'?{request:t,seconds:Number($('#tvSec').value)||60,voice,formats}:tvMode==='article'?{text:t,mode:'article',voice,formats}:{text:tvPath?null:t,path:tvPath,voice,formats};
+  if(gt){b={...b,style:'gia-tri',formats:['9x16']};const tn=$('#tvTone').value,mu=$('#tvMusic').value;if(tn)b.tone=tn;if(mu)b.music_id=mu}
   if(!(b.request||b.text||b.path)){toast(tvMode==='request'?'Nhập ý tưởng video':tvMode==='article'?'Dán link bài báo':'Dán kịch bản hoặc chọn file');return}
   if(tvMode==='article'||/^\s*https?:\/\/\S+\s*$/.test(t))toast('Đang mở bài báo…');
   try{const r=await post('/api/ccut/t2v/add',b);toast('Đã thêm '+r.added.length+' video');$('#tvText').value='';tvPath=null;$('#tvFileName').textContent='';refresh()}catch(e){toast(e.message)}};

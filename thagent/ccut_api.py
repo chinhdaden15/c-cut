@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.31"
+APP_VERSION = "2.5.32"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -1560,12 +1560,12 @@ class T2VIn(BaseModel):
 
 
 def _gt_speed(voice_id: str, asked: float) -> float:
-    """tốc độ đọc của skill Giá Trị: giọng thường 0.93 (≤ 0.95); giọng vốn đã chậm (vd ông già ngộ đạo, native_slow) → 1.07 (đo thật: ở 1.0 chậm hơn giọng nữ 0.93 khoảng 5% và nghe vẫn chậm; 1.07 ≈ nhỉnh hơn giọng nữ ~2%)."""
+    """tốc độ đọc của skill Giá Trị: giọng thường 0.93 (≤ 0.95); giọng vốn đã chậm (vd ông già ngộ đạo, native_slow) → 1.10 (đo thật: ở 1.0 chậm hơn giọng nữ 0.93 khoảng 5% và nghe vẫn chậm; 1.07 ≈ nhỉnh hơn giọng nữ ~2%)."""
     from . import voice as V
     slow = bool(V.PRESETS.get(voice_id, {}).get("native_slow"))
     if asked == 1.1:                       # mặc định của API
-        return 1.07 if slow else 0.93
-    return min(asked, 1.07 if slow else 0.95)
+        return 1.10 if slow else 0.93
+    return min(asked, 1.10 if slow else 0.95)
 
 
 def _article_item(text: str, forced: bool) -> dict | None:
@@ -2411,17 +2411,24 @@ def _voice_call(fn, *a, **k):
         raise HTTPException(500, f"Giọng đọc gặp lỗi ({type(e).__name__}: {str(e)[:160]}) — đã ghi vào error.log")
 
 
+_MUSIC_AUTO = {"done": False}
+
+
 @router.get("/music")
 def music_catalog():
     """danh mục nhạc thư viện miễn phí (Mixkit) đi kèm app — chọn `music_id` cho skill Giá Trị. soft_score cao = nhẹ, hợp nhạc nền dưới giọng."""
     from . import music_gen as MG
-    rows = [{**{k: r[k] for k in ("id", "name", "dur_s", "key", "bpm", "mood", "piano", "soft_score", "suit")}, "stored": MG.stored(r["id"])}
+    rows = [{**{k: r.get(k) for k in ("id", "name", "dur_s", "key", "bpm", "mood", "piano", "soft_score", "suit", "kieu")}, "stored": MG.stored(r["id"])}
             for r in MG.catalog()]
     import json as _j
     try:
         feat = _j.loads((P.ROOT / "assets" / "music_catalog.json").read_text(encoding="utf-8")).get("featured", {})
     except Exception:
         feat = {}
+    if not _MUSIC_AUTO["done"] and not MG.SYNC.get("busy") and rows and not any(r["stored"] for r in rows):
+        _MUSIC_AUTO["done"] = True       # lần đầu: tự tải kho nhạc về máy ở nền (không đóng gói vào app)
+        import threading
+        threading.Thread(target=lambda: MG.sync(100), daemon=True).start()
     return {"count": len(rows), "stored_count": sum(1 for r in rows if r["stored"]), "sync": dict(MG.SYNC), "featured": feat, "tracks": rows, "license": "Mixkit License — dùng miễn phí cho video, kể cả thương mại, không cần ghi nguồn"}
 
 
