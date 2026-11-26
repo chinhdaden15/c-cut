@@ -21,7 +21,7 @@ from . import pipeline as P
 from . import license as L
 from . import schemadocs as SD
 
-APP_VERSION = "2.5.32"
+APP_VERSION = "2.5.33"
 ROOT = P.ROOT
 SETTINGS = ROOT / "ccut_settings.json"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".mkv", ".avi", ".mts"}
@@ -432,6 +432,18 @@ def ws_rename(body: RenameIn):
 # ---------------- hộp thoại chọn file/thư mục của hệ điều hành ----------------
 class PickIn(BaseModel):
     kind: str = "folder"     # folder | video | zip
+
+
+def _job_running() -> bool:
+    j = STATE.get("job")
+    return bool(j and j.get("state") == "running")
+
+
+try:
+    from . import agent as _A0
+    _A0.LIMITS_HOLD = _job_running       # đang dựng thì không gọi Claude đo giới hạn nền
+except Exception:
+    pass
 
 
 @router.post("/usage/refresh")
@@ -1232,10 +1244,6 @@ def _run_review(item: dict, pid: str, job: dict, settings: dict, log):
     (pdir / "review").mkdir(exist_ok=True)
     (pdir / "review" / "options.json").write_text(json.dumps(rv, ensure_ascii=False, indent=1), encoding="utf-8")
     sess = A.get(pid, REVIEW)
-    try:
-        sess.warm()
-    except Exception as e:
-        log(f"Không mở được Claude: {e}")
     clips = item.get("clips") or [item["path"]]
     n = len(clips)
     done = [0]
@@ -1332,10 +1340,6 @@ def _run_v2m(item: dict, pid: str, job: dict, settings: dict, log):
     L.can_start(V2M, pid)
     pdir = P.PROJECTS / pid
     sess = A.get(pid, V2M)
-    try:
-        sess.warm()
-    except Exception as e:
-        log(f"Không mở được Claude: {e}")
     if not (pdir / "transcript.json").exists():
         log("Nhập voice" + (" (chỉ lấy tiếng của video)" if Path(item["path"]).suffix.lower() in VIDEO_EXT else ""))
         job["done"].append("ingest"); job["stage"] = "transcribe"
@@ -1426,11 +1430,7 @@ def _run_t2v(item: dict, pid: str, job: dict, settings: dict, log):
     pdir = P.PROJECTS / pid
     pdir.mkdir(parents=True, exist_ok=True)
     gt = item.get("variant") == "gia-tri"
-    sess = A.get(pid, "gia-tri" if gt else T2V)
-    try:
-        sess.warm()
-    except Exception as e:
-        log(f"Không mở được Claude: {e}")
+    sess = A.get(pid, "gia-tri" if gt else T2V)       # KHÔNG mở Claude ở đây: bước kịch bản + giọng đọc không dùng Claude, chỉ mở khi vào bước Kế hoạch (send tự mở)
     job["stage"] = "script"
     script = pdir / "script.txt"
     if item.get("script"):
@@ -1810,10 +1810,6 @@ def _run_queue(settings: dict):
                 src = str(_run_multi(item, pid, job, settings, log))
                 c = P.Ctx(pid, log, cancel=lambda: job["cancel"])
                 job["stage"] = "ingest"
-            try:
-                A.get(pid, settings["style"]).warm()     # mở sẵn Claude trong lúc app chép lời/tách nền
-            except Exception as e:
-                log(f"Không mở được Claude: {e}")
             P.step_ingest(c, src); job["done"].append("ingest")
             job["stage"] = "transcribe"; P.step_transcribe(c); job["done"].append("transcribe")
             job["frames"] = int(c.project.source.duration * 30)
@@ -1912,6 +1908,9 @@ def _run_queue(settings: dict):
     _flush_stage(job)
     job["state"] = "cancelled" if job["cancel"] else "done"
     save_queue()
+    if job["state"] == "done":                      # đo giới hạn Claude đúng 1 lần sau khi xong video (không đo nền)
+        from . import agent as _A1
+        threading.Thread(target=_A1.refresh_limits, daemon=True).start()
 
 
 @router.post("/start")

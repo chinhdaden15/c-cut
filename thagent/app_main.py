@@ -273,7 +273,7 @@ def run_app():
     except Exception:
         pass
     from thagent import agent
-    agent.limits_loop()   # làm mới giới hạn Claude khi mở app + mỗi 15 phút
+    # không đo giới hạn Claude nền: chỉ đo sau khi xong 1 video hoặc khi bấm làm mới (tiết kiệm token)
     try:
         webview.start()
     except BaseException as e:

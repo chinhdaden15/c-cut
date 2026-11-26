@@ -177,11 +177,14 @@ def _set_health(err):
     STATUS_FILE.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+LIMITS_HOLD = lambda: False
+
+
 def limits_loop(every=300):
     """khi mở app làm mới ngay, sau đó mỗi 5 phút — trừ khi Claude đang làm (lúc đó số liệu đến kèm từng lượt trả lời)."""
     def run():
         while True:
-            if not any(s.busy for s in SESSIONS.values()):
+            if not any(s.busy for s in SESSIONS.values()) and not LIMITS_HOLD():
                 refresh_limits()
             time.sleep(every)
     threading.Thread(target=run, daemon=True).start()
