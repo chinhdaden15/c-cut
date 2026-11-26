@@ -79,7 +79,7 @@ def sw_kinetic(sc, V, P):
     for i, L in enumerate(lines):
         t = round(float(L.get("at", 0.2 + i * 0.9)), 3)
         size = _fit(L["text"], 132 if V else 120, 12 if V else 20)
-        rows += (f'<div class="kl kl{i}" style="font-weight:800;font-size:{px(size)};line-height:1.04;letter-spacing:-.02em;'
+        rows += (f'<div class="kl kl{i}" style="font-weight:800;font-size:{px(size)};line-height:1.2;letter-spacing:-.02em;'
                  f'margin-bottom:{px(26)}">{_words(L["text"], L.get("hl"), f"k{i}w")}</div>')
         js.append(f"tl.from(q('.kl{i} .k{i}w'),{{yPercent:110,duration:.55,ease:'expo.out',stagger:.06}},{t});"
                   f"tl.from(q('.kl{i} .hlb'),{{scaleX:0,duration:.45,ease:'expo.inOut'}},{t + .25});")
@@ -564,9 +564,9 @@ def sf_headline(sc, V, P, panel=None):
 # ------------------------------------------------------------------ POP (F&B / Giáo dục) — nhãn dán, đập nghiêng, nảy đàn hồi
 POP_CSS = SWISS_CSS + """
 .pp{text-transform:uppercase}
-.pp .stk{position:absolute;background:#fff;color:#111;border:calc(7px*var(--s)) solid #111;border-radius:calc(22px*var(--s));box-shadow:calc(14px*var(--s)) calc(14px*var(--s)) 0 #111}
-.pp .tag{display:inline-block;padding:.12em .45em;background:var(--acc);color:#111;border:calc(6px*var(--s)) solid #111;border-radius:calc(14px*var(--s));box-shadow:calc(8px*var(--s)) calc(8px*var(--s)) 0 #111}
-.pp .out{color:#fff;-webkit-text-stroke:calc(7px*var(--s)) #111;paint-order:stroke fill;text-shadow:calc(8px*var(--s)) calc(8px*var(--s)) 0 #111}
+.pp .stk{position:absolute;background:#fff;color:var(--ink);border:calc(7px*var(--s)) solid var(--ink);border-radius:calc(22px*var(--s));box-shadow:calc(14px*var(--s)) calc(14px*var(--s)) 0 var(--ink)}
+.pp .tag{display:inline-block;padding:.12em .45em;background:var(--acc);color:var(--ink);border:calc(6px*var(--s)) solid var(--ink);border-radius:calc(14px*var(--s));box-shadow:calc(8px*var(--s)) calc(8px*var(--s)) 0 var(--ink)}
+.pp .out{color:#fff;-webkit-text-stroke:calc(7px*var(--s)) var(--ink);paint-order:stroke fill;text-shadow:calc(8px*var(--s)) calc(8px*var(--s)) 0 var(--ink)}
 """
 
 
@@ -606,11 +606,11 @@ def pp_money(sc, V, P, panel=None):
     import math
     pts = " ".join(f"{R + (R if k % 2 == 0 else R * .84) * math.cos(k * math.pi / 14):.0f},{R + (R if k % 2 == 0 else R * .84) * math.sin(k * math.pi / 14):.0f}" for k in range(28))
     burst = (f'<svg class=bs style="position:absolute;left:{px(cx - R)};top:{px(cy - R)}" width="{px(2 * R)}" height="{px(2 * R)}" viewBox="0 0 {2 * R} {2 * R}">'
-             f'<polygon points="{pts}" fill="var(--acc)" stroke="#111" stroke-width=10 /></svg>')
+             f'<polygon points="{pts}" fill="var(--acc)" stroke="#2A1B7A" stroke-width=10 /></svg>')
     size = min(190, int(620 / (0.5 * max(1, len(pre + s)))))
     mid = (f'<div class=bm style="position:absolute;left:{px(cx - R)};top:{px(cy - 110)};width:{px(2 * R)};text-align:center;transform:rotate(-6deg)">'
            f'<div class="out mv" style="font-size:{px(size)};line-height:1">{E(pre)}{E(s)}</div>'
-           f'<div style="font-size:{px(60)};color:#111;margin-top:{px(6)}">{E(unit)}</div></div>')
+           f'<div style="font-size:{px(60)};color:var(--ink);margin-top:{px(6)}">{E(unit)}</div></div>')
     lab = (f'<div style="position:absolute;left:0;right:0;top:{px(cy + R + 40)};text-align:center"><span class="tag ml" style="font-size:{px(52)};background:#fff">{E(sc.get("title") or sc.get("sub"))}</span></div>'
            if sc.get("title") or sc.get("sub") else "")
     loc = "en-US" if sc.get("locale") == "en" else "vi-VN"
@@ -670,7 +670,7 @@ def pp_checklist(sc, V, P, panel=None):
     head = f'<div style="text-align:center;margin-bottom:{px(40)}"><span class="tag pt" style="font-size:{px(_fit(title, 84, 14))}">{E(title)}</span></div>' if title else ""
     rows = "".join(f'<div class="stk pr pr{i}" style="position:relative;display:block;padding:{px(26)} {px(40)};margin-bottom:{px(36)};font-size:{px(_fit(t, 60, 18 if V else 28))};'
                    f'transform:rotate({(-2 if i % 2 else 2)}deg)">{E(t)}<span class="ps ps{i}" data-layout-allow-overflow data-layout-allow-overlap style="position:absolute;right:{px(-30)};top:{px(-34)};font-size:{px(86)};color:var(--acc);'
-                   f'-webkit-text-stroke:{px(6)} #111;paint-order:stroke fill">✓</span></div>' for i, t in enumerate(items))
+                   f'-webkit-text-stroke:{px(6)} var(--ink);paint-order:stroke fill">✓</span></div>' for i, t in enumerate(items))
     html = _pp(P, f'<div style="position:absolute;left:{px(x0)};top:{px(y0)};width:{px(W)}">{head}{rows}</div>', panel)
     js = _slam(".pt", 0, -10) if title else ""
     for i in range(len(items)):
@@ -682,9 +682,10 @@ def pp_checklist(sc, V, P, panel=None):
 def pp_headline(sc, V, P, panel=None):
     text, sub = str(sc.get("text", "")), sc.get("sub", "")
     t = _at(sc, 0, .15)
-    chars = "".join(f'<span class=pch style="display:inline-block">{"&nbsp;" if c == " " else E(c)}</span>' for c in text)
+    chars = " ".join('<span style="display:inline-block;white-space:nowrap">'
+                     + "".join(f'<span class=pch style="display:inline-block">{E(c)}</span>' for c in w) + '</span>' for w in text.split())   # mỗi TỪ một khối nowrap: không bẻ giữa từ
     html = _pp(P, f'<div style="position:absolute;left:{px(60)};right:{px(60)};top:{px(700 if V else 380)};text-align:center">'
-                  f'<div class=out style="font-size:{px(_fit(text, 160, 10 if V else 18))};line-height:1.05">{chars}</div>'
+                  f'<div class=out data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow style="font-size:{px(_fit(text, 160, 10 if V else 18))};line-height:1.25">{chars}</div>'
                   + (f'<div style="margin-top:{px(34)}"><span class="tag hs" style="font-size:{px(52)}">{E(sub)}</span></div>' if sub else "") + '</div>', panel)
     js = (f"tl.from(q('.pch'),{{y:-900,rotation:(i)=>(i*37)%80-40,duration:.7,ease:'bounce.out',stagger:.04}},{t});"
           + (_slam(".hs", t + .6, -8) if sub else ""))

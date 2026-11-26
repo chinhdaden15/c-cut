@@ -112,7 +112,7 @@ CSS = """
 .lbl{position:absolute;white-space:nowrap;font-weight:800;padding:calc(10px*var(--s)) calc(24px*var(--s));border-radius:999px;
  background:rgba(8,12,26,.72);border:2px solid var(--a);box-shadow:0 0 calc(22px*var(--s)) var(--a)}
 .hud{position:absolute;font-family:Menlo,monospace;font-weight:600;color:rgba(170,210,255,.55);letter-spacing:.08em}
-.big{font-weight:900;letter-spacing:-.01em;line-height:1.02;text-align:center}
+.big{font-weight:900;letter-spacing:-.01em;line-height:1.18;text-align:center}
 .grad{background:linear-gradient(180deg,#fff 0%,var(--a2) 55%,var(--a) 100%);-webkit-background-clip:text;color:transparent;
  filter:drop-shadow(0 0 calc(20px*var(--s)) var(--a))}
 """
@@ -412,7 +412,7 @@ def _t_prompt(sc, V, tone):
            f'<div style="min-height:{_px(250 if V else 220)};margin-top:{_px(14)};font-weight:700;font-size:{_px(56 if len(text) < 70 else 46)};line-height:1.3">'
            f'<span class=typ></span><span class=cur style="display:inline-block;width:{_px(5)};height:1.1em;vertical-align:-.15em;background:{a[1]};margin-left:{_px(4)}"></span></div>'
            f'<div style="display:flex;align-items:center;gap:{_px(24)};margin-top:{_px(20)}">'
-           f'<div class=btn style="position:relative;padding:{_px(20)} {_px(40)};border-radius:999px;font-weight:900;font-size:{_px(36)};color:#111;'
+           f'<div class=btn style="position:relative;padding:{_px(20)} {_px(40)};border-radius:999px;font-weight:900;font-size:{_px(36)};color:#16295C;'
            f'background:linear-gradient(90deg,{a[1]},{a[0]});box-shadow:0 0 {_px(30)} {a[0]}">{_E(sc.get("button") or "▶  TẠO VIDEO")}'
            f'<div class=rip style="position:absolute;left:50%;top:50%;width:{_px(80)};height:{_px(80)};margin:{_px(-40)};border-radius:50%;border:3px solid #fff;opacity:0"></div></div>'
            f'<div style="flex:1;height:{_px(18)};border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden"><div class=bar style="height:100%;width:100%;'
@@ -433,7 +433,7 @@ def _t_prompt(sc, V, tone):
                   f'{fill};border:3px solid #fff;box-shadow:0 {_px(30)} {_px(60)} rgba(0,0,0,.55),0 0 {_px(50)} {a[0]}88">'
                   f'<div style="position:absolute;inset:0;background:linear-gradient(transparent 50%,rgba(0,0,0,.6))"></div>'
                   f'<div style="position:absolute;left:50%;top:50%;width:{_px(90)};height:{_px(90)};margin:{_px(-45)};border-radius:50%;background:rgba(255,255,255,.9);'
-                  f'display:flex;align-items:center;justify-content:center;color:#111;font-size:{_px(40)};padding-left:{_px(6)};box-sizing:border-box">▶</div>'
+                  f'display:flex;align-items:center;justify-content:center;color:#16295C;font-size:{_px(40)};padding-left:{_px(6)};box-sizing:border-box">▶</div>'
                   f'<div style="position:absolute;left:{_px(18)};bottom:{_px(14)};font-weight:900;font-size:{_px(34)}">{_E(o)}</div>'
                   f'<div class=shine style="position:absolute;top:0;bottom:0;width:40%;left:0;transform:translateX(-150%) skewX(-18deg);background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent)"></div></div>')
     rnd = random.Random(3)
@@ -632,7 +632,7 @@ def _t_kinetic(sc, V, tone):
             else:
                 words += f'<span class=w style="display:inline-block;margin:0 .1em;color:#FFFFFF">{_E(w)}</span>'
         sizes.append(size)
-        rows += (f'<div class="kl kl{i}" style="font-weight:900;line-height:1.08;font-size:@@SZ@@;text-align:center;'
+        rows += (f'<div class="kl kl{i}" style="font-weight:900;line-height:1.2;font-size:@@SZ@@;text-align:center;'
                  f'white-space:nowrap;position:relative;z-index:1;isolation:isolate;text-shadow:0 {_px(4)} {_px(18)} rgba(0,0,0,.45)">{words}</div>')
     rows = rows.replace("@@SZ@@", _px(min(sizes))) if sizes else rows      # mọi dòng cùng cỡ → đọc thành một câu liền
     back = _E(str((lines[-1].get("hl") or lines[-1]["text"]) if lines else "").upper())

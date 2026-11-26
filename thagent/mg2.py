@@ -94,7 +94,7 @@ BASE_CSS = """
 .card:after{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(135deg,rgba(255,255,255,.16),transparent 40%);pointer-events:none}
 .light .card{background:rgba(255,255,255,.94);color:#2a2320;border-color:rgba(0,0,0,.06)}
 .sweep{position:absolute;z-index:1!important;top:0;bottom:0;width:30%;left:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-18deg)}
-.t1{font-weight:900;letter-spacing:-.01em;line-height:1.02}
+.t1{font-weight:900;letter-spacing:-.01em;line-height:1.18}
 .tt{color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.55)}.pn{color:rgba(255,255,255,.75)}.light .tt{color:#2a2320;text-shadow:none}.light .pn{color:#6b5a48}   /* chữ ảnh xếp: sáng trên nền tối, tối trên nền kem */
 .gold{background:linear-gradient(#FFE47A,#FF9A1F);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 calc(18px*var(--s)) rgba(255,154,0,.55))}
 .blue{background:linear-gradient(#A6EEFF,#1E86FF);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 calc(18px*var(--s)) rgba(30,144,255,.55))}

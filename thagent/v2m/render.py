@@ -694,7 +694,7 @@ class Renderer:
             if fit is None:
                 return
             sx, sy, scale = fit
-            p = dict(p, anchor="center", text="\n".join(self._inside_lines), max_w=0, line_h=p.get("line_h", 1.05))
+            p = dict(p, anchor="center", text="\n".join(self._inside_lines), max_w=0, line_h=p.get("line_h", 1.2))
         fn = getattr(self, "d_" + p["type"], None)
         if fn is None:
             raise ValueError(f"loại object chưa hỗ trợ: {p['type']}")
@@ -872,7 +872,7 @@ class Renderer:
             wx, wy, lns, f = self.slots[key]
             self._inside_lines = lns
             X, Y = world_to_screen(self.tl, cam, wx, wy)
-            _, bw, bh = D.text_layout("\n".join(lns), role, max(int(size * f * scale), 8), 0.0, "center", float(p.get("line_h", 1.05)), 0.0)
+            _, bw, bh = D.text_layout("\n".join(lns), role, max(int(size * f * scale), 8), 0.0, "center", float(p.get("line_h", 1.2)), 0.0)
             k2 = 2                                     # còn nằm trọn trong lãnh thổ không? không → ẩn (không dời chỗ)
             x0, y0, x1, y1 = int((X - bw / 2) / k2), int((Y - bh / 2) / k2), int((X + bw / 2) / k2), int((Y + bh / 2) / k2)
             mm = cv2.resize((m > 127).astype(np.uint8), (self.tl.W // k2, self.tl.H // k2), interpolation=cv2.INTER_NEAREST)
@@ -885,7 +885,7 @@ class Renderer:
         variants = [(tuple(lines), f) for f in fs[:2]] + ([(stacked, f) for f in fs] if len(stacked) > 1 else []) \
             + [(tuple(lines), f) for f in fs[2:]]
         for vi, (lns, f) in enumerate(variants):
-            _, bw, bh = D.text_layout("\n".join(lns), role, max(int(size * f * scale), 8), 0.0, "center", float(p.get("line_h", 1.05)), 0.0)
+            _, bw, bh = D.text_layout("\n".join(lns), role, max(int(size * f * scale), 8), 0.0, "center", float(p.get("line_h", 1.2)), 0.0)
             w2, h2 = int((bw + 6) / k / 2) + 1, int((bh + 4) / k / 2) + 1
 
             def fits(cx, cy):
@@ -1093,6 +1093,8 @@ class Renderer:
         if p.get("label"):
             q = {"text": p["label"], "font": "bold", "size": p.get("label_size", 34), "color": p.get("label_color", th["text"]),
                  "shadow": 0.3, "scale": 1, "rot": 0, "type": "text"}
+            if p.get("label_stroke"):               # nhãn trắng viền tối: đọc rõ trên mọi nền (không còn chữ đen xấu trên nền sáng)
+                q.update(stroke=p["label_stroke"], stroke_color=p.get("label_stroke_color", "#0E141B"))
             off = (float(p.get("size", 96)) * 0.75 if p.get("tile") == "glass" else float(p.get("bg_r", p.get("size", 96)))) + 40
             self.d_text(dst, q, sx, sy + off * scale, scale, rot, op, bv, None, t, cam)
 

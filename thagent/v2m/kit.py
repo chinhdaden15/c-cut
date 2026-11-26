@@ -127,7 +127,7 @@ def _lum(c) -> float:
         return 0.5
 
 
-def _vis(col, bg, ink="#111111"):
+def _vis(col, bg, ink="#1B2F5B"):
     """màu icon/viền phải NỔI trên nền ô: trắng trên ô trắng (vd phong cách nền sáng) → đổi sang màu mực."""
     return ink if abs(_lum(col) - _lum(bg)) < 0.25 else col
 
@@ -368,25 +368,27 @@ class Kit:
         self.bgm = {"path": path, "gain_db": gain_db, "duck": duck}
 
     def _ink_on_media(self, scenes):
-        """phong cách nền sáng: chữ màu mực trên nền giấy, nhưng cảnh có ảnh/video phủ khung → chữ trắng có bóng."""
-        ink = self.th.get("text")
-        if not self.look or ink in (None, "#FFFFFF"):
-            return
+        """CHỮ KHÔNG ĐƯỢC CHÌM VÀO NỀN: cảnh có ảnh / video phủ khung (nền tối đi) → mọi chữ có màu tối (mực nền sáng, màu Claude đặt tay, màu nhấn
+        tối của cụm hl…) đổi sang trắng có bóng, cụm nhấn tối đổi sang màu nhấn sáng. Áp dụng cho MỌI phong cách (trước chỉ nền sáng, chữ đúng màu mực)."""
         from . import looks as LK
-        if not LK.LOOKS[self.look].get("light"):
-            return
+        acc = (LK.LOOKS.get(self.look or "", {}) or {}).get("accent") or self.th.get("accent") or "#FFD54A"
+        lit = acc if _lum(acc) >= 0.5 else "#FFD54A"
         for s in scenes:
             if not any(o.get("type") in ("video", "image") and o.get("role") == "backdrop" for o in s.objs):
                 continue
             for o in s.objs:
-                if o.get("type") == "text" and o.get("color") == ink and not o.get("parent"):   # chữ trên thẻ giữ màu mực
-                    o["color"], o["shadow"] = "#FFFFFF", max(float(o.get("shadow") or 0), 0.6)
+                ty = o.get("type")
+                if ty in ("text", "counter") and o.get("role") not in ("caption", "source") and not o.get("parent"):   # chữ trên thẻ giữ màu mực
+                    if _lum(o.get("color") or self.th.get("text") or "#FFFFFF") < 0.5:
+                        o["color"], o["shadow"] = "#FFFFFF", max(float(o.get("shadow") or 0), 0.6)
+                    hl = o.get("highlight")
+                    if isinstance(hl, dict) and hl.get("color") and _lum(hl["color"]) < 0.5:
+                        hl["color"] = lit
                 for k in ("label_color", "value_color"):
-                    if o.get(k) == ink:
+                    if o.get(k) and _lum(o[k]) < 0.5:
                         o[k] = "#FFFFFF"
-                if o.get("type") in ("bars", "meter"):            # cột / thanh đo trên video tối: màu nhấn sáng, chữ trắng (không còn cột đen chìm)
-                    acc = (LK.LOOKS[self.look].get("pal") or {}).get("acc") or "#FFD54A"
-                    o.setdefault("color", acc)
+                if ty in ("bars", "meter"):            # cột / thanh đo trên video tối: màu nhấn sáng, chữ trắng (không còn cột đen chìm)
+                    o.setdefault("color", lit)
                     o["label_color"], o["value_color"], o["label_shadow"] = "#FFFFFF", "#FFFFFF", 0.6
 
     def _captions(self, scenes):
@@ -407,7 +409,7 @@ class Kit:
                 end = max(min(b + 0.35, nxt - 0.2, s.t1 - 0.15), a + 0.3)   # mờ hẳn trước khi cụm sau hiện → không chồng
                 cid = s.add({"type": "text", "role": "caption", "text": " ".join(w["text"] for w in ws), "font": "semi",
                              "size": 50 if self.V else 42, "color": self.th["text"], "space": "screen", "x": x, "y": (y0 + y1) / 2,
-                             "max_w": x1 - x0, "align": align, "anchor": anchor, "shadow": 0.35, "line_h": 1.15,
+                             "max_w": x1 - x0, "align": align, "anchor": anchor, "shadow": 0.35, "line_h": 1.22,
                              "word_times": [round(w["start"], 3) for w in ws], "layer": 20}, a - 0.04, "fade", 0.12)
                 s.hide(cid, end, "fade", 0.12)
 
@@ -637,7 +639,7 @@ class Kit:
                 cap = {"type": "text", "role": "caption", "text": text, "font": "black", "size": size,
                        "color": "#FFFFFF", "space": "screen", "x": x, "y": (y0 + y1) / 2, "max_w": x1 - x0,
                        "align": "center", "anchor": "center", "shadow": 0.6, "stroke": max(4, size // 12),
-                       "stroke_color": "#0A0D14", "line_h": 1.12, "layer": 20, "active_times": act,
+                       "stroke_color": "#0A0D14", "line_h": 1.26, "layer": 20, "active_times": act,
                        "active_color": self.th.get("caption_active", self.th.get("accent", "#FFD23F"))}
                 cap.update(self.th.get("caption_fx") or {})          # kiểu phụ đề riêng của phong cách kênh
                 if self.th.get("caption_fx_media") and (any(o.get("role") == "backdrop" or "_dim_" in str(o.get("src", "")) for o in s.objs) or _dark_bg(s.bg)):
@@ -742,7 +744,7 @@ class Scene:
         sz = SIZES[size][0 if K.V else 1] if isinstance(size, str) else size
         sz = fit_size(text, font, sz, mw * 0.96)     # dòng tự ngắt (\n) phải vừa cột, không để renderer bẻ giữa cụm
         o = {"type": "text", "text": text, "font": font, "size": sz, "color": color or K.th["text"], "space": "screen", "x": x, "y": y,
-             "max_w": mw, "align": align, "anchor": anchor, "line_h": 1.05, "shadow": 0.25, **k}
+             "max_w": mw, "align": align, "anchor": anchor, "line_h": 1.22, "shadow": 0.25, **k}
         if hl:
             o["highlight"] = {"match": hl, "color": hl_color or K.th["accent"]}
         return self.add(o, t - 0.08, style, 0.4)
@@ -779,16 +781,16 @@ class Scene:
         """items [(icon, nhãn, t)] — nút icon có nhãn, tự xếp hàng/lưới. connect=True: nét đứt nối các nút."""
         K = self.K
         pos, cw = K.grid(len(items), region)
-        sz = size or ((300 if K.V else 200) if len(items) <= 2 else (220 if K.V else 150) if len(items) <= 3 else (160 if K.V else 110))
-        sz = min(sz, cw * 0.8) if not size and cw else sz      # không để icon chạm nhau (ô nền = 1.15 × cỡ icon)
-        col = _vis(color or K.th["accent"], K.th["panel"], K.th["text"] if _lum(K.th["text"]) < 0.5 else "#111111")
+        sz = size or ((210 if K.V else 150) if len(items) <= 2 else (170 if K.V else 120) if len(items) <= 3 else (135 if K.V else 95))
+        sz = min(sz, cw * 0.5) if cw else sz      # ô kính hiển thị ≈ 1,5 × cỡ icon (cả quầng ≈ 2,5×): chiếm ≤ ~75% bề ngang ô lưới → không chạm / chồng nhau
+        col = _vis(color or K.th["accent"], K.th["panel"], K.th["text"] if _lum(K.th["text"]) < 0.5 else "#1B2F5B")
         ids = []
         for (name, label, t), (x, y) in zip(items, pos):
             name = to3d(name)
             g3 = {"tile": "glass", "bg": None} if name.startswith("3d:") else {}
             ids.append(self.add({"type": "icon", "name": name, "size": sz, "color": col, "bg": K.th["panel"], "bg_r": sz * 1.15,
                                  **g3, "ring": col if ring else None, "ring_w": 5, "x": x, "y": y - 40, "label": label,
-                                 "label_size": 48 if K.V else 36, "label_color": K.th["text"], "space": "screen", "shadow": 0.25}, t, "pop", 0.35))
+                                 "label_size": 48 if K.V else 36, "label_color": "#FFFFFF", "label_stroke": 7, "space": "screen", "shadow": 0.25}, t, "pop", 0.35))
         if connect:
             for a, b in zip(ids, ids[1:]):
                 lid = self.add({"type": "line", "from": a, "to": b, "width": 5, "color": K.th["muted"], "dash": 16, "gap": 10,
@@ -845,7 +847,7 @@ class Scene:
             L = LK.LOOKS[K.look]
             if L.get("pack"):                            # bộ chuyển động riêng của kênh (thagent/packs.py)
                 sc["_pack"] = L["pack"]
-                sc["_pal"] = {"ink": L.get("ink_text", "#111111"), "acc": L["accent"], "acc2": L["alt"], "paper": L["bgs"][0][1], **(L.get("pal") or {})}
+                sc["_pal"] = {"ink": L.get("ink_text", "#1B2F5B"), "acc": L["accent"], "acc2": L["alt"], "paper": L["bgs"][0][1], **(L.get("pal") or {})}
                 sc["_onmedia"] = any(o.get("role") == "backdrop" for o in self.objs)
             if LK.LOOKS[K.look].get("light"):
                 sc["light"] = True
@@ -929,12 +931,12 @@ class Scene:
             x1, x2 = K.W * 0.27, K.W * 0.73
         ids = []
         for (it, t, x, c0) in ((a, t_a, x1, K.th["good"]), (b, t_b, x2, K.th["alt"])):
-            col = _vis(it[2] if len(it) > 2 else c0, K.th["panel"], K.th["text"] if _lum(K.th["text"]) < 0.5 else "#111111")
-            sz = 150 if K.V else 120                  # vòng ≈ 300px, hai vòng cách nhau ≥ 190px cho chữ VS — không to, không đè nhau
+            col = _vis(it[2] if len(it) > 2 else c0, K.th["panel"], K.th["text"] if _lum(K.th["text"]) < 0.5 else "#1B2F5B")
+            sz = min(130 if K.V else 105, abs(x2 - x1) * 0.26)      # ô kính ≈ 1,5×, cả quầng ≈ 2,5× cỡ icon: hai ô cách nhau ≥ ~40% khoảng giữa — không to, không chồng nhau
             nm = to3d(it[0])
             g3 = {"tile": "glass", "bg": None} if nm.startswith("3d:") else {}
             ids.append(self.add({"type": "icon", "name": nm, "size": sz, "color": col, "bg": K.th["panel"], "bg_r": sz, **g3, "ring": col,
-                                 "ring_w": 5, "x": x, "y": y - 40, "label": it[1], "label_size": 46 if K.V else 38, "label_color": K.th["text"],
+                                 "ring_w": 5, "x": x, "y": y - 40, "label": it[1], "label_size": 46 if K.V else 38, "label_color": "#FFFFFF", "label_stroke": 7,
                                  "space": "screen"}, t, "pop", 0.35))
         self.add({"type": "text", "text": vs, "font": "black", "size": 64 if K.V else 52, "color": K.th["text"], "space": "screen", "x": (x1 + x2) / 2,
                   "y": y - 30, "shadow": 0}, min(t_a + 0.4, t_b - 0.1), "fade", 0.3)
@@ -1316,7 +1318,7 @@ class Scene:
                          "dash": 26, "gap": 20, "space": "screen", "layer": -1, "progress": 0})
         self.draw(dash, t0 + 0.1, 0.7)
         hid = self.add({"type": "icon", "name": home[0], "size": 110, "color": K.th["ink_on_accent"], "bg": K.th["accent"], "bg_r": 120,
-                        "x": cx, "y": cy - 235, "label": home[1], "label_size": 40, "label_color": K.th["text"], "space": "screen",
+                        "x": cx, "y": cy - 235, "label": home[1], "label_size": 40, "label_color": "#FFFFFF", "label_stroke": 7, "space": "screen",
                         "shadow": 0.3}, t0 + 0.3, "pop", 0.4)
         low = around[:3]                             # ≤3 điểm: hàng dưới đường; điểm 4–6: hai bên căn nhà, phía trên đường
         slots = [(cx + (k - (len(low) - 1) / 2) * rw / 3.2, cy + 215) for k in range(len(low))]
@@ -1326,7 +1328,7 @@ class Scene:
         for (name, label, t), (x, y) in zip(around, slots):
             ids.append(self.add({"type": "icon", "name": name, "size": 70, "color": K.th["accent"], "bg": K.th["panel"], "bg_r": 82,
                                  "ring": K.th["accent"], "ring_w": 4, "x": x, "y": y, "label": label, "label_size": 34,
-                                 "label_color": K.th["text"], "space": "screen", "shadow": 0.25}, t, "pop", 0.35))
+                                 "label_color": "#FFFFFF", "label_stroke": 7, "space": "screen", "shadow": 0.25}, t, "pop", 0.35))
         return ids
 
     # ---------- bản đồ ----------

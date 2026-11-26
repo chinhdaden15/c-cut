@@ -44,7 +44,7 @@ CSS = """
  border-radius:calc(34px*var(--s));background:rgba(12,14,22,.56);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
  border:1.5px solid rgba(255,255,255,.16);box-shadow:0 calc(24px*var(--s)) calc(60px*var(--s)) rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.18)}
 .kt-pk{position:absolute;left:-10%;right:-10%;background:radial-gradient(50% 50% at 50% 50%,rgba(8,8,10,.5) 0%,rgba(8,8,10,.26) 48%,rgba(8,8,10,0) 100%)}
-.kt-line{display:block;white-space:nowrap;line-height:1.12;font-weight:900;letter-spacing:-.015em;text-shadow:0 2px 10px rgba(0,0,0,.35)}
+.kt-line{display:block;white-space:nowrap;line-height:1.22;font-weight:900;letter-spacing:-.015em;text-shadow:0 2px 10px rgba(0,0,0,.35)}
 .kt-m{display:inline-block;overflow:hidden;vertical-align:bottom;padding:.28em .16em .22em;margin:-.28em -.16em -.22em}
 .kt-mi{display:inline-block;transform-origin:0% 100%}
 .kt-mk{position:relative;display:inline-block;isolation:isolate}
@@ -238,8 +238,17 @@ def layer(sc: dict, V: bool, tone: str, D: float) -> tuple[str, str, list[float]
         A = (0.9 if sc.get("from") == "rise" else -1.15) * size
         L = [{"i": i, "t": _r(start + i * stg * (1 - 0.3 * i / max(1, len(chars)))), "r": (1 if i % 2 else -1) * 16 * (0.6 + 0.4 * ((i * 7) % 5) / 4)}
              for i, c in enumerate(chars) if c != " "]
-        letters = "".join('<span class="kt-ch" style="opacity:1">&nbsp;</span>' if c == " " else f'<span class="kt-ch c{i}">{_e(c)}</span>'
-                          for i, c in enumerate(chars))
+        wds, cur = [], []                    # từng TỪ là một khối không rớt dòng giữa chừng (trước: mỗi ký tự một khối → "Đ / Ủ" bị bẻ đôi)
+        for i, c in enumerate(chars):
+            if c == " ":
+                if cur:
+                    wds.append(cur)
+                cur = []
+            else:
+                cur.append(f'<span class="kt-ch c{i}">{_e(c)}</span>')
+        if cur:
+            wds.append(cur)
+        letters = " ".join('<span style="display:inline-block;white-space:nowrap">' + "".join(w) + "</span>" for w in wds)
         B.painter(f"const L={json.dumps(L)};for(const o of L){{const el=q('.c'+o.i);if(!el)continue;const u=t-o.t;"
                   f"if(u<0){{el.style.opacity='0';continue}}const yy=KT.spring(u,{A:.1f},1.6),"
                   f"rr=KT.spring(u,o.r,2.8),qq=KT.spring(u,-.45,2.1);const ox=t>{t_out}?KT.EI((t-{t_out}-o.i*.012)/.3):0;"
